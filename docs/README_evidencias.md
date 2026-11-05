@@ -24,6 +24,9 @@
 | E19 | E19_verificacion_acciones.png | Acciones de jugador: checksums idénticos en secuencial, OpenMP y MPI | Laptop |
 | E20 | E20_juego_inicio.png | Visor del juego al iniciar | Laptop |
 | E21 | E21_juego_dos_rondas.png | Visor del juego tras dos rondas | Laptop |
+| E22 | E22_juego_graficos_inicio.png | Visor con gráficos pixel art al iniciar | Laptop |
+| E23 | E23_juego_graficos_ronda1.png | Visor con gráficos pixel art tras una ronda | Laptop |
+| E24 | E24_juego_graficos_ronda3.png | Visor con gráficos pixel art tras tres rondas | Laptop |
 
 Las mediciones oficiales de tiempo y memoria se toman en la Dell OptiPlex 7010.
 Los tiempos de la laptop son preliminares.
