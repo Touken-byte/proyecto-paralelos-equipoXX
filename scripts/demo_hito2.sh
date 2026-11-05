@@ -26,16 +26,20 @@ $X "cd /home/mpiuser/proyecto && /usr/bin/time -v ./bin/fire_seq --mapa data/map
 
 echo; echo "##### 5. OPENMP 1,2,4,8 HILOS Y VERIFICACION #####"
 ref=$($X "cd /home/mpiuser/proyecto && ./bin/fire_seq --mapa data/maps/map_$N.bin --pasos $PASOS | grep -o 'checksum=[0-9a-f]*'" | cut -d= -f2)
+[ -n "$ref" ] || { echo "ERROR: no se obtuvo el checksum secuencial de referencia"; exit 1; }
 for h in 1 2 4 8; do
   l=$($X "cd /home/mpiuser/proyecto && ./bin/fire_omp --mapa data/maps/map_$N.bin --pasos $PASOS --hilos $h | grep RESULT")
   cs=$(echo "$l" | grep -o 'checksum=[0-9a-f]*' | cut -d= -f2); t=$(echo "$l" | grep -o ' t=[0-9.]*' | cut -d= -f2)
-  [ "$cs" = "$ref" ] && r="CHECKSUM IGUAL" || r="CHECKSUM DISTINTO"
+  [ -n "$cs" ] && [ "$cs" = "$ref" ] && r="CHECKSUM IGUAL" || r="CHECKSUM DISTINTO"
   echo "hilos=$h  tiempo=${t}s  $r"
 done
 
 echo; echo "##### 6. MPI (3 procesos, un nodo cada uno) #####"
 $X "cd /home/mpiuser/proyecto && mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$N.bin --pasos $PASOS | grep -E 'Procesos|Checksum|Tiempo'"
 
-echo; echo "##### 7. RECURSOS #####"
+echo; echo "##### 7. RECURSOS (con carga MPI en los 3 nodos) #####"
+$X "cd /home/mpiuser/proyecto && mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$N.bin --pasos 1000 < /dev/null > /dev/null" &
+sleep 4
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" master worker1 worker2
+wait
 echo; echo "DEMO COMPLETADA (checksum de referencia: $ref)"
