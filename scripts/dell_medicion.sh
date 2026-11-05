@@ -6,6 +6,13 @@ export CPUS_NODO=${CPUS_NODO:-16}
 export HILOS=${HILOS:-"1 2 4 8 16"}
 export SIZES=${SIZES:-"512 1024 2048"}
 export REPS=${REPS:-5}
+# Limitar a las CPUs logicas reales del host (evita rechazo de Docker y sobresuscripcion)
+LOGICAS=$(nproc)
+if [ "$CPUS_NODO" -gt "$LOGICAS" ]; then CPUS_NODO=$LOGICAS; export CPUS_NODO; fi
+H_OK=""
+for h in $HILOS; do [ "$h" -le "$LOGICAS" ] && H_OK="$H_OK $h"; done
+HILOS=$(echo $H_OK); export HILOS
+echo "CPUs logicas del host: $LOGICAS -> CPUS_NODO=$CPUS_NODO HILOS=\"$HILOS\""
 NMAX=${NMAX:-2048}
 SIMS=${SIMS:-48}
 OUT=docs/resultados_dell
