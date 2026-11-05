@@ -6,6 +6,7 @@
 #include <string>
 #include <cstdio>
 #include <cstring>
+#include <algorithm>
 
 struct Mapa {
     int n = 0;
@@ -109,4 +110,47 @@ inline bool escribir_pgm(const std::string& ruta, const uint8_t* d, int n) {
     fwrite(buf.data(), 1, buf.size(), f);
     fclose(f);
     return true;
+}
+
+// ---------------------------------------------------------------
+// Acciones de los jugadores (interfaz motor-juego).
+// Formato por linea: PASO ACCION x y   (x = columna, y = fila; '#' comenta)
+// Se aplican sobre el estado actual, justo antes de calcular el paso PASO.
+// ---------------------------------------------------------------
+enum TipoAccion : int { ACC_APAGAR = 0, ACC_CORTAFUEGO = 1 };
+struct Accion { int paso; int tipo; int x; int y; };
+
+inline bool cargar_acciones(const std::string& ruta, std::vector<Accion>& out) {
+    FILE* f = fopen(ruta.c_str(), "r");
+    if (!f) return false;
+    char linea[256], nom[32];
+    int paso, x, y;
+    while (fgets(linea, sizeof linea, f)) {
+        if (linea[0] == '#' || linea[0] == '\n' || linea[0] == '\r') continue;
+        if (sscanf(linea, "%d %31s %d %d", &paso, nom, &x, &y) != 4) {
+            fprintf(stderr, "Accion invalida (se ignora): %s", linea);
+            continue;
+        }
+        int tipo;
+        if (strcmp(nom, "APAGAR") == 0) tipo = ACC_APAGAR;
+        else if (strcmp(nom, "CORTAFUEGO") == 0) tipo = ACC_CORTAFUEGO;
+        else { fprintf(stderr, "Accion desconocida (se ignora): %s", linea); continue; }
+        out.push_back({paso, tipo, x, y});
+    }
+    fclose(f);
+    std::stable_sort(out.begin(), out.end(),
+                     [](const Accion& a, const Accion& b) { return a.paso < b.paso; });
+    return true;
+}
+
+// Aplica las acciones pendientes con paso <= 'paso'. 'pos' avanza sobre la lista ordenada.
+inline void aplicar_acciones(uint8_t* cur, int n, const std::vector<Accion>& acc,
+                             size_t& pos, int paso) {
+    while (pos < acc.size() && acc[pos].paso <= paso) {
+        const Accion& a = acc[pos++];
+        if (a.x < 0 || a.x >= n || a.y < 0 || a.y >= n) continue;
+        uint8_t& s = cur[idx(a.y, a.x, n)];
+        if (a.tipo == ACC_APAGAR && s == QUEMANDO) s = QUEMADA;
+        else if (a.tipo == ACC_CORTAFUEGO && s == VEGETACION) s = CORTAFUEGO;
+    }
 }

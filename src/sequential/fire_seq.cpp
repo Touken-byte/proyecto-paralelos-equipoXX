@@ -10,6 +10,7 @@ int main(int argc, char** argv) {
     std::string ruta_mapa = "data/maps/map_512.bin";
     std::string salida = "output/seq";
     int pgm_cada = 0;
+    std::string ruta_acc;
 
     for (int a = 1; a < argc; a++) {
         std::string k = argv[a];
@@ -21,6 +22,7 @@ int main(int argc, char** argv) {
         else if (k == "--viento-fuerza") p.viento_fuerza = atof(sig());
         else if (k == "--pgm-cada") pgm_cada = atoi(sig());
         else if (k == "--salida") salida = sig();
+        else if (k == "--acciones") ruta_acc = sig();
         else { fprintf(stderr, "Argumento desconocido: %s\n", k.c_str()); return 1; }
     }
 
@@ -33,6 +35,12 @@ int main(int argc, char** argv) {
     const int n = p.n;
     const size_t total = (size_t)n * n;
     const Vecinos vec = preparar_vecinos(p);
+    std::vector<Accion> acc;
+    size_t pos_acc = 0;
+    if (!ruta_acc.empty() && !cargar_acciones(ruta_acc, acc)) {
+        fprintf(stderr, "No se pudo leer el archivo de acciones: %s\n", ruta_acc.c_str());
+        return 1;
+    }
 
     // Doble buffer: se lee de 'cur' y se escribe en 'nxt'; luego se intercambian
     std::vector<uint8_t> cur = m.estado, nxt(total);
@@ -45,6 +53,7 @@ int main(int argc, char** argv) {
 
     auto t0 = std::chrono::steady_clock::now();
     for (int t = 0; t < p.pasos; t++) {
+        aplicar_acciones(cur.data(), n, acc, pos_acc, t);
         for (int i = 0; i < n; i++)
             for (int j = 0; j < n; j++)
                 nxt[idx(i, j, n)] = nueva_celda(cur.data(), m.fuel.data(), m.hum.data(),
@@ -72,6 +81,7 @@ int main(int argc, char** argv) {
     printf("Pasos        : %d\n", p.pasos);
     printf("Semilla      : %llu\n", (unsigned long long)p.semilla);
     printf("Viento       : angulo %.0f, fuerza %.2f\n", p.viento_ang, p.viento_fuerza);
+    printf("Acciones     : %zu procesadas\n", pos_acc);
     printf("Huella teorica: %.2f MB (2 buffers de estado + combustible + humedad)\n",
            4.0 * total / 1e6);
     printf("Estado final : quemando=%zu quemada=%zu vegetacion=%zu\n", quemando, quemada, veg);
