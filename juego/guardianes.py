@@ -49,6 +49,85 @@ def correr_ronda(paso, pendientes):
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout).strip()[:120])
 
+def menu_principal(pantalla, fuente):
+    # Pantalla de titulo. Devuelve True para jugar, False para salir.
+    f_tit = pygame.font.Font(None, 72)
+    f_sub = pygame.font.Font(None, 30)
+    f_op = pygame.font.Font(None, 44)
+    opciones = ["Jugar", "Cómo jugar", "Salir"]
+    ayuda_txt = [
+        "Eres el bombero forestal de los Bosques de Yacuiba.",
+        "Clic izquierdo: cortafuegos (frena el avance del fuego).",
+        "Clic derecho: mochila de agua (apaga una celda en llamas).",
+        "Enter: avanzar una ronda (el motor calcula 5 pasos).",
+        "Retroceso: deshacer la última acción  |  R: reiniciar.",
+        "Meta: apagar el incendio y conservar el mayor bosque posible.",
+        "",
+        "Pulsa cualquier tecla para volver.",
+    ]
+    w, h = pantalla.get_size()
+    fondo = pygame.Surface((w, h))
+    for y in range(h):
+        t = y / h
+        pygame.draw.line(fondo, (int(15 + 90 * t), int(40 - 10 * t), int(25 - 10 * t)), (0, y), (w, y))
+    rects = [pygame.Rect(w // 2 - 130, 330 + i * 70, 260, 52) for i in range(len(opciones))]
+    reloj = pygame.time.Clock()
+    sel = 0
+    ayuda = False
+
+    def centrado(texto, fnt, col, y):
+        s = fnt.render(texto, True, col)
+        pantalla.blit(s, s.get_rect(center=(w // 2, y)))
+
+    while True:
+        accion = None
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return False
+            if ayuda:
+                if e.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                    ayuda = False
+                continue
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    return False
+                elif e.key == pygame.K_UP:
+                    sel = (sel - 1) % len(opciones)
+                elif e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % len(opciones)
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    accion = sel
+            elif e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+                        accion = i
+        if accion == 0:
+            return True
+        if accion == 1:
+            ayuda = True
+        if accion == 2:
+            return False
+
+        pantalla.blit(fondo, (0, 0))
+        centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 140)
+        centrado("Bosques de Yacuiba - Gran Chaco boliviano", f_sub, (230, 230, 230), 205)
+        if ayuda:
+            for k, linea in enumerate(ayuda_txt):
+                centrado(linea, fuente, (240, 240, 240), 300 + k * 34)
+        else:
+            for i, r in enumerate(rects):
+                pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
+                centrado(opciones[i], f_op, (255, 255, 255), r.centery)
+            centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
+        pygame.display.flip()
+        reloj.tick(30)
+
+
 def main():
     os.makedirs("output", exist_ok=True)
     asegurar_motor()
@@ -84,6 +163,9 @@ def main():
     reiniciar()
     n = est["n"]
     pantalla = pygame.display.set_mode((n * CELDA, n * CELDA + 56))
+    if not menu_principal(pantalla, fuente):
+        pygame.quit()
+        return
     corriendo = True
     while corriendo:
         for e in pygame.event.get():
