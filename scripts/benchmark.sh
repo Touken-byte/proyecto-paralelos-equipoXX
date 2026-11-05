@@ -40,7 +40,7 @@ awk -F, 'NR>1 { k=$1","$2","$4; s[k]+=$6; c[k]++ }
 END { for (k in s) { split(k,a,","); avg=s[k]/c[k]; b=s["seq,"a[2]",1"]/c["seq,"a[2]",1"];
       sp=b/avg; printf "%s,%s,%s,%.4f,%.3f,%.3f\n", a[1],a[2],a[3],avg,sp,sp/a[3] } }' $CSV \
   | sort -t, -k2,2n -k1,1r -k3,3n >> output/benchmark_resumen.csv
-column -s, -t output/benchmark_resumen.csv
+awk -F, '{printf "%-6s %-6s %-6s %-15s %-9s %-9s\n",$1,$2,$3,$4,$5,$6}' output/benchmark_resumen.csv
 echo ""
 echo "CSV completo: output/benchmark.csv"
 EOS
