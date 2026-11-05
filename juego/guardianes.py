@@ -10,6 +10,7 @@ import pygame
 
 CELDA = 6; PASOS_RONDA = 5; MAX_ACCIONES = 12; SEMILLA = 42
 MAPA_BASE = "data/maps/map_128.bin"
+DIR_SONIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sonidos")
 MAPA_JUEGO = "output/juego_mapa.bin"
 ACCIONES = "output/juego_acciones.txt"
 COLORES = {0: (222, 200, 150), 2: (255, 87, 34), 3: (55, 55, 55), 4: (121, 85, 72), 5: (33, 150, 243)}
@@ -52,6 +53,13 @@ def main():
     os.makedirs("output", exist_ok=True)
     asegurar_motor()
     pygame.init()
+    sonidos = {}
+    try:   # si no hay audio, el juego sigue sin sonido
+        pygame.mixer.init()
+        sonidos["CORTAFUEGO"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "cortafuegos.wav"))
+        sonidos["APAGAR"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "agua.wav"))
+    except Exception as ex:
+        print("Aviso: sin audio (" + str(ex) + ")")
     pygame.display.set_caption("Guardianes del Chaco - Bosques de Yacuiba")
     fuente = pygame.font.Font(None, 24)
     reloj = pygame.time.Clock()
@@ -102,7 +110,10 @@ def main():
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
                 if my < n * CELDA and len(est["pend"]) < MAX_ACCIONES:
-                    est["pend"].append(("CORTAFUEGO" if e.button == 1 else "APAGAR", mx // CELDA, my // CELDA))
+                    tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
+                    est["pend"].append((tipo, mx // CELDA, my // CELDA))
+                    if tipo in sonidos:
+                        sonidos[tipo].play()
 
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
