@@ -15,7 +15,7 @@ LIMITES = {"APAGAR": 6, "CORTAFUEGO": 8}     # usos por ronda (se renuevan con E
 MAPA_BASE = "data/maps/map_128.bin"
 DIR_SONIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sonidos")
 MAPA_JUEGO = "output/juego_mapa.bin"
-PANEL_W = 200                                # panel lateral derecho
+PANEL_W = 330                                # panel lateral derecho
 VIGIA_PROCS, VIGIA_SIMS, VIGIA_PASOS, VIGIA_HILOS = 3, 32, 100, 2
 SALIDA_VIGIA = "output/vigia/juego.pgm"
 ACCIONES = "output/juego_acciones.txt"
@@ -338,6 +338,32 @@ def calcular_vigia(n):
     return sup, info
 
 
+CUENTA_RONDAS = 5
+
+def evaluar(est):
+    salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
+    total = len(est["animales"])
+    bosque = est["estado"].count(1) * 100 // est["veg0"]
+    frac = 0.5 * salvos / max(1, total) + 0.5 * bosque / 100
+    estrellas = 3 if frac >= 0.75 else 2 if frac >= 0.5 else 1
+    puntos = salvos * 100 + bosque * 5 + estrellas * 50
+    return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
+                puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2))
+
+def actualizar_emergencia(est):
+    veg = est["estado"].count(1)
+    quem = est["estado"].count(2)
+    perdida = 100 - veg * 100 // est["veg0"]
+    est["nivel"] = "inicial" if perdida < 15 else "avanzada" if perdida < 35 else "critica"
+    if est["nivel"] == "critica":
+        if est["cuenta"] is None:
+            est["cuenta"] = CUENTA_RONDAS
+        else:
+            est["cuenta"] -= 1
+    if quem == 0 or (est["cuenta"] is not None and est["cuenta"] <= 0 and est["evaluacion"] is None):
+        est["evaluacion"] = evaluar(est)
+        est["ver_eval"] = True
+
 def main():
     global CELDA
     os.makedirs("output", exist_ok=True)
@@ -360,6 +386,7 @@ def main():
         print("Aviso: sin audio (" + str(ex) + ")")
     pygame.display.set_caption("Guardianes del Chaco - Bosques de Yacuiba")
     fuente = pygame.font.Font(None, 24)
+    fuente_p = pygame.font.Font(None, 20)
     reloj = pygame.time.Clock()
     est = {}
 
@@ -375,6 +402,7 @@ def main():
         est["animales"] = crear_animales(n, estado, est["refugio"])
         est["carga"] = None
         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
+        est.update(nivel="inicial", cuenta=None, evaluacion=None, ver_eval=False)
         redibujar()
 
     def redibujar():
@@ -436,6 +464,8 @@ def main():
                             est["msg"] = ""
                         except Exception as ex:
                             est["msg"] = "Error del Vigia: " + str(ex)
+                elif e.key == pygame.K_c:
+                    est["ver_eval"] = False
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_m and "musica" in sonidos:
@@ -449,6 +479,7 @@ def main():
                         correr_ronda(est["paso"], est["pend"])
                         _, est["estado"], est["fuel"] = leer_mapa(MAPA_JUEGO)
                         est["paso"] += PASOS_RONDA; est["ronda"] += 1
+                        actualizar_emergencia(est)
                         est["pend"] = []; est["msg"] = ""
                         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
                         redibujar()
@@ -565,6 +596,48 @@ def main():
             pantalla.blit(fuente.render("0%", True, (200, 200, 200)), (px, 220))
             pantalla.blit(fuente.render("100%", True, (200, 200, 200)), (px + PANEL_W - 55, 220))
             pantalla.blit(fuente.render("Riesgo de quema", True, (200, 200, 200)), (px, 244))
+        py = 270
+        col_n = {"inicial": (120, 255, 160), "avanzada": (255, 200, 80), "critica": (255, 80, 80)}[est["nivel"]]
+        pantalla.blit(fuente_p.render("EMERGENCIA: " + est["nivel"].upper(), True, col_n), (px, py))
+        if est["cuenta"] is not None:
+            pantalla.blit(fuente_p.render("Cuenta regresiva: " + str(max(0, est["cuenta"])) + " rondas",
+                                          True, (255, 120, 120)), (px, py + 20))
+        py += 50
+        ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
+        uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
+        bloques = [
+            ("BOMBERO", [("Mochila de agua (clic der.) " + str(ua) + "/" + str(LIMITES["APAGAR"]), True),
+                         ("Cortafuegos (clic izq.) " + str(uc) + "/" + str(LIMITES["CORTAFUEGO"]), True),
+                         ("Manguera de presion (proximamente)", False),
+                         ("Proteccion termica (proximamente)", False),
+                         ("Torre de vigilancia (proximamente)", False)]),
+            ("VETERINARIA", [("Rescate (E)", True),
+                             ("Botiquin (proximamente)", False),
+                             ("Rastreo animal (proximamente)", False),
+                             ("Senal de auxilio (proximamente)", False),
+                             ("Conocimiento silvestre (proximamente)", False)]),
+        ]
+        for titulo, habs in bloques:
+            pantalla.blit(fuente_p.render(titulo, True, (255, 255, 255)), (px, py)); py += 20
+            for nombre, activa in habs:
+                c = (230, 230, 230) if activa else (110, 110, 110)
+                pantalla.blit(fuente_p.render(("[x] " if activa else "[ ] ") + nombre, True, c), (px, py)); py += 18
+            py += 10
+        if est.get("ver_eval") and est.get("evaluacion"):
+            ev = est["evaluacion"]
+            pygame.draw.rect(pantalla, (15, 20, 25), (60, 120, 440, 250))
+            pygame.draw.rect(pantalla, (255, 220, 100), (60, 120, 440, 250), 2)
+            lineas = ["EVALUACION DE LA MISION",
+                      "Estrellas: " + "*" * ev["estrellas"] + "-" * (3 - ev["estrellas"]),
+                      "Animales rescatados: " + str(ev["salvos"]) + "/" + str(ev["total"]),
+                      "Bosque conservado: " + str(ev["bosque"]) + "%",
+                      "Focos activos: " + str(ev["focos"]),
+                      "Rondas usadas: " + str(ev["ronda"]),
+                      "Puntuacion: " + str(ev["puntos"]),
+                      "C = continuar   R = reiniciar"]
+            for k, t in enumerate(lineas):
+                pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
+                              (80, 135 + 28 * k))
         pygame.display.flip()
         reloj.tick(30)
     pygame.quit()
