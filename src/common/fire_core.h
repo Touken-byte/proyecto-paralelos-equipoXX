@@ -156,3 +156,17 @@ inline void aplicar_acciones(uint8_t* cur, int n, const std::vector<Accion>& acc
         else if (a.tipo == ACC_CORTAFUEGO && s == VEGETACION) s = CORTAFUEGO;
     }
 }
+
+// Guarda el estado actual en el formato FIRE (para continuar la simulacion por rondas)
+inline bool guardar_mapa(const std::string& ruta, int n, const uint8_t* estado,
+                         const uint8_t* fuel, const uint8_t* hum) {
+    FILE* f = fopen(ruta.c_str(), "wb");
+    if (!f) return false;
+    const uint32_t nn = (uint32_t)n;
+    const size_t t = (size_t)n * n;
+    bool ok = fwrite("FIRE", 1, 4, f) == 4 && fwrite(&nn, 4, 1, f) == 1 &&
+              fwrite(estado, 1, t, f) == t && fwrite(fuel, 1, t, f) == t &&
+              fwrite(hum, 1, t, f) == t;
+    fclose(f);
+    return ok;
+}

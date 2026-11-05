@@ -11,6 +11,8 @@ int main(int argc, char** argv) {
     std::string salida = "output/seq";
     int pgm_cada = 0;
     std::string ruta_acc;
+    std::string ruta_guardar;
+    int paso_ini = 0;
 
     for (int a = 1; a < argc; a++) {
         std::string k = argv[a];
@@ -23,6 +25,8 @@ int main(int argc, char** argv) {
         else if (k == "--pgm-cada") pgm_cada = atoi(sig());
         else if (k == "--salida") salida = sig();
         else if (k == "--acciones") ruta_acc = sig();
+        else if (k == "--guardar-mapa") ruta_guardar = sig();
+        else if (k == "--paso-inicial") paso_ini = atoi(sig());
         else { fprintf(stderr, "Argumento desconocido: %s\n", k.c_str()); return 1; }
     }
 
@@ -52,7 +56,7 @@ int main(int argc, char** argv) {
     }
 
     auto t0 = std::chrono::steady_clock::now();
-    for (int t = 0; t < p.pasos; t++) {
+    for (int t = paso_ini; t < paso_ini + p.pasos; t++) {
         aplicar_acciones(cur.data(), n, acc, pos_acc, t);
         for (int i = 0; i < n; i++)
             for (int j = 0; j < n; j++)
@@ -75,6 +79,10 @@ int main(int argc, char** argv) {
         else if (cur[i] == VEGETACION) veg++;
     }
     uint64_t cs = checksum_estado(cur.data(), total);
+    if (!ruta_guardar.empty() && !guardar_mapa(ruta_guardar, n, cur.data(), m.fuel.data(), m.hum.data())) {
+        fprintf(stderr, "No se pudo guardar el mapa: %s\n", ruta_guardar.c_str());
+        return 1;
+    }
 
     printf("=== Automata de incendio SECUENCIAL ===\n");
     printf("Malla        : %d x %d (%zu celdas)\n", n, n, total);
