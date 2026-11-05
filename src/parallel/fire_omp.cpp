@@ -62,10 +62,12 @@ int main(int argc, char** argv) {
 
         for (int t = 0; t < p.pasos; t++) {
             // Cada celda se escribe una sola vez y solo se lee de pc: sin carreras
-            #pragma omp for collapse(2) schedule(runtime)
+            // Copias locales: evitan que el compilador recargue pc/pn/p (compartidos) en cada celda
+            const auto cur = pc; auto nxt = pn; const Params pl = p;
+            #pragma omp for schedule(runtime)
             for (int i = 0; i < n; i++)
                 for (int j = 0; j < n; j++)
-                    pn[idx(i, j, n)] = nueva_celda(pc, fuel, hum, i, j, n, p, vec, (uint64_t)t);
+                    nxt[idx(i, j, n)] = nueva_celda(cur, fuel, hum, i, j, n, pl, vec, (uint64_t)t);
             // barrera implicita: todos terminaron de escribir pn
 
             #pragma omp single
