@@ -212,6 +212,7 @@ def menu_principal(pantalla, fuente):
         "Bombero: flechas o WASD.  Veterinaria: I J K L.",
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
+        "M: silenciar o activar la música.",
         "",
         "Pulsa cualquier tecla para volver.",
     ]
@@ -287,6 +288,10 @@ def main():
         pygame.mixer.init()
         sonidos["CORTAFUEGO"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "cortafuegos.wav"))
         sonidos["APAGAR"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "agua.wav"))
+        musica = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "musica.wav"))
+        musica.set_volume(0.35)
+        musica.play(loops=-1)
+        sonidos["musica"] = musica
     except Exception as ex:
         print("Aviso: sin audio (" + str(ex) + ")")
     pygame.display.set_caption("Guardianes del Chaco - Bosques de Yacuiba")
@@ -354,6 +359,8 @@ def main():
                         est["carga"] = None
                 elif e.key == pygame.K_r:
                     reiniciar()
+                elif e.key == pygame.K_m and "musica" in sonidos:
+                    sonidos["musica"].set_volume(0.0 if sonidos["musica"].get_volume() > 0 else 0.35)
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
                     est["pend"].pop()
                 elif e.key == pygame.K_RETURN:
