@@ -5,7 +5,7 @@ Este programa solo dibuja y envia las acciones del bombero.
 Uso (desde la raiz del repo): python3 juego/guardianes.py
 Controles: clic izq = cortafuegos | clic der = mochila de agua | Enter = avanzar ronda
            Retroceso = deshacer ultima accion | R = reiniciar | Esc = salir"""
-import os, shutil, struct, subprocess
+import os, random, shutil, struct, subprocess
 import pygame
 
 CELDA = 6; PASOS_RONDA = 5; MAX_ACCIONES = 12; SEMILLA = 42
@@ -131,6 +131,50 @@ def posicion_inicial(n, estado):
     return c, c
 
 
+SPRITE_VET = [
+    "..GGGG..",
+    ".GGGGGG.",
+    "GGGGGGGG",
+    ".SSSSSS.",
+    ".SKSSKS.",
+    "..SSSS..",
+    ".WWWWWW.",
+    "SWWGGWWS",
+    ".WWWWWW.",
+    ".PP..PP.",
+]
+PALETA_VET = {"G": (30, 140, 80), "S": (240, 190, 150), "K": (30, 30, 30),
+              "W": (240, 240, 240), "P": (60, 60, 120)}
+SPRITE_ANIMAL = [
+    ".DDDD..",
+    "DTTTTD.",
+    "TTTTTTK",
+    "TT.TT..",
+]
+PALETA_ANIMAL = {"D": (110, 70, 40), "T": (170, 120, 70), "K": (20, 20, 20)}
+
+def sprite_generico(nombre, matriz, paleta, escala=2):
+    """Sprite pixel art a partir de una matriz de texto (se construye una sola vez)."""
+    if nombre not in _SPRITES:
+        h, w = len(matriz), len(matriz[0])
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        for y, fila in enumerate(matriz):
+            for x, ch in enumerate(fila):
+                if ch in paleta:
+                    s.set_at((x, y), paleta[ch])
+        _SPRITES[nombre] = pygame.transform.scale(s, (w * escala, h * escala))
+    return _SPRITES[nombre]
+
+def crear_animales(n, estado, refugio, k=5):
+    """k animales en celdas de vegetacion lejos del refugio. Formato: [x, y, estado]."""
+    rng = random.Random(7)
+    rx, ry, rw, rh = refugio
+    cx, cy = rx + rw // 2, ry + rh // 2
+    cand = [(i % n, i // n) for i in range(n * n)
+            if estado[i] == 1 and abs(i % n - cx) + abs(i // n - cy) > 20]
+    return [[x, y, "libre"] for x, y in rng.sample(cand, min(k, len(cand)))]
+
+
 def asegurar_motor():
     """Compila fire_seq y genera el mapa 128x128 dentro del contenedor si faltan."""
     orden = ("cd /home/mpiuser/proyecto && mkdir -p bin data/maps output && "
@@ -165,6 +209,8 @@ def menu_principal(pantalla, fuente):
         "Clic derecho: mochila de agua (apaga una celda en llamas).",
         "Enter: avanzar una ronda (el motor calcula 5 pasos).",
         "Retroceso: deshacer la última acción  |  R: reiniciar.",
+        "Bombero: flechas o WASD.  Veterinaria: I J K L.",
+        "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
         "",
         "Pulsa cualquier tecla para volver.",
@@ -255,6 +301,10 @@ def main():
         est.update(n=n, estado=estado, fuel=fuel, paso=0, ronda=0, pend=[], msg="",
                    veg0=max(1, estado.count(1)))
         est["bx"], est["by"] = posicion_inicial(n, estado)
+        est["refugio"] = (4, n - 14, 10, 10)
+        est["vx"], est["vy"] = 4 + 5, n - 14 + 5
+        est["animales"] = crear_animales(n, estado, est["refugio"])
+        est["carga"] = None
         redibujar()
 
     def redibujar():
@@ -291,6 +341,17 @@ def main():
             elif e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
                     corriendo = False
+                elif e.key == pygame.K_e:
+                    if est["carga"] is None:
+                        for a in est["animales"]:
+                            if a[2] == "libre" and (a[0] - est["vx"]) ** 2 + (a[1] - est["vy"]) ** 2 <= 4:
+                                a[2] = "cargado"; est["carga"] = a
+                                est["msg"] = "Animal en brazos: llévalo al refugio"
+                                break
+                    else:
+                        est["carga"][2] = "libre"
+                        est["carga"][0], est["carga"][1] = est["vx"], est["vy"]
+                        est["carga"] = None
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
@@ -333,18 +394,56 @@ def main():
                 if 0 <= nx < n and 0 <= ny < n and est["estado"][ny * n + nx] != 5:
                     est["bx"], est["by"] = nx, ny
 
+        if ahora - est.get("t_movv", 0) >= 90:   # la veterinaria se mueve con I J K L
+            k = pygame.key.get_pressed()
+            dx = int(bool(k[pygame.K_l])) - int(bool(k[pygame.K_j]))
+            dy = int(bool(k[pygame.K_k])) - int(bool(k[pygame.K_i]))
+            if dx or dy:
+                est["t_movv"] = ahora
+                nx, ny = est["vx"] + dx, est["vy"] + dy
+                if 0 <= nx < n and 0 <= ny < n and est["estado"][ny * n + nx] != 5:
+                    est["vx"], est["vy"] = nx, ny
+        if est["carga"] is not None:
+            est["carga"][0], est["carga"][1] = est["vx"], est["vy"]
+            rx, ry, rw, rh = est["refugio"]
+            if rx <= est["vx"] < rx + rw and ry <= est["vy"] < ry + rh:
+                est["carga"][2] = "salvo"
+                nsalvos = sum(1 for a in est["animales"] if a[2] == "salvo")
+                est["carga"][0] = rx + 1 + ((nsalvos - 1) % 5) * 2
+                est["carga"][1] = ry + 2 + ((nsalvos - 1) // 5) * 2
+                est["carga"] = None
+                est["msg"] = "Animal a salvo" if nsalvos < len(est["animales"]) else "¡Todos los animales a salvo!"
+
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 140
         llamas = obtener_tiles()["fuego"]
         for x, y in est["fuego"]:
             pantalla.blit(llamas[(cuadro + x + y) % 3], (x * CELDA, y * CELDA))
+        rx, ry, rw, rh = est["refugio"]
+        zona = pygame.Surface((rw * CELDA, rh * CELDA), pygame.SRCALPHA)
+        zona.fill((80, 200, 120, 80))
+        pantalla.blit(zona, (rx * CELDA, ry * CELDA))
+        pygame.draw.rect(pantalla, (120, 255, 160), (rx * CELDA, ry * CELDA, rw * CELDA, rh * CELDA), 2)
+        pantalla.blit(fuente.render("Refugio", True, (255, 255, 255)), (rx * CELDA, ry * CELDA - 18))
+        sa = sprite_generico("animal", SPRITE_ANIMAL, PALETA_ANIMAL)
+        for ax, ay, ea in est["animales"]:
+            pantalla.blit(sa, (ax * CELDA + CELDA // 2 - sa.get_width() // 2, ay * CELDA + CELDA - sa.get_height()))
+            if ea == "libre" and est["estado"][ay * n + ax] == 2:
+                pygame.draw.circle(pantalla, (255, 40, 40), (ax * CELDA + CELDA // 2, ay * CELDA + CELDA // 2), 12, 2)
         pygame.draw.circle(pantalla, (255, 255, 255),
                            (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2),
                            ALCANCE * CELDA, 1)
         sb = sprite_bombero()
         pantalla.blit(sb, (est["bx"] * CELDA + CELDA // 2 - sb.get_width() // 2,
                            est["by"] * CELDA + CELDA - sb.get_height()))
+        sv = sprite_generico("vet", SPRITE_VET, PALETA_VET)
+        pantalla.blit(sv, (est["vx"] * CELDA + CELDA // 2 - sv.get_width() // 2,
+                           est["vy"] * CELDA + CELDA - sv.get_height()))
+        salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
+        txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
+        pantalla.fill((0, 0, 0), txt_a.get_rect(topleft=(6, 4)))
+        pantalla.blit(txt_a, (6, 4))
         for tipo, x, y in est["pend"]:   # acciones pendientes de la ronda
             col = (255, 255, 255) if tipo == "CORTAFUEGO" else (0, 255, 255)
             pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
