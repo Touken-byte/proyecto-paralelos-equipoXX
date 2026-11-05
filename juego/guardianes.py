@@ -89,6 +89,46 @@ def obtener_tiles():
     return _TILES
 
 
+SPRITE_BOMBERO = [
+    "..RRRR..",
+    ".RRRRRR.",
+    "RRRRRRRR",
+    ".SSSSSS.",
+    ".SKSSKS.",
+    "..SSSS..",
+    ".UUUUUU.",
+    "BUUYYUUB",
+    ".UUUUUU.",
+    ".KK..KK.",
+]
+PALETA_BOMBERO = {"R": (200, 30, 30), "S": (240, 190, 150), "K": (30, 30, 30),
+                  "U": (230, 200, 40), "Y": (255, 255, 255), "B": (40, 110, 200)}
+_SPRITES = {}
+
+def sprite_bombero():
+    """Bombero pixel art (matriz de texto escalada x2), se construye una sola vez."""
+    if "bombero" not in _SPRITES:
+        h, w = len(SPRITE_BOMBERO), len(SPRITE_BOMBERO[0])
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        for y, fila in enumerate(SPRITE_BOMBERO):
+            for x, ch in enumerate(fila):
+                if ch in PALETA_BOMBERO:
+                    s.set_at((x, y), PALETA_BOMBERO[ch])
+        _SPRITES["bombero"] = pygame.transform.scale(s, (w * 2, h * 2))
+    return _SPRITES["bombero"]
+
+def posicion_inicial(n, estado):
+    """Celda libre (ni agua ni fuego) mas cercana al centro del mapa."""
+    c = n // 2
+    for r in range(n):
+        for dy in range(-r, r + 1):
+            for dx in range(-r, r + 1):
+                x, y = c + dx, c + dy
+                if 0 <= x < n and 0 <= y < n and estado[y * n + x] not in (2, 5):
+                    return x, y
+    return c, c
+
+
 def asegurar_motor():
     """Compila fire_seq y genera el mapa 128x128 dentro del contenedor si faltan."""
     orden = ("cd /home/mpiuser/proyecto && mkdir -p bin data/maps output && "
@@ -212,6 +252,7 @@ def main():
         n, estado, fuel = leer_mapa(MAPA_JUEGO)
         est.update(n=n, estado=estado, fuel=fuel, paso=0, ronda=0, pend=[], msg="",
                    veg0=max(1, estado.count(1)))
+        est["bx"], est["by"] = posicion_inicial(n, estado)
         redibujar()
 
     def redibujar():
@@ -271,12 +312,26 @@ def main():
                     if tipo in sonidos:
                         sonidos[tipo].play()
 
+        ahora = pygame.time.get_ticks()
+        if ahora - est.get("t_mov", 0) >= 90:   # el bombero se mueve cada 90 ms
+            k = pygame.key.get_pressed()
+            dx = int(bool(k[pygame.K_RIGHT] or k[pygame.K_d])) - int(bool(k[pygame.K_LEFT] or k[pygame.K_a]))
+            dy = int(bool(k[pygame.K_DOWN] or k[pygame.K_s])) - int(bool(k[pygame.K_UP] or k[pygame.K_w]))
+            if dx or dy:
+                est["t_mov"] = ahora
+                nx, ny = est["bx"] + dx, est["by"] + dy
+                if 0 <= nx < n and 0 <= ny < n and est["estado"][ny * n + nx] != 5:
+                    est["bx"], est["by"] = nx, ny
+
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 140
         llamas = obtener_tiles()["fuego"]
         for x, y in est["fuego"]:
             pantalla.blit(llamas[(cuadro + x + y) % 3], (x * CELDA, y * CELDA))
+        sb = sprite_bombero()
+        pantalla.blit(sb, (est["bx"] * CELDA + CELDA // 2 - sb.get_width() // 2,
+                           est["by"] * CELDA + CELDA - sb.get_height()))
         for tipo, x, y in est["pend"]:   # acciones pendientes de la ronda
             col = (255, 255, 255) if tipo == "CORTAFUEGO" else (0, 255, 255)
             pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
