@@ -27,6 +27,68 @@ def color(s, fuel):
         return (34, 80 + fuel * 115 // 255, 50)   # mas combustible, verde mas vivo
     return COLORES[s]
 
+_TILES = {}
+
+def obtener_tiles():
+    """Tiles pixel art dibujados por codigo (se construyen una sola vez)."""
+    if _TILES:
+        return _TILES
+    C = CELDA
+
+    def base(col):
+        s = pygame.Surface((C, C))
+        s.fill(col)
+        return s
+
+    def puntos(s, col, lista):
+        for x, y in lista:
+            s.set_at((x % C, y % C), col)
+
+    veg = []
+    for b in [(28, 70, 40), (34, 100, 50), (40, 135, 58)]:
+        claro = tuple(min(255, c + 30) for c in b)
+        oscuro = tuple(max(0, c - 18) for c in b)
+        fila = []
+        for v in range(4):
+            s = base(b)
+            pygame.draw.rect(s, claro, (1 + v % 2, 1, 3, 3))
+            puntos(s, oscuro, [(v, 5), (5 - v, 0)])
+            fila.append(s)
+        veg.append(fila)
+    _TILES["veg"] = veg
+
+    agua, vacia, cortafuego, quemada, suelo_fuego = [], [], [], [], []
+    for v in range(4):
+        s = base((33, 150, 243)); y = 1 + (v % 3) * 2
+        puntos(s, (120, 200, 255), [(v, y), (v + 1, y), (v + 2, y)])
+        agua.append(s)
+        s = base((222, 200, 150))
+        puntos(s, (190, 165, 115), [(v, 1), (5 - v, 4)])
+        vacia.append(s)
+        s = base((121, 85, 72))
+        puntos(s, (80, 55, 45), [(0, v), (1, v), (3, 5 - v), (4, 5 - v)])
+        cortafuego.append(s)
+        s = base((45, 45, 45))
+        puntos(s, (140, 50, 20), [(v, 2), (5 - v, 4)])
+        quemada.append(s)
+        suelo_fuego.append(base((90, 20, 10)))
+    _TILES[5], _TILES[0], _TILES[4], _TILES[3], _TILES[2] = agua, vacia, cortafuego, quemada, suelo_fuego
+
+    formas = [
+        ([(3, 0), (5, 3), (5, 6), (1, 6), (1, 3)], [(3, 2), (4, 4), (4, 6), (2, 6), (2, 4)]),
+        ([(2, 0), (5, 3), (5, 6), (0, 6), (1, 3)], [(3, 2), (4, 4), (4, 6), (1, 6), (2, 3)]),
+        ([(3, 1), (5, 2), (6, 6), (1, 6), (0, 3)], [(3, 3), (4, 4), (4, 6), (2, 6), (2, 4)]),
+    ]
+    fuego = []
+    for ext, inte in formas:
+        s = pygame.Surface((C, C), pygame.SRCALPHA)
+        pygame.draw.polygon(s, (255, 110, 20), ext)
+        pygame.draw.polygon(s, (255, 220, 80), inte)
+        fuego.append(s)
+    _TILES["fuego"] = fuego
+    return _TILES
+
+
 def asegurar_motor():
     """Compila fire_seq y genera el mapa 128x128 dentro del contenedor si faltan."""
     orden = ("cd /home/mpiuser/proyecto && mkdir -p bin data/maps output && "
@@ -154,11 +216,23 @@ def main():
 
     def redibujar():
         n = est["n"]
-        sup = pygame.Surface((n, n))
+        T = obtener_tiles()
+        sup = pygame.Surface((n * CELDA, n * CELDA))
+        fuego = []
+        estado, fuel = est["estado"], est["fuel"]
         for i in range(n):
             for j in range(n):
-                sup.set_at((j, i), color(est["estado"][i * n + j], est["fuel"][i * n + j]))
-        est["sup"] = pygame.transform.scale(sup, (n * CELDA, n * CELDA))
+                s = estado[i * n + j]
+                var = (i * 7 + j * 13) % 4
+                if s == 1:
+                    t = T["veg"][min(2, fuel[i * n + j] // 86)][var]
+                else:
+                    t = T[s][var]
+                    if s == 2:
+                        fuego.append((j, i))
+                sup.blit(t, (j * CELDA, i * CELDA))
+        est["sup"] = sup
+        est["fuego"] = fuego
 
     reiniciar()
     n = est["n"]
@@ -199,6 +273,10 @@ def main():
 
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
+        cuadro = pygame.time.get_ticks() // 140
+        llamas = obtener_tiles()["fuego"]
+        for x, y in est["fuego"]:
+            pantalla.blit(llamas[(cuadro + x + y) % 3], (x * CELDA, y * CELDA))
         for tipo, x, y in est["pend"]:   # acciones pendientes de la ronda
             col = (255, 255, 255) if tipo == "CORTAFUEGO" else (0, 255, 255)
             pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
