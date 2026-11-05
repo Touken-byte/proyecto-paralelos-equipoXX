@@ -10,9 +10,7 @@ sobre un clúster contenerizado de 3 nodos (1 master + 2 workers) con Docker.
 Es el motor de cómputo del videojuego educativo "Guardianes del Chaco".
 
 ## Integrantes
-- Touken-byte
-- Integrante 2
-- Integrante 3
+- Touken-byte (trabajo individual; equipo: firnt, nombre por confirmar)
 
 ## Requisitos
 - Linux (Ubuntu 22.04 o superior) o WSL2
