@@ -280,9 +280,14 @@ def menu_principal(pantalla, fuente):
 
 
 def main():
+    global CELDA
     os.makedirs("output", exist_ok=True)
     asegurar_motor()
     pygame.init()
+    if os.environ.get("CELDA"):
+        CELDA = max(3, min(8, int(os.environ["CELDA"])))
+    else:   # ajusta el tamano de celda a la altura de la pantalla
+        CELDA = max(5, min(6, (pygame.display.Info().current_h - 110) // 128))
     sonidos = {}
     try:   # si no hay audio, el juego sigue sin sonido
         pygame.mixer.init()
@@ -334,7 +339,7 @@ def main():
 
     reiniciar()
     n = est["n"]
-    pantalla = pygame.display.set_mode((n * CELDA, n * CELDA + 56))
+    pantalla = pygame.display.set_mode((max(n * CELDA, 800), n * CELDA + 56))
     if not menu_principal(pantalla, fuente):
         pygame.quit()
         return
@@ -376,7 +381,7 @@ def main():
                         est["msg"] = "Error del motor: " + str(ex)
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
-                if my < n * CELDA:
+                if my < n * CELDA and mx < n * CELDA:
                     tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
                     cx, cy = mx // CELDA, my // CELDA
                     usados = sum(1 for t, _, _ in est["pend"] if t == tipo)
