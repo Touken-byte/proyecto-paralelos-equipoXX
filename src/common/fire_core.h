@@ -145,10 +145,12 @@ inline bool cargar_acciones(const std::string& ruta, std::vector<Accion>& out) {
 
 // Aplica las acciones pendientes con paso <= 'paso'. 'pos' avanza sobre la lista ordenada.
 inline void aplicar_acciones(uint8_t* cur, int n, const std::vector<Accion>& acc,
-                             size_t& pos, int paso) {
+                             size_t& pos, int paso,
+                             int fila_ini = 0, int fila_fin = -1) {   // MPI: solo filas propias
     while (pos < acc.size() && acc[pos].paso <= paso) {
         const Accion& a = acc[pos++];
         if (a.x < 0 || a.x >= n || a.y < 0 || a.y >= n) continue;
+        if (a.y < fila_ini || (fila_fin >= 0 && a.y >= fila_fin)) continue;
         uint8_t& s = cur[idx(a.y, a.x, n)];
         if (a.tipo == ACC_APAGAR && s == QUEMANDO) s = QUEMADA;
         else if (a.tipo == ACC_CORTAFUEGO && s == VEGETACION) s = CORTAFUEGO;

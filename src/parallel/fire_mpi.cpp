@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
 
     Params p;
     std::string ruta_mapa = "data/maps/map_512.bin";
+    std::string ruta_acc;
     for (int a = 1; a < argc; a++) {
         std::string k = argv[a];
         auto sig = [&]() -> const char* { return (a + 1 < argc) ? argv[++a] : ""; };
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
         else if (k == "--semilla") p.semilla = strtoull(sig(), nullptr, 10);
         else if (k == "--viento-ang") p.viento_ang = atof(sig());
         else if (k == "--viento-fuerza") p.viento_fuerza = atof(sig());
+        else if (k == "--acciones") ruta_acc = sig();
         else { if (rank == 0) fprintf(stderr, "Argumento desconocido: %s\n", k.c_str()); MPI_Finalize(); return 1; }
     }
 
@@ -37,6 +39,15 @@ int main(int argc, char** argv) {
     const int n = p.n;
     const size_t total = (size_t)n * n;
     const Vecinos vec = preparar_vecinos(p);
+
+    // Todos los procesos cargan la lista (pequena); cada uno aplica solo las acciones de sus filas
+    std::vector<Accion> acc;
+    size_t pos_acc = 0;
+    if (!ruta_acc.empty() && !cargar_acciones(ruta_acc, acc)) {
+        if (rank == 0) fprintf(stderr, "No se pudo leer el archivo de acciones: %s\n", ruta_acc.c_str());
+        MPI_Finalize();
+        return 1;
+    }
 
     // Reparto de filas: las primeras 'resto' filas-bloque llevan una fila extra
     const int base = n / size, resto = n % size;
@@ -54,6 +65,9 @@ int main(int argc, char** argv) {
     double t0 = MPI_Wtime();
 
     for (int t = 0; t < p.pasos; t++) {
+        // 0) Acciones de jugador sobre las filas propias, ANTES del halo: el vecino recibe la fila ya modificada
+        aplicar_acciones(pc, n, acc, pos_acc, t, ini, fin);
+
         // 1) Intercambio de halo (no bloqueante, sin riesgo de deadlock)
         MPI_Request req[4];
         int nreq = 0;
@@ -100,6 +114,7 @@ int main(int argc, char** argv) {
         printf("Pasos        : %d\n", p.pasos);
         printf("Semilla      : %llu\n", (unsigned long long)p.semilla);
         printf("Procesos     : %d\n", size);
+        printf("Acciones     : %zu procesadas\n", pos_acc);
         printf("Estado final : quemando=%lld quemada=%lld vegetacion=%lld\n", glob[0], glob[1], glob[2]);
         printf("Checksum     : %016llx\n", (unsigned long long)cs);
         printf("Tiempo T_p   : %.4f s\n", seg);
