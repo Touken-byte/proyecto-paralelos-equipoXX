@@ -169,6 +169,10 @@ def sprite_generico(nombre, matriz, paleta, escala=2):
         _SPRITES[nombre] = pygame.transform.scale(s, (w * escala, h * escala))
     return _SPRITES[nombre]
 
+ESPECIES = ["tapir", "jaguar", "taitetu", "loro"]
+ESP_INFO = {"tapir": ("T", (200, 170, 120)), "jaguar": ("J", (255, 200, 60)),
+            "taitetu": ("P", (230, 140, 140)), "loro": ("L", (120, 230, 120))}
+
 def crear_animales(n, estado, refugio, k=5):
     """k animales en celdas de vegetacion lejos del refugio. Formato: [x, y, estado]."""
     rng = random.Random(7)
@@ -176,7 +180,8 @@ def crear_animales(n, estado, refugio, k=5):
     cx, cy = rx + rw // 2, ry + rh // 2
     cand = [(i % n, i // n) for i in range(n * n)
             if estado[i] == 1 and abs(i % n - cx) + abs(i // n - cy) > 20]
-    return [[x, y, "libre"] for x, y in rng.sample(cand, min(k, len(cand)))]
+    pos = rng.sample(cand, min(k, len(cand)))
+    return [[x, y, "libre", ESPECIES[i % len(ESPECIES)]] for i, (x, y) in enumerate(pos)]
 
 
 def asegurar_motor():
@@ -349,6 +354,30 @@ def evaluar(est):
     puntos = salvos * 100 + bosque * 5 + estrellas * 50
     return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
                 puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2))
+
+def estados_fauna(est):
+    """Estado de cada animal segun su situacion y la distancia al fuego (no toca a[2])."""
+    n = est["n"]
+    fuegos = [(i % n, i // n) for i, v in enumerate(est["estado"]) if v == 2]
+    res = []
+    for ax, ay, ea, esp in est["animales"]:
+        if ea == "salvo":
+            res.append("a salvo")
+        elif ea == "cargado":
+            res.append("en evacuacion")
+        else:
+            d = min((abs(fx - ax) + abs(fy - ay) for fx, fy in fuegos), default=999)
+            if d == 0:
+                res.append("herido")
+            elif d <= 3:
+                res.append("aislado")
+            elif d <= 8:
+                res.append("asustado")
+            elif esp == "loro":
+                res.append("escondido")
+            else:
+                res.append("tranquilo")
+    return res
 
 def actualizar_emergencia(est):
     veg = est["estado"].count(1)
@@ -547,8 +576,16 @@ def main():
         pygame.draw.rect(pantalla, (120, 255, 160), (rx * CELDA, ry * CELDA, rw * CELDA, rh * CELDA), 2)
         pantalla.blit(fuente.render("Refugio", True, (255, 255, 255)), (rx * CELDA, ry * CELDA - 18))
         sa = sprite_generico("animal", SPRITE_ANIMAL, PALETA_ANIMAL)
-        for ax, ay, ea in est["animales"]:
+        for (ax, ay, ea, esp), sfa in zip(est["animales"], estados_fauna(est)):
             pantalla.blit(sa, (ax * CELDA + CELDA // 2 - sa.get_width() // 2, ay * CELDA + CELDA - sa.get_height()))
+            col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
+            if col_anillo:
+                pygame.draw.circle(pantalla, col_anillo, (ax * CELDA + CELDA // 2, ay * CELDA + CELDA // 2), 16, 3)
+            ini, col_e = ESP_INFO[esp]
+            t_e = fuente.render(ini, True, col_e)
+            pos_e = (ax * CELDA + CELDA // 2 - t_e.get_width() // 2, ay * CELDA + CELDA - sa.get_height() - t_e.get_height())
+            pantalla.fill((0, 0, 0), t_e.get_rect(topleft=pos_e))
+            pantalla.blit(t_e, pos_e)
             if ea == "libre" and est["estado"][ay * n + ax] == 2:
                 pygame.draw.circle(pantalla, (255, 40, 40), (ax * CELDA + CELDA // 2, ay * CELDA + CELDA // 2), 12, 2)
         pygame.draw.circle(pantalla, (255, 255, 255),
@@ -623,6 +660,9 @@ def main():
                 c = (230, 230, 230) if activa else (110, 110, 110)
                 pantalla.blit(fuente_p.render(("[x] " if activa else "[ ] ") + nombre, True, c), (px, py)); py += 18
             py += 10
+        pantalla.blit(fuente_p.render("FAUNA", True, (255, 255, 255)), (px, py)); py += 20
+        for a, st in zip(est["animales"], estados_fauna(est)):
+            pantalla.blit(fuente_p.render(a[3].capitalize() + ": " + st, True, ESP_INFO[a[3]][1]), (px, py)); py += 18
         if est.get("ver_eval") and est.get("evaluacion"):
             ev = est["evaluacion"]
             pygame.draw.rect(pantalla, (15, 20, 25), (60, 120, 440, 250))
