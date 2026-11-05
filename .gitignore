@@ -1,0 +1,28 @@
+# Binarios y compilados
+*.o
+*.out
+bin/
+build/
+fire_seq
+fire_omp
+fire_mpi
+
+# Resultados generados (las capturas oficiales van en docs/evidencias)
+output/
+resultados/
+*.pgm
+
+# Claves y secretos
+infrastructure/ssh/id_*
+*.pem
+*.key
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor / sistema
+.vscode/
+.idea/
+.DS_Store
