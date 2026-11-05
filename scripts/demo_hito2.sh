@@ -38,7 +38,7 @@ echo; echo "##### 6. MPI (3 procesos, un nodo cada uno) #####"
 $X "cd /home/mpiuser/proyecto && mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$N.bin --pasos $PASOS | grep -E 'Procesos|Checksum|Tiempo'"
 
 echo; echo "##### 7. RECURSOS (con carga MPI en los 3 nodos) #####"
-$X "cd /home/mpiuser/proyecto && mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$N.bin --pasos 1000 < /dev/null > /dev/null" &
+$X "cd /home/mpiuser/proyecto && mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$N.bin --pasos 10000 < /dev/null > /dev/null" &
 sleep 4
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" master worker1 worker2
 wait
