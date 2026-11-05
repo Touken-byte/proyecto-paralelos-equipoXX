@@ -22,13 +22,13 @@ echo "=== Verificacion de acciones de jugador (n=$N, pasos=$PASOS, semilla=$SEMI
 echo "Sin acciones (referencia del motor): $(./bin/fire_seq --mapa $MAPA --pasos $PASOS --semilla $SEMILLA | cs)"
 for ACC in data/acciones_ejemplo.txt output/acciones_borde.txt; do
   echo ""; echo "--- $ACC ---"
-  ref=$(./bin/fire_seq --mapa $MAPA --pasos $PASOS --semilla $SEMILLA --acciones $ACC | cs)
+  ref=$(./bin/fire_seq --mapa $MAPA --pasos $PASOS --semilla $SEMILLA --acciones $ACC < /dev/null | cs)
   echo "Secuencial             : $ref"
   for sched in static dynamic guided; do for h in 1 2 4 8; do
     chk "OpenMP $sched h=$h" "$(OMP_SCHEDULE=$sched ./bin/fire_omp --mapa $MAPA --pasos $PASOS --semilla $SEMILLA --hilos $h --acciones $ACC | cs)"
   done; done
   for np in 1 2 3 6; do
-    chk "MPI np=$np" "$(mpirun -np $np --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa $MAPA --pasos $PASOS --semilla $SEMILLA --acciones $ACC | cs)"
+    chk "MPI np=$np" "$(mpirun -np $np --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa $MAPA --pasos $PASOS --semilla $SEMILLA --acciones $ACC < /dev/null | cs)"
   done
 done
 echo ""
