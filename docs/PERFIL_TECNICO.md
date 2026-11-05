@@ -1,6 +1,6 @@
 # Perfil Técnico: Guardianes del Chaco
 
-**Equipo:** [EQUIPO: firnt (por confirmar)] | **Materia:** TEL-420 Sistemas Paralelos, UAJMS Yacuiba | **Autora:** Touken-byte (trabajo individual)
+**Materia:** TEL-420 Sistemas Paralelos, UAJMS Yacuiba | **Autora:** Touken-byte (trabajo individual)
 
 ## 1. Problema regional
 Los incendios forestales amenazan los bosques del Gran Chaco y de Tarija, su fauna y las comunidades cercanas. Su propagación depende de factores que cambian rápido (viento, humedad, vegetación seca) y es difícil de anticipar. Simular muchos escenarios (por ejemplo, con y sin cortafuegos) exige mucho cómputo, y ahí la computación paralela aporta: permite explorar más escenarios en menos tiempo. El motor de simulación sirve de base a un videojuego educativo (*Guardianes del Chaco*) para entender el riesgo y la prevención. Los resultados son experimentales y educativos, no predicciones oficiales. [Completar con datos oficiales de la región si se desea citarlos.]

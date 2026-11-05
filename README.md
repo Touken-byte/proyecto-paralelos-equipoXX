@@ -10,7 +10,7 @@ sobre un clúster contenerizado de 3 nodos (1 master + 2 workers) con Docker.
 Es el motor de cómputo del videojuego educativo "Guardianes del Chaco".
 
 ## Integrantes
-- Touken-byte (trabajo individual; equipo: firnt, nombre por confirmar)
+- Touken-byte (trabajo individual)
 
 ## Requisitos
 - Linux (Ubuntu 22.04 o superior) o WSL2
@@ -21,7 +21,7 @@ Es el motor de cómputo del videojuego educativo "Guardianes del Chaco".
 ```bash
 git clone https://github.com/Touken-byte/proyecto-paralelos-equipoXX.git
 cd proyecto-paralelos-equipoXX
-cd infrastructure && docker compose up -d --build && cd ..
+cd infrastructure && docker compose up -d --build && cd ..   # equivale a docker compose up -d, con construcción de imagen
 ./scripts/demo_hito2.sh
 ```
 
@@ -112,7 +112,7 @@ static, dynamic y guided), MPI con halo, versión híbrida MPI+OpenMP y Vigía
 CORTAFUEGO) en las tres versiones, y la versión secuencial permite continuar
 por rondas (`--guardar-mapa` y `--paso-inicial`). Hay benchmark de
 escalabilidad fuerte y débil, y un visor mínimo del juego.
-Pendiente para el Hito 3: mediciones oficiales en la Dell, benchmark MPI con
+Pendiente para el Hito 3: benchmark MPI con
 más tamaños, análisis final con Amdahl y Gustafson e informe IEEE.
 
 ## Evidencias
