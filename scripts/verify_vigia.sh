@@ -14,7 +14,7 @@ echo "=== Verificacion del Vigia (n=$N, sims=$SIMS, pasos=$PASOS) ==="
 ref=""; fallos=0
 for cfg in "1 1" "3 1" "2 4" "3 2" "6 1"; do
   set -- $cfg
-  l=$(mpirun -np $1 --hostfile infrastructure/hostfile --map-by node ./bin/vigia_hibrido --mapa $MAPA --sims $SIMS --pasos $PASOS --hilos $2 --salida output/vigia/v.pgm | grep RESULT)
+  l=$(mpirun -np $1 --hostfile infrastructure/hostfile --map-by node ./bin/vigia_hibrido --mapa $MAPA --sims $SIMS --pasos $PASOS --hilos $2 --salida output/vigia/v.pgm < /dev/null | grep RESULT)
   cs=$(echo "$l" | grep -o 'checksum=[0-9a-f]*' | cut -d= -f2)
   t=$(echo "$l" | grep -o ' t=[0-9.]*' | cut -d= -f2)
   [ -z "$ref" ] && ref=$cs
