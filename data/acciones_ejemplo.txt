@@ -1,0 +1,10 @@
+# Acciones de jugador de ejemplo. Formato: PASO ACCION x y   (x = columna, y = fila)
+# Se aplican sobre el estado actual, justo antes de calcular el paso indicado.
+# Cortafuegos horizontal (bombero) antes de la primera ronda
+0 CORTAFUEGO 100 200
+0 CORTAFUEGO 101 200
+0 CORTAFUEGO 102 200
+0 CORTAFUEGO 103 200
+# Mochila de agua sobre un foco en el paso 20
+20 APAGAR 150 150
+20 APAGAR 151 150
