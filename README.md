@@ -64,7 +64,7 @@ mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --m
 - Doble buffer: se lee del paso anterior y se escribe en el siguiente, sin carreras.
 - RNG determinista por celda (semilla, paso, índice): el resultado no depende del número de hilos o procesos.
 - Checksum FNV-1a del estado final: secuencial, OpenMP y MPI deben coincidir.
-- OpenMP: `parallel for collapse(2) schedule(runtime)`, `reduction` para los conteos.
+- OpenMP: `#pragma omp for schedule(runtime)` solo sobre el bucle de filas (el bucle de columnas queda interno), con doble buffer y copias locales de punteros y parámetros; `reduction` para los conteos. El schedule se cambia sin recompilar: `OMP_SCHEDULE=dynamic,4 ./bin/fire_omp ...`.
 - MPI: descomposición por filas, halo con `MPI_Isend/Irecv`, `MPI_Reduce` y `MPI_Gatherv`.
 
 ## Estructura
