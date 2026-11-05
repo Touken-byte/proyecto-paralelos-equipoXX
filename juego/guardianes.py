@@ -9,6 +9,8 @@ import os, shutil, struct, subprocess
 import pygame
 
 CELDA = 6; PASOS_RONDA = 5; MAX_ACCIONES = 12; SEMILLA = 42
+ALCANCE = 6                                  # celdas desde el bombero
+LIMITES = {"APAGAR": 6, "CORTAFUEGO": 8}     # usos por ronda (se renuevan con Enter)
 MAPA_BASE = "data/maps/map_128.bin"
 DIR_SONIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sonidos")
 MAPA_JUEGO = "output/juego_mapa.bin"
@@ -306,11 +308,19 @@ def main():
                         est["msg"] = "Error del motor: " + str(ex)
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
-                if my < n * CELDA and len(est["pend"]) < MAX_ACCIONES:
+                if my < n * CELDA:
                     tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
-                    est["pend"].append((tipo, mx // CELDA, my // CELDA))
-                    if tipo in sonidos:
-                        sonidos[tipo].play()
+                    cx, cy = mx // CELDA, my // CELDA
+                    usados = sum(1 for t, _, _ in est["pend"] if t == tipo)
+                    if (cx - est["bx"]) ** 2 + (cy - est["by"]) ** 2 > ALCANCE ** 2:
+                        est["msg"] = "Fuera de alcance: acércate con el bombero"
+                    elif usados >= LIMITES[tipo]:
+                        est["msg"] = "Sin recursos de " + ("agua" if tipo == "APAGAR" else "cortafuegos") + " esta ronda"
+                    else:
+                        est["msg"] = ""
+                        est["pend"].append((tipo, cx, cy))
+                        if tipo in sonidos:
+                            sonidos[tipo].play()
 
         ahora = pygame.time.get_ticks()
         if ahora - est.get("t_mov", 0) >= 90:   # el bombero se mueve cada 90 ms
@@ -329,6 +339,9 @@ def main():
         llamas = obtener_tiles()["fuego"]
         for x, y in est["fuego"]:
             pantalla.blit(llamas[(cuadro + x + y) % 3], (x * CELDA, y * CELDA))
+        pygame.draw.circle(pantalla, (255, 255, 255),
+                           (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2),
+                           ALCANCE * CELDA, 1)
         sb = sprite_bombero()
         pantalla.blit(sb, (est["bx"] * CELDA + CELDA // 2 - sb.get_width() // 2,
                            est["by"] * CELDA + CELDA - sb.get_height()))
@@ -337,7 +350,8 @@ def main():
             pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
         quemando, veg = est["estado"].count(2), est["estado"].count(1)
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
-                  f"Bosque {veg * 100 // est['veg0']}%  Acciones {len(est['pend'])}/{MAX_ACCIONES}")
+                  f"Bosque {veg * 100 // est['veg0']}%  Agua {sum(1 for t, _, _ in est['pend'] if t == 'APAGAR')}/{LIMITES['APAGAR']}  "
+                  f"Cortafuego {sum(1 for t, _, _ in est['pend'] if t == 'CORTAFUEGO')}/{LIMITES['CORTAFUEGO']}")
         if est["msg"]:
             linea2 = est["msg"]
         elif quemando == 0:
