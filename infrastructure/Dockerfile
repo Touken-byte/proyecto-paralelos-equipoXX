@@ -33,5 +33,10 @@ RUN mkdir -p /var/run/sshd \
 ENV OMPI_MCA_btl_vader_single_copy_mechanism=none
 ENV OMPI_MCA_rmaps_base_oversubscribe=1
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+    && mkdir -p /shared_keys && chmod 777 /shared_keys
+
 WORKDIR /home/mpiuser/proyecto
-USER mpiuser
+EXPOSE 22
+ENTRYPOINT ["/entrypoint.sh"]
