@@ -5,7 +5,8 @@ Este programa solo dibuja y envia las acciones del bombero.
 Uso (desde la raiz del repo): python3 juego/guardianes.py
 Controles: clic izq = cortafuegos | clic der = mochila de agua | Enter = avanzar ronda
            Retroceso = deshacer ultima accion | R = reiniciar | Esc = salir"""
-import os, random, shutil, struct, subprocess
+import os, random, re, shutil, struct, subprocess
+from time import perf_counter
 import pygame
 
 CELDA = 6; PASOS_RONDA = 5; MAX_ACCIONES = 12; SEMILLA = 42
@@ -14,6 +15,9 @@ LIMITES = {"APAGAR": 6, "CORTAFUEGO": 8}     # usos por ronda (se renuevan con E
 MAPA_BASE = "data/maps/map_128.bin"
 DIR_SONIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sonidos")
 MAPA_JUEGO = "output/juego_mapa.bin"
+PANEL_W = 200                                # panel lateral derecho
+VIGIA_PROCS, VIGIA_SIMS, VIGIA_PASOS, VIGIA_HILOS = 3, 32, 100, 2
+SALIDA_VIGIA = "output/vigia/juego.pgm"
 ACCIONES = "output/juego_acciones.txt"
 COLORES = {0: (222, 200, 150), 2: (255, 87, 34), 3: (55, 55, 55), 4: (121, 85, 72), 5: (33, 150, 243)}
 
@@ -279,6 +283,61 @@ def menu_principal(pantalla, fuente):
         reloj.tick(30)
 
 
+def color_riesgo(v):
+    """0..255 -> azul (bajo) a amarillo a rojo (alto)."""
+    t = v / 255.0
+    if t < 0.5:
+        u = t / 0.5
+        return (int(60 + 195 * u), int(90 + 165 * u), int(220 - 220 * u))
+    u = (t - 0.5) / 0.5
+    return (255, int(255 - 255 * u), 0)
+
+def calcular_vigia(n):
+    """Lanza el Vigia (MPI+OpenMP) sobre output/juego_mapa.bin y devuelve
+    (superficie con alpha del mapa de riesgo, lineas de informacion)."""
+    if not os.path.exists("bin/vigia_hibrido"):
+        r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c",
+            "cd /home/mpiuser/proyecto && mpicxx -std=c++17 -O2 -fopenmp -I src/common "
+            "-o bin/vigia_hibrido src/parallel/vigia_hibrido.cpp < /dev/null"],
+            capture_output=True, text=True, timeout=180)
+        if r.returncode != 0:
+            raise RuntimeError("no compila vigia_hibrido")
+    cmd = (f"cd /home/mpiuser/proyecto && mpirun -np {VIGIA_PROCS} --hostfile infrastructure/hostfile "
+           f"--map-by node ./bin/vigia_hibrido --mapa {MAPA_JUEGO} --sims {VIGIA_SIMS} "
+           f"--pasos {VIGIA_PASOS} --hilos {VIGIA_HILOS} --salida {SALIDA_VIGIA} < /dev/null")
+    t0 = perf_counter()
+    r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c", cmd],
+                       capture_output=True, text=True, timeout=90)
+    total = perf_counter() - t0
+    if r.returncode != 0:
+        raise RuntimeError("vigia fallo: " + (r.stderr.strip().splitlines() or ["?"])[-1])
+    t_motor = None
+    for linea in r.stdout.splitlines():
+        if linea.startswith("RESULT"):
+            m = re.search(r" t=([0-9.]+)", linea)
+            if m:
+                t_motor = float(m.group(1))
+    if t_motor is None:
+        raise RuntimeError("el Vigia no imprimio RESULT")
+    datos = open(SALIDA_VIGIA, "rb").read()
+    cab = datos[:40].split()
+    w, h = int(cab[1]), int(cab[2])
+    if cab[0] != b"P5" or w != n or h != n or len(datos) < n * n:
+        raise RuntimeError("PGM del Vigia inesperado")
+    pix = datos[-(n * n):]
+    chica = pygame.Surface((n, n), pygame.SRCALPHA)
+    for i in range(n * n):
+        v = pix[i]
+        if v:
+            chica.set_at((i % n, i // n), (*color_riesgo(v), 150))
+    sup = pygame.transform.scale(chica, (n * CELDA, n * CELDA))
+    info = [f"{VIGIA_SIMS} sims, {VIGIA_PASOS} pasos",
+            f"{VIGIA_PROCS} procs x {VIGIA_HILOS} hilos",
+            f"Motor: {t_motor:.2f} s",
+            f"Total: {total:.2f} s"]
+    return sup, info
+
+
 def main():
     global CELDA
     os.makedirs("output", exist_ok=True)
@@ -315,6 +374,7 @@ def main():
         est["vx"], est["vy"] = 4 + 5, n - 14 + 5
         est["animales"] = crear_animales(n, estado, est["refugio"])
         est["carga"] = None
+        est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
         redibujar()
 
     def redibujar():
@@ -339,7 +399,7 @@ def main():
 
     reiniciar()
     n = est["n"]
-    pantalla = pygame.display.set_mode((max(n * CELDA, 800), n * CELDA + 56))
+    pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
     if not menu_principal(pantalla, fuente):
         pygame.quit()
         return
@@ -362,6 +422,20 @@ def main():
                         est["carga"][2] = "libre"
                         est["carga"][0], est["carga"][1] = est["vx"], est["vy"]
                         est["carga"] = None
+                elif e.key == pygame.K_v:
+                    if est.get("riesgo") is not None:
+                        est["ver_riesgo"] = not est["ver_riesgo"]
+                    else:
+                        pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
+                        pantalla.blit(fuente.render("Vigia calculando...", True, (255, 220, 100)),
+                                      (n * CELDA + 10, 10))
+                        pygame.display.flip()
+                        try:
+                            est["riesgo"], est["info_vigia"] = calcular_vigia(n)
+                            est["ver_riesgo"] = True
+                            est["msg"] = ""
+                        except Exception as ex:
+                            est["msg"] = "Error del Vigia: " + str(ex)
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_m and "musica" in sonidos:
@@ -376,6 +450,7 @@ def main():
                         _, est["estado"], est["fuel"] = leer_mapa(MAPA_JUEGO)
                         est["paso"] += PASOS_RONDA; est["ronda"] += 1
                         est["pend"] = []; est["msg"] = ""
+                        est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
                         redibujar()
                     except Exception as ex:
                         est["msg"] = "Error del motor: " + str(ex)
@@ -432,6 +507,8 @@ def main():
         llamas = obtener_tiles()["fuego"]
         for x, y in est["fuego"]:
             pantalla.blit(llamas[(cuadro + x + y) % 3], (x * CELDA, y * CELDA))
+        if est.get("ver_riesgo") and est.get("riesgo") is not None:
+            pantalla.blit(est["riesgo"], (0, 0))
         rx, ry, rw, rh = est["refugio"]
         zona = pygame.Surface((rw * CELDA, rh * CELDA), pygame.SRCALPHA)
         zona.fill((80, 200, 120, 80))
@@ -471,6 +548,23 @@ def main():
             linea2 = "Izq: cortafuegos | Der: agua | Enter: ronda | Retroceso: deshacer | R: reiniciar"
         pantalla.blit(fuente.render(linea1, True, (255, 255, 255)), (10, n * CELDA + 6))
         pantalla.blit(fuente.render(linea2, True, (200, 200, 200)), (10, n * CELDA + 30))
+        pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
+        px = n * CELDA + 10
+        pantalla.blit(fuente.render("EL VIGIA", True, (255, 255, 255)), (px, 10))
+        pantalla.blit(fuente.render("V: mapa de riesgo", True, (200, 200, 200)), (px, 34))
+        if est.get("riesgo") is None:
+            pantalla.blit(fuente.render("(sin calcular)", True, (150, 150, 150)), (px, 62))
+        else:
+            pantalla.blit(fuente.render("Capa: " + ("visible" if est["ver_riesgo"] else "oculta"),
+                                        True, (120, 255, 160)), (px, 62))
+            for k, texto in enumerate(est["info_vigia"]):
+                pantalla.blit(fuente.render(texto, True, (230, 230, 230)), (px, 90 + 24 * k))
+            for bx in range(PANEL_W - 20):
+                pygame.draw.line(pantalla, color_riesgo(bx * 255 // (PANEL_W - 21)),
+                                 (px + bx, 200), (px + bx, 214))
+            pantalla.blit(fuente.render("0%", True, (200, 200, 200)), (px, 220))
+            pantalla.blit(fuente.render("100%", True, (200, 200, 200)), (px + PANEL_W - 55, 220))
+            pantalla.blit(fuente.render("Riesgo de quema", True, (200, 200, 200)), (px, 244))
         pygame.display.flip()
         reloj.tick(30)
     pygame.quit()
