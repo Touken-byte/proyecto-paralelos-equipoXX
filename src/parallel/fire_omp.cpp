@@ -12,6 +12,7 @@ int main(int argc, char** argv) {
     std::string salida = "output/omp";
     int pgm_cada = 0;
     int hilos = 0;
+    std::string ruta_acc;
 
     for (int a = 1; a < argc; a++) {
         std::string k = argv[a];
@@ -24,6 +25,7 @@ int main(int argc, char** argv) {
         else if (k == "--pgm-cada") pgm_cada = atoi(sig());
         else if (k == "--salida") salida = sig();
         else if (k == "--hilos") hilos = atoi(sig());
+        else if (k == "--acciones") ruta_acc = sig();
         else { fprintf(stderr, "Argumento desconocido: %s\n", k.c_str()); return 1; }
     }
     if (hilos > 0) omp_set_num_threads(hilos);
@@ -45,6 +47,13 @@ int main(int argc, char** argv) {
     const uint8_t* fuel = m.fuel.data();
     const uint8_t* hum = m.hum.data();
 
+    std::vector<Accion> acc;
+    size_t pos_acc = 0;   // solo lo modifica el hilo del single
+    if (!ruta_acc.empty() && !cargar_acciones(ruta_acc, acc)) {
+        fprintf(stderr, "No se pudo leer el archivo de acciones: %s\n", ruta_acc.c_str());
+        return 1;
+    }
+
     if (pgm_cada > 0) {
         std::filesystem::create_directories(salida);
         char nombre[512];
@@ -54,6 +63,7 @@ int main(int argc, char** argv) {
 
     int hilos_reales = 1;
     double t0 = omp_get_wtime();
+    if (p.pasos > 0) aplicar_acciones(pc, n, acc, pos_acc, 0);   // acciones del paso 0 (un solo hilo)
 
     #pragma omp parallel
     {
@@ -78,6 +88,8 @@ int main(int argc, char** argv) {
                     snprintf(nombre, sizeof nombre, "%s/paso_%04d.pgm", salida.c_str(), t + 1);
                     escribir_pgm(nombre, pc, n);
                 }
+                // acciones del paso siguiente: dentro del single, entre dos barreras
+                if (t + 1 < p.pasos) aplicar_acciones(pc, n, acc, pos_acc, t + 1);
             }
             // barrera implicita: nadie empieza el paso siguiente antes del swap
         }
@@ -104,6 +116,7 @@ int main(int argc, char** argv) {
     printf("Pasos        : %d\n", p.pasos);
     printf("Semilla      : %llu\n", (unsigned long long)p.semilla);
     printf("Hilos        : %d   Schedule: %s (chunk %d)\n", hilos_reales, nom, chunk);
+    printf("Acciones     : %zu procesadas\n", pos_acc);
     printf("Estado final : quemando=%lld quemada=%lld vegetacion=%lld\n", quemando, quemada, veg);
     printf("Checksum     : %016llx\n", (unsigned long long)cs);
     printf("Tiempo T_p   : %.4f s\n", seg);
