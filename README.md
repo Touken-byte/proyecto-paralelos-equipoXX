@@ -43,6 +43,14 @@ cd infrastructure && docker compose up -d --build && cd ..
 | `scripts/benchmark.sh` | Tiempos, speedup y eficiencia (CSV en `output/`) |
 | `scripts/demo_hito2.sh` | Demostración completa del Hito 2 |
 | `scripts/pgm2png.py` | Convierte los mapas PGM a PNG coloreado |
+| `scripts/heat2png.py` | Convierte el mapa de riesgo del Vigía a PNG (mapa de calor) |
+| `scripts/verify_vigia.sh` | Verifica que el Vigía híbrido da el mismo checksum con cualquier número de procesos e hilos |
+| `scripts/verify_acciones.sh` | Compara secuencial, OpenMP y MPI aplicando acciones de jugador (APAGAR, CORTAFUEGO) |
+| `scripts/analisis.py` | Speedup, eficiencia, ajuste de Amdahl y predicción de Gustafson a partir del CSV del benchmark |
+| `scripts/benchmark_debil.sh` | Escalabilidad débil (el tamaño de la malla crece con los hilos) |
+| `scripts/analisis_debil.py` | Eficiencia débil y análisis con Gustafson a partir del CSV débil |
+| `scripts/dell_medicion.sh` | Medición oficial completa (fuerte, débil, Vigía y capturas) para la Dell |
+| `scripts/captura_recursos.sh` | Carga sostenida para tomar capturas de `htop` y `docker stats` |
 
 ## Ejecución manual
 ```bash
@@ -92,17 +100,22 @@ Las acciones usan la interfaz documentada en `docs/INTERFAZ_MOTOR_JUEGO.md` (`--
 - `infrastructure/`  Dockerfile, docker-compose.yml, hostfile, entrypoint
 - `src/common/`      Estados, parámetros, RNG y regla de transición
 - `src/sequential/`  Versión secuencial (T_1)
-- `src/parallel/`    Versiones OpenMP y MPI
+- `src/parallel/`    Versiones OpenMP, MPI e híbrida (Vigía Monte Carlo)
 - `src/smoke/`       Programas de prueba de OpenMP y MPI
-- `data/`            Generador de mapas sintéticos
-- `scripts/`         Smoke test, verificación, benchmark y demo
+- `data/`            Generador de mapas sintéticos y `acciones_ejemplo.txt`
+- `scripts/`         Smoke test, verificación, benchmark (fuerte y débil), análisis y demo
+- `juego/`           Visor mínimo del juego (`guardianes.py`, pygame)
 - `docs/`            Evidencias, interfaz motor-juego e informe
 
 ## Estado (Hito 2)
-Clúster operativo, secuencial verificado, OpenMP verificado, MPI con halo
-funcional y benchmark preliminar. Pendiente para el Hito 3: híbrido
-MPI+OpenMP, Monte Carlo del Vigía, benchmark completo y análisis con las
-leyes de Amdahl y Gustafson.
+Clúster operativo, secuencial verificado, OpenMP verificado (schedules
+static, dynamic y guided), MPI con halo, versión híbrida MPI+OpenMP y Vigía
+(Monte Carlo) funcionales. El motor admite acciones de jugador (APAGAR y
+CORTAFUEGO) en las tres versiones, y la versión secuencial permite continuar
+por rondas (`--guardar-mapa` y `--paso-inicial`). Hay benchmark de
+escalabilidad fuerte y débil, y un visor mínimo del juego.
+Pendiente para el Hito 3: mediciones oficiales en la Dell, benchmark MPI con
+más tamaños, análisis final con Amdahl y Gustafson e informe IEEE.
 
 ## Evidencias
 Ver `docs/README_evidencias.md`.
