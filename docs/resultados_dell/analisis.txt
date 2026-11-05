@@ -1,0 +1,32 @@
+
+=== n = 512  (T_1 secuencial = 0.1452 s) ===
+  p    T_p (s)      S_p      E_p   Amdahl  Gustafson
+  1     0.1414    1.027    1.027    1.000      1.000
+  2     0.0754    1.926    0.963    1.912      1.954
+  4     0.0399    3.636    0.909    3.515      3.862
+  8     0.0215    6.748    0.843    6.051      7.678
+ 16     0.0158    9.187    0.574    9.467     15.310
+Fraccion serial efectiva (ajuste de Amdahl): f = 0.046  ->  speedup maximo teorico = 21.7
+(f incluye el efecto del ancho de banda de memoria, no solo codigo secuencial)
+
+=== n = 1024  (T_1 secuencial = 0.5588 s) ===
+  p    T_p (s)      S_p      E_p   Amdahl  Gustafson
+  1     0.5465    1.023    1.023    1.000      1.000
+  2     0.2858    1.955    0.977    1.957      1.978
+  4     0.1464    3.816    0.954    3.752      3.934
+  8     0.0772    7.242    0.905    6.932      7.846
+ 16     0.0471   11.871    0.742   12.030     15.670
+Fraccion serial efectiva (ajuste de Amdahl): f = 0.022  ->  speedup maximo teorico = 45.5
+(f incluye el efecto del ancho de banda de memoria, no solo codigo secuencial)
+
+=== n = 2048  (T_1 secuencial = 2.2543 s) ===
+  p    T_p (s)      S_p      E_p   Amdahl  Gustafson
+  1     2.1708    1.038    1.038    1.000      1.000
+  2     1.1121    2.027    1.014    1.961      1.980
+  4     0.5573    4.045    1.011    3.774      3.940
+  8     0.2865    7.870    0.984    7.018      7.860
+ 16     0.1868   12.070    0.754   12.308     15.700
+Fraccion serial efectiva (ajuste de Amdahl): f = 0.020  ->  speedup maximo teorico = 50.0
+(f incluye el efecto del ancho de banda de memoria, no solo codigo secuencial)
+
+(matplotlib no esta instalado: no se generaron graficas)

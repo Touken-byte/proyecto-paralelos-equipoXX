@@ -1,0 +1,4 @@
+RESULT n=2048 pasos=100 procs=1 t=2.166402 checksum=82545e9347fe1d2b
+RESULT n=2048 pasos=100 procs=2 t=2.137582 checksum=82545e9347fe1d2b
+RESULT n=2048 pasos=100 procs=3 t=0.765412 checksum=82545e9347fe1d2b
+RESULT n=2048 pasos=100 procs=6 t=0.399439 checksum=82545e9347fe1d2b

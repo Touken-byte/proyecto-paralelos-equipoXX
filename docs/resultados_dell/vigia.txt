@@ -1,0 +1,4 @@
+RESULT n=512 sims=48 pasos=100 procs=1 hilos=1 t=6.541397 checksum=eddb391a611603aa
+RESULT n=512 sims=48 pasos=100 procs=1 hilos=4 t=6.603265 checksum=eddb391a611603aa
+RESULT n=512 sims=48 pasos=100 procs=3 hilos=1 t=2.298359 checksum=eddb391a611603aa
+RESULT n=512 sims=48 pasos=100 procs=3 hilos=4 t=0.722316 checksum=eddb391a611603aa

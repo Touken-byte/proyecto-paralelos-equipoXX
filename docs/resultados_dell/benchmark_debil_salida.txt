@@ -1,0 +1,6 @@
+=== Escalabilidad debil (N0=512, pasos=100, repeticiones=5) ===
+hilos=1 n=512 listo
+hilos=2 n=724 listo
+hilos=4 n=1024 listo
+hilos=8 n=1448 listo
+hilos=16 n=2048 listo
