@@ -67,6 +67,27 @@ mpirun -np 3 --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --m
 - OpenMP: `#pragma omp for schedule(runtime)` solo sobre el bucle de filas (el bucle de columnas queda interno), con doble buffer y copias locales de punteros y parámetros; `reduction` para los conteos. El schedule se cambia sin recompilar: `OMP_SCHEDULE=dynamic,4 ./bin/fire_omp ...`.
 - MPI: descomposición por filas, halo con `MPI_Isend/Irecv`, `MPI_Reduce` y `MPI_Gatherv`.
 
+## Visor del juego (nivel mínimo)
+El fuego lo calcula el motor C++ (`fire_seq`) dentro del contenedor `master`; `juego/guardianes.py` solo dibuja la malla y envía las acciones del bombero. Es un visor mínimo (un nivel, malla 128x128): el juego completo es trabajo futuro.
+
+```bash
+sudo apt install -y python3-pygame     # una sola vez
+docker compose -f infrastructure/docker-compose.yml up -d
+python3 juego/guardianes.py            # desde la raiz del repo
+```
+
+El juego compila `fire_seq` y genera `data/maps/map_128.bin` solo si faltan.
+
+| Control | Efecto |
+|---------|--------|
+| Clic izquierdo | Cortafuegos (máximo 12 acciones por ronda) |
+| Clic derecho | Mochila de agua (apaga una celda en llamas) |
+| Enter | Avanza una ronda de 5 pasos |
+| Retroceso | Deshace la última acción pendiente |
+| R / Esc | Reinicia / sale |
+
+Las acciones usan la interfaz documentada en `docs/INTERFAZ_MOTOR_JUEGO.md` (`--acciones`, `--guardar-mapa`, `--paso-inicial`). Su corrección se verifica con `./scripts/verify_acciones.sh`.
+
 ## Estructura
 - `infrastructure/`  Dockerfile, docker-compose.yml, hostfile, entrypoint
 - `src/common/`      Estados, parámetros, RNG y regla de transición
