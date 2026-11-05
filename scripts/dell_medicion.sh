@@ -40,6 +40,10 @@ echo; echo "##### 4. BENCHMARK OPENMP (puede tardar varios minutos) #####"
 ./scripts/benchmark.sh | tee $OUT/benchmark_salida.txt
 cp output/benchmark.csv output/benchmark_resumen.csv $OUT/
 
+echo; echo "##### 4b. BENCHMARK ESCALABILIDAD DEBIL (Gustafson) #####"
+./scripts/benchmark_debil.sh | tee $OUT/benchmark_debil_salida.txt
+cp output/benchmark_debil.csv $OUT/
+
 echo; echo "##### 5. HUELLA DE MEMORIA #####"
 : > $OUT/memoria.txt
 for n in $SIZES; do
@@ -65,5 +69,6 @@ python3 scripts/pgm2png.py --montaje docs/evidencias/E09_mapa_incendio_dell.png 
 python3 scripts/heat2png.py output/vigia/riesgo_dell.pgm
 cp output/vigia/riesgo_dell.png docs/evidencias/E17_vigia_riesgo_dell.png
 python3 scripts/analisis.py $OUT/benchmark.csv docs/graficas | tee $OUT/analisis.txt
+python3 scripts/analisis_debil.py $OUT/benchmark_debil.csv docs/graficas | tee $OUT/analisis_debil.txt
 
 echo; echo "MEDICION TERMINADA. Resultados en $OUT/ y docs/graficas/"
