@@ -1,0 +1,48 @@
+services:
+  master:
+    build: .
+    image: guardianes-chaco:latest
+    container_name: master
+    hostname: master
+    networks:
+      - clusternet
+    volumes:
+      - shared_keys:/shared_keys
+      - ../:/home/mpiuser/proyecto
+    mem_limit: 8g
+    cpus: 4
+
+  worker1:
+    image: guardianes-chaco:latest
+    container_name: worker1
+    hostname: worker1
+    networks:
+      - clusternet
+    volumes:
+      - shared_keys:/shared_keys
+      - ../:/home/mpiuser/proyecto
+    mem_limit: 8g
+    cpus: 4
+    depends_on:
+      - master
+
+  worker2:
+    image: guardianes-chaco:latest
+    container_name: worker2
+    hostname: worker2
+    networks:
+      - clusternet
+    volumes:
+      - shared_keys:/shared_keys
+      - ../:/home/mpiuser/proyecto
+    mem_limit: 8g
+    cpus: 4
+    depends_on:
+      - master
+
+networks:
+  clusternet:
+    driver: bridge
+
+volumes:
+  shared_keys:
