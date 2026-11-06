@@ -29,6 +29,6 @@ Cada celda nueva depende solo del estado anterior (paralelismo de datos). Clasif
 Verificado (n=512, semilla 42, 100 pasos): checksum idéntico en secuencial, OpenMP (todos los schedules, 1/2/4/8 hilos) y MPI (1/2/3/6 procesos). Memoria: unos 4,4 MB de RSS máximo.
 
 ## 4. Arquitectura del clúster
-Tres contenedores Docker (master, worker1, worker2) en una red bridge interna, con Ubuntu 22.04, gcc/g++, OpenMP y OpenMPI. SSH sin contraseña (claves generadas al arrancar, no subidas al repo), hostfile con 4 slots por nodo, 8 GB de RAM y hasta 4 CPUs por contenedor (`CPUS_NODO`). El repositorio se monta en los tres nodos y todo se compila y ejecuta en el master.
+Tres contenedores Docker (master, worker1, worker2) en una red bridge interna, con Ubuntu 22.04, gcc/g++, OpenMP y OpenMPI. SSH sin contraseña (claves generadas al arrancar, no subidas al repo), hostfile con 4 slots por nodo, 8 GB de RAM y hasta `CPUS_NODO` CPUs por contenedor (4 por defecto, 16 en la Dell). El repositorio se monta en los tres nodos y todo se compila y ejecuta en el master.
 
 Limitación: los tres nodos comparten la CPU física del host, así que el speedup entre nodos tiene techo y la red virtual no refleja una red real. Las mediciones oficiales se toman en el equipo del laboratorio (Dell OptiPlex 7010, Core i7, 32 GB).
