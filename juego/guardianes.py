@@ -450,7 +450,7 @@ MAQUETAS = {
         "Compartir resultados como imagen.",
         "Cámara inteligente y pantalla dividida.",
         "Arte pixel definitivo, animaciones y audio avanzado.",
-        "Habilidades extra: manguera de presión, torre de vigilancia y botiquín."]),
+        "Habilidades extra: protección térmica."]),
 }
 
 SALON_RUTA = "output/salon.json"
@@ -645,6 +645,7 @@ def menu_principal(pantalla, fuente):
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
         "M: silenciar o activar la música.  |  N: Cuaderno de Guardianes (pausa).",
+        "Bombero: G manguera, T torre.  Veterinaria: Z botiquín, X rastreo, Q señal de auxilio.",
         "",
         "Pulsa cualquier tecla para volver.",
     ]
@@ -1051,6 +1052,120 @@ def _aviso_vida(est, k):
     else:
         decir(est, "b", "Veterinaria, sal de ahí. Hay fuego cerca.", "critico", "vida_v")
 
+MANGUERA_R = 4; MANGUERA_MAX = 4     # radio y focos maximos por uso (1 carga de agua por foco)
+TORRE_R = 20                          # radio de vigilancia de la torre
+RASTREO_R = 14                        # radio del rastreo animal
+BOTIQUIN_R = 3                        # distancia para atender a un animal
+ZONA_ALERTA = 10                      # celdas de fuego al refugio que disparan la alerta
+CD_MANGUERA_MS = 8000; CD_TORRE_MS = 15000; CD_BOTIQUIN_MS = 8000
+CD_RASTREO_MS = 10000; CD_SENAL_MS = 12000
+
+def estado_hab(est, clave, cd):
+    resto = cd - (pygame.time.get_ticks() - est.get(clave, -99999))
+    return "listo" if resto <= 0 else f"{resto / 1000:.1f}s"
+
+def _marcar(est, celdas, color, dur):
+    fin = pygame.time.get_ticks() + dur
+    est.setdefault("marcas", []).extend((x, y, color, fin) for x, y in celdas)
+
+def habilidad(est, tecla):
+    """G manguera, T torre (bombero); Z botiquin, X rastreo, Q senal de auxilio (veterinaria)."""
+    if est.get("ver_eval") or est.get("derrota"):
+        return
+    ahora = pygame.time.get_ticks()
+    n, estado = est["n"], est["estado"]
+    ia = est.get("ia_rol")
+    es_b = tecla in (pygame.K_g, pygame.K_t)
+    if (es_b and ia == "bombero") or (not es_b and ia == "veterinaria"):
+        est["msg"] = "Esa habilidad la controla la IA"
+        return
+    bx, by, vx, vy = est["bx"], est["by"], est["vx"], est["vy"]
+    if tecla == pygame.K_g:
+        if estado_hab(est, "t_mang", CD_MANGUERA_MS) != "listo":
+            est["msg"] = "Manguera en recuperación"; return
+        if est["agua"] <= 0:
+            est["msg"] = "Tanque vacío: recárgalo junto al río"; return
+        ya = {(x, y) for t, x, y in est["pend"] if t == "APAGAR"}
+        cand = [(x, y) for y in range(max(0, by - MANGUERA_R), min(n, by + MANGUERA_R + 1))
+                for x in range(max(0, bx - MANGUERA_R), min(n, bx + MANGUERA_R + 1))
+                if estado[y * n + x] == 2 and (x - bx) ** 2 + (y - by) ** 2 <= MANGUERA_R ** 2
+                and (x, y) not in ya]
+        cand.sort(key=lambda c: (c[0] - bx) ** 2 + (c[1] - by) ** 2)
+        cand = cand[:min(MANGUERA_MAX, est["agua"])]
+        if not cand:
+            est["msg"] = "Manguera: no hay focos al alcance"; return
+        for x, y in cand:
+            est["pend"].append(("APAGAR", x, y)); est["agua"] -= 1
+        est["t_mang"] = ahora
+        est["msg"] = f"Manguera: {len(cand)} focos apuntados"
+    elif tecla == pygame.K_t:
+        if estado_hab(est, "t_torre", CD_TORRE_MS) != "listo":
+            est["msg"] = "Torre en recuperación"; return
+        fuegos = [(i % n, i // n) for i, v in enumerate(estado) if v == 2
+                  and (i % n - bx) ** 2 + (i // n - by) ** 2 <= TORRE_R ** 2]
+        est["t_torre"] = ahora
+        _marcar(est, fuegos, (255, 140, 0), 5000)
+        est["msg"] = f"Torre de vigilancia: {len(fuegos)} focos en un radio de {TORRE_R} celdas"
+    elif tecla == pygame.K_z:
+        if estado_hab(est, "t_boti", CD_BOTIQUIN_MS) != "listo":
+            est["msg"] = "Botiquín en recuperación"; return
+        sts = estados_fauna(est)
+        cerca = [i for i, (a, st) in enumerate(zip(est["animales"], sts))
+                 if a[2] == "libre" and st in ("herido", "aislado", "asustado")
+                 and (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= BOTIQUIN_R ** 2]
+        if not cerca:
+            est["msg"] = "Botiquín: no hay animales en peligro cerca"; return
+        est.setdefault("tratados", set()).add(cerca[0])
+        est["t_boti"] = ahora
+        est["msg"] = "Botiquín: animal atendido"
+    elif tecla == pygame.K_x:
+        if estado_hab(est, "t_rastreo", CD_RASTREO_MS) != "listo":
+            est["msg"] = "Rastreo en recuperación"; return
+        pos = [(a[0], a[1]) for a in est["animales"] if a[2] != "salvo"
+               and (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= RASTREO_R ** 2]
+        est["t_rastreo"] = ahora
+        _marcar(est, pos, (80, 220, 255), 6000)
+        est["msg"] = f"Rastreo: {len(pos)} animales cerca"
+    elif tecla == pygame.K_q:
+        if estado_hab(est, "t_senal", CD_SENAL_MS) != "listo":
+            est["msg"] = "Señal de auxilio en recuperación"; return
+        sts = estados_fauna(est)
+        pos = [(a[0], a[1]) for a, st in zip(est["animales"], sts) if st == "aislado"]
+        est["t_senal"] = ahora
+        _marcar(est, pos, (255, 230, 60), 6000)
+        est["msg"] = f"Señal de auxilio: {len(pos)} animales aislados marcados" if pos else "Señal de auxilio: sin animales aislados"
+
+def dibujar_habilidades(pantalla, est, fnt):
+    """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
+    import math
+    ahora = pygame.time.get_ticks()
+    est["marcas"] = [m for m in est.get("marcas", []) if m[3] > ahora]
+    r = CELDA + 2 + int(2 * abs(math.sin(ahora / 200)))
+    for x, y, col, _ in est["marcas"]:
+        pygame.draw.circle(pantalla, col, (x * CELDA + CELDA // 2, y * CELDA + CELDA // 2), r, 2)
+    if ahora - est.get("t_dref", -99999) > 500:
+        est["t_dref"] = ahora
+        n = est["n"]
+        rx, ry, rw, rh = est["refugio"]
+        mejor = 999
+        for i, v in enumerate(est["estado"]):
+            if v == 2:
+                fx, fy = i % n, i // n
+                d = max(max(rx - fx, 0, fx - (rx + rw - 1)), max(ry - fy, 0, fy - (ry + rh - 1)))
+                if d < mejor:
+                    mejor = d
+        est["d_ref"] = mejor
+        alerta = mejor <= ZONA_ALERTA
+        if alerta and not est.get("alerta_ref"):
+            decir(est, "v", "El fuego se acerca al refugio.", "importante", "refugio")
+        est["alerta_ref"] = alerta
+    if est.get("alerta_ref") and not est.get("ver_eval") and (ahora // 400) % 2 == 0:
+        s = fnt.render(f"ALERTA: fuego a {est['d_ref']} celdas del refugio", True, (255, 255, 255))
+        caja = s.get_rect(center=(est["n"] * CELDA // 2, 18)).inflate(16, 8)
+        pygame.draw.rect(pantalla, (170, 30, 30), caja, border_radius=6)
+        pygame.draw.rect(pantalla, (255, 200, 200), caja, 2, border_radius=6)
+        pantalla.blit(s, s.get_rect(center=caja.center))
+
 def _hilo_tick(paso, pend, res):
     """Corre un tick del motor en segundo plano (no congela la ventana)."""
     try:
@@ -1263,6 +1378,7 @@ def main():
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
+        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999
         dialogos_inicio(est)
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
@@ -1359,6 +1475,8 @@ def main():
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
+                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_z, pygame.K_x, pygame.K_q):
+                    habilidad(est, e.key)
                 elif e.key == pygame.K_n:
                     pausa_prev_ = est["tick"]["pausa"]
                     est["tick"]["pausa"] = True
@@ -1528,6 +1646,7 @@ def main():
                   f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{TANQUE}  "
                   f"Cortafuego {estado_cortafuego(est)}")
         eventos_periodicos(est, pantalla, fuente)
+        dibujar_habilidades(pantalla, est, fuente_p)
         dibujar_globo(pantalla, est, fuente_p)
         if est["msg"]:
             linea2 = est["msg"]
@@ -1566,14 +1685,14 @@ def main():
         bloques = [
             ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(est["agua"]) + "/" + str(TANQUE), True),
                          ("Cortafuegos (clic izq.) " + estado_cortafuego(est), True),
-                         ("Manguera de presion (proximamente)", False),
+                         ("Manguera de presion (G) " + estado_hab(est, "t_mang", CD_MANGUERA_MS), True),
                          ("Proteccion termica (proximamente)", False),
-                         ("Torre de vigilancia (proximamente)", False)]),
+                         ("Torre de vigilancia (T) " + estado_hab(est, "t_torre", CD_TORRE_MS), True)]),
             ("VETERINARIA" + (" (IA)" if est.get("ia_rol", "veterinaria") == "veterinaria" else ""), [("Rescate (E)", True),
                              ("Apoyo al bombero (F) " + estado_apoyo(est), True),
-                             ("Botiquin (proximamente)", False),
-                             ("Rastreo animal (proximamente)", False),
-                             ("Senal de auxilio (proximamente)", False),
+                             ("Botiquin (Z) " + estado_hab(est, "t_boti", CD_BOTIQUIN_MS), True),
+                             ("Rastreo animal (X) " + estado_hab(est, "t_rastreo", CD_RASTREO_MS), True),
+                             ("Senal de auxilio (Q) " + estado_hab(est, "t_senal", CD_SENAL_MS), True),
                              ("Conocimiento silvestre (proximamente)", False)]),
         ]
         for titulo, habs in bloques:
@@ -1583,7 +1702,9 @@ def main():
                 pantalla.blit(fuente_p.render(("[x] " if activa else "[ ] ") + nombre, True, c), (px, py)); py += 18
             py += 10
         pantalla.blit(fuente_p.render("FAUNA", True, (255, 255, 255)), (px, py)); py += 20
-        for a, st in zip(est["animales"], estados_fauna(est)):
+        for i_a, (a, st) in enumerate(zip(est["animales"], estados_fauna(est))):
+            if i_a in est.get("tratados", ()) and st in ("herido", "aislado", "asustado"):
+                st = "atendido"
             pantalla.blit(fuente_p.render(a[3].capitalize() + ": " + st, True, ESP_INFO[a[3]][1]), (px, py)); py += 18
         if est.get("ver_eval") and est.get("evaluacion"):
             ev = est["evaluacion"]
