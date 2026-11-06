@@ -406,12 +406,99 @@ def seleccionar_modo(pantalla, fuente):
         pygame.display.flip()
         reloj.tick(30)
 
+MAQUETAS = {
+    "Centro de Análisis": ("Centro de Análisis y Predicción", [
+        "Laboratorio del Vigía: simulaciones Monte Carlo con tus propios parámetros.",
+        "",
+        "Podrás cambiar el número de simulaciones y el ángulo y la fuerza del viento.",
+        "La humedad aparece como próximamente: el motor aún no la recibe.",
+        "Compararás el mapa de riesgo sin cortafuegos y con cortafuegos.",
+        "",
+        "Los resultados son experimentales y educativos, no predicciones oficiales.",
+        "Estado: maqueta. El Vigía ya funciona dentro de la partida (tecla V)."]),
+    "Cuaderno de Guardianes": ("Cuaderno de Guardianes", [
+        "Aquí se guardará lo que descubras durante las misiones.",
+        "",
+        "Enciclopedia de fauna: tapir, jaguar, taitetú y loro.",
+        "Guía de prevención: causas de incendios y medidas preventivas.",
+        "Manual de emergencias: herramientas y recomendaciones de actuación.",
+        "Atlas de incendios: propagación, mapas de riesgo y simulaciones.",
+        "",
+        "Estado: maqueta. Si lo abres en partida, el juego se pausará."]),
+    "Salón de Guardianes": ("Salón de Guardianes", [
+        "Aquí se guardarán tus mejores resultados:",
+        "",
+        "Mejor puntuación.",
+        "Mayor cantidad de animales rescatados.",
+        "Mayor porcentaje de bosque conservado.",
+        "Menor cantidad de rondas utilizadas.",
+        "",
+        "Estado: maqueta. Se actualizará al cerrar la evaluación de cada misión."]),
+    "Tienda (bloqueada)": ("Tienda de personalización (bloqueada)", [
+        "Se desbloqueará con las EcoMonedas que ganes rescatando animales",
+        "y protegiendo el bosque.",
+        "",
+        "Sombreros, accesorios, vestimentas y uniformes alternativos.",
+        "Los elementos cosméticos no dan ventajas durante las partidas.",
+        "",
+        "Estado: bloqueada. Llegará en una etapa posterior."]),
+    "Próximamente": ("Próximamente", [
+        "Lo que viene después de esta versión:",
+        "",
+        "Tienda de personalización y EcoMonedas.",
+        "Modos especiales: Supervivencia, Desafío, El corazón del incendio y Modo récord.",
+        "Compartir resultados como imagen.",
+        "Cámara inteligente y pantalla dividida.",
+        "Arte pixel definitivo, animaciones y audio avanzado.",
+        "Habilidades extra: manguera de presión, torre de vigilancia y botiquín."]),
+}
+
+def pantalla_maqueta(pantalla, titulo, lineas):
+    """Pantalla de texto generica para menus en construccion.
+    Devuelve None al volver, o 'salir' si se cierra la ventana."""
+    w, h = pantalla.get_size()
+    f_tit = pygame.font.Font(None, 46)
+    f_t = pygame.font.Font(None, 28)
+    f_p = pygame.font.Font(None, 22)
+    fondo = pygame.Surface((w, h))
+    for y in range(h):
+        t = y / h
+        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                return None
+        pantalla.blit(fondo, (0, 0))
+        t = f_tit.render(titulo, True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 70)))
+        etiqueta = f_p.render("MAQUETA - EN CONSTRUCCIÓN", True, (255, 220, 100))
+        pantalla.blit(etiqueta, etiqueta.get_rect(center=(w // 2, 108)))
+        caja = pygame.Rect(40, 135, w - 80, h - 135 - 70)
+        pygame.draw.rect(pantalla, (32, 44, 36), caja, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 170, 60), caja, 2, border_radius=8)
+        yy = caja.y + 18
+        for linea in lineas:
+            if linea == "":
+                yy += 14
+                continue
+            for parte in _ajustar(linea, f_t, caja.w - 40):
+                pantalla.blit(f_t.render(parte, True, (235, 235, 235)), (caja.x + 20, yy))
+                yy += 30
+        v = f_p.render("Pulsa cualquier tecla para volver", True, (190, 190, 190))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h - 30)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
     f_sub = pygame.font.Font(None, 30)
-    f_op = pygame.font.Font(None, 44)
-    opciones = ["Jugar", "Cómo jugar", "Salir"]
+    f_op = pygame.font.Font(None, 32)
+    opciones = ["Jugar", "Campaña", "Centro de Análisis", "Cuaderno de Guardianes",
+                "Salón de Guardianes", "Tienda (bloqueada)", "Próximamente", "Cómo jugar", "Salir"]
     ayuda_txt = [
         "Eres el bombero forestal de los Bosques de Yacuiba.",
         "Clic izquierdo: cortafuegos (frena el avance del fuego).",
@@ -430,7 +517,8 @@ def menu_principal(pantalla, fuente):
     for y in range(h):
         t = y / h
         pygame.draw.line(fondo, (int(15 + 90 * t), int(40 - 10 * t), int(25 - 10 * t)), (0, y), (w, y))
-    rects = [pygame.Rect(w // 2 - 130, 330 + i * 70, 260, 52) for i in range(len(opciones))]
+    paso = min(52, (h - 200) // len(opciones))
+    rects = [pygame.Rect(w // 2 - 150, 140 + i * paso, 300, paso - 8) for i in range(len(opciones))]
     reloj = pygame.time.Clock()
     sel = 0
     ayuda = False
@@ -466,7 +554,7 @@ def menu_principal(pantalla, fuente):
                     if r.collidepoint(e.pos):
                         sel = i
                         accion = i
-        if accion == 0:
+        if accion is not None and opciones[accion] in ("Jugar", "Campaña"):
             m = seleccionar_modo(pantalla, fuente)
             if m == "salir":
                 return False
@@ -478,21 +566,27 @@ def menu_principal(pantalla, fuente):
                     NIVEL_SEL["i"] = k
                     MODO["ia"] = None if m == "dos" else m
                     return True
-        if accion == 1:
-            ayuda = True
-        if accion == 2:
-            return False
+        if accion is not None:
+            op = opciones[accion]
+            if op == "Cómo jugar":
+                ayuda = True
+            elif op == "Salir":
+                return False
+            elif op in MAQUETAS:
+                titulo_m, lineas_m = MAQUETAS[op]
+                if pantalla_maqueta(pantalla, titulo_m, lineas_m) == "salir":
+                    return False
 
         pantalla.blit(fondo, (0, 0))
-        centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 140)
-        centrado("Bosques de Yacuiba - Gran Chaco boliviano", f_sub, (230, 230, 230), 205)
+        centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 60)
+        centrado("Gran Chaco boliviano - Tarija", f_sub, (230, 230, 230), 105)
         if ayuda:
             for k, linea in enumerate(ayuda_txt):
-                centrado(linea, fuente, (240, 240, 240), 300 + k * 34)
+                centrado(linea, fuente, (240, 240, 240), 160 + k * 34)
         else:
             for i, r in enumerate(rects):
                 pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
-                centrado(opciones[i], f_op, (255, 255, 255), r.centery)
+                centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery)
             centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
         pygame.display.flip()
         reloj.tick(30)
