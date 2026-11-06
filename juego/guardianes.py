@@ -453,7 +453,143 @@ MAQUETAS = {
         "Habilidades extra: manguera de presión, torre de vigilancia y botiquín."]),
 }
 
-def pantalla_maqueta(pantalla, titulo, lineas):
+SALON_RUTA = "output/salon.json"
+
+def cargar_salon():
+    import json
+    base = dict(puntos=0, nivel_puntos="", salvos=0, bosque=0, rondas=None, partidas=0)
+    try:
+        with open(SALON_RUTA, encoding="utf-8") as f:
+            base.update(json.load(f))
+    except Exception:
+        pass
+    return base
+
+def registrar_salon(est):
+    """Actualiza los records con la evaluacion de la partida (una vez por partida)."""
+    import json
+    if est.get("salon_ok"):
+        return
+    est["salon_ok"] = True
+    ev = est.get("evaluacion") or {}
+    if not ev:
+        return
+    s = cargar_salon()
+    s["partidas"] += 1
+    if ev.get("puntos", 0) > s["puntos"]:
+        s["puntos"] = ev["puntos"]; s["nivel_puntos"] = nivel_actual()["nombre"]
+    s["salvos"] = max(s["salvos"], ev.get("salvos", 0))
+    s["bosque"] = max(s["bosque"], ev.get("bosque", 0))
+    if str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
+        r = ev.get("ronda", 0)
+        if s["rondas"] is None or r < s["rondas"]:
+            s["rondas"] = r
+    try:
+        with open(SALON_RUTA, "w", encoding="utf-8") as f:
+            json.dump(s, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def lineas_salon():
+    s = cargar_salon()
+    if s["partidas"] == 0:
+        return ["Aún no hay partidas registradas.", "",
+                "Termina una misión y tus mejores resultados aparecerán aquí."]
+    return [f"Partidas jugadas: {s['partidas']}", "",
+            f"Mejor puntuación: {s['puntos']}  ({s['nivel_puntos']})",
+            f"Más animales rescatados: {s['salvos']}",
+            f"Mayor porcentaje de bosque conservado: {s['bosque']}%",
+            "Menos rondas en una misión cumplida: " + (str(s["rondas"]) if s["rondas"] is not None else "aún ninguna")]
+
+# Fichas del Cuaderno. Las de fauna son PROVISIONALES: verificar con fuentes antes de la entrega.
+CUADERNO = [
+    ("Enciclopedia de fauna", [
+        ("Tapir", ["Hábitat: bosques y zonas cercanas al agua.",
+                   "Protección: dispersa semillas y ayuda a mantener el monte. Evita el fuego y los atropellos.",
+                   "[ficha provisional: verificar datos]"]),
+        ("Jaguar", ["Hábitat: bosques extensos y poco perturbados.",
+                    "Protección: es un depredador clave; necesita territorio amplio y sin incendios.",
+                    "[ficha provisional: verificar datos]"]),
+        ("Taitetú", ["Hábitat: monte y bosque seco, en grupos.",
+                     "Protección: se desplaza en manada; cuando el fuego avanza hay que abrirle camino.",
+                     "[ficha provisional: verificar datos]"]),
+        ("Loro", ["Hábitat: arboledas y bosque.",
+                  "Protección: se esconde entre el follaje; la veterinaria debe localizarlo antes de que llegue el fuego.",
+                  "[ficha provisional: verificar datos]"])]),
+    ("Guía de prevención", [
+        ("Ficha de ejemplo", ["Causas frecuentes: quemas agrícolas sin control y descuidos con fuego.",
+                              "Prevención: no encender fuego con viento y avisar a las autoridades ante un foco.",
+                              "[contenido de ejemplo]"])]),
+    ("Manual de emergencias", [
+        ("Ficha de ejemplo", ["Mochila de agua: apaga una celda en llamas. El tanque se recarga junto al río.",
+                              "Cortafuegos: barrera que frena el avance. Tiene tiempo de recuperación.",
+                              "[contenido de ejemplo]"])]),
+    ("Atlas de incendios", [
+        ("Ficha de ejemplo", ["El fuego avanza más rápido en la dirección del viento.",
+                              "El Vigía (tecla V) muestra el riesgo de quema con simulaciones Monte Carlo.",
+                              "[contenido de ejemplo]"])]),
+]
+
+def cuaderno(pantalla, fuente):
+    """Cuaderno de Guardianes. Modal: izq/der cambia seccion, arriba/abajo la ficha.
+    Esc, N o Retroceso cierran. En partida el llamador pone la pausa."""
+    w, h = pantalla.get_size()
+    fondo = pantalla.copy()
+    f_tit = pygame.font.Font(None, 40)
+    f_s = pygame.font.Font(None, 24)
+    f_t = pygame.font.Font(None, 26)
+    f_p = pygame.font.Font(None, 20)
+    sec, ent = 0, 0
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_n, pygame.K_BACKSPACE):
+                    return None
+                elif e.key == pygame.K_RIGHT:
+                    sec = (sec + 1) % len(CUADERNO); ent = 0
+                elif e.key == pygame.K_LEFT:
+                    sec = (sec - 1) % len(CUADERNO); ent = 0
+                elif e.key == pygame.K_DOWN:
+                    ent = (ent + 1) % len(CUADERNO[sec][1])
+                elif e.key == pygame.K_UP:
+                    ent = (ent - 1) % len(CUADERNO[sec][1])
+        pantalla.blit(fondo, (0, 0))
+        marco = pygame.Rect(30, 30, w - 60, h - 60)
+        pygame.draw.rect(pantalla, (45, 25, 70), marco, border_radius=8)
+        pygame.draw.rect(pantalla, (200, 180, 240), marco, 3, border_radius=8)
+        t = f_tit.render("CUADERNO DE GUARDIANES", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 68)))
+        x = marco.x + 20
+        for i, (nom, _) in enumerate(CUADERNO):
+            s = f_s.render(nom, True, (255, 255, 255) if i == sec else (150, 140, 175))
+            pantalla.blit(s, (x, 100))
+            if i == sec:
+                pygame.draw.line(pantalla, (255, 170, 60), (x, 122), (x + s.get_width(), 122), 2)
+            x += s.get_width() + 24
+        fichas = CUADERNO[sec][1]
+        lista = pygame.Rect(marco.x + 20, 140, 190, marco.h - 140 - 60)
+        for i, (nom, _) in enumerate(fichas):
+            r = pygame.Rect(lista.x, lista.y + i * 36, lista.w, 30)
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == ent else (70, 50, 100), r, border_radius=6)
+            pantalla.blit(f_s.render(nom, True, (255, 255, 255)), (r.x + 10, r.y + 6))
+        det = pygame.Rect(lista.right + 20, 140, marco.right - lista.right - 40, lista.h)
+        pygame.draw.rect(pantalla, (32, 20, 52), det, border_radius=6)
+        yy = det.y + 14
+        pantalla.blit(f_tit.render(fichas[ent][0], True, (240, 240, 240)), (det.x + 14, yy)); yy += 44
+        for linea in fichas[ent][1]:
+            for parte in _ajustar(linea, f_t, det.w - 28):
+                pantalla.blit(f_t.render(parte, True, (230, 230, 230)), (det.x + 14, yy)); yy += 28
+            yy += 8
+        pie = f_p.render("Izq/Der: sección   Arriba/Abajo: ficha   Esc o N: cerrar", True, (190, 170, 220))
+        pantalla.blit(pie, pie.get_rect(center=(w // 2, marco.bottom - 24)))
+        pygame.display.flip()
+        reloj.tick(30)
+
+def pantalla_maqueta(pantalla, titulo, lineas, etiqueta_txt="MAQUETA - EN CONSTRUCCIÓN"):
     """Pantalla de texto generica para menus en construccion.
     Devuelve None al volver, o 'salir' si se cierra la ventana."""
     w, h = pantalla.get_size()
@@ -474,7 +610,7 @@ def pantalla_maqueta(pantalla, titulo, lineas):
         pantalla.blit(fondo, (0, 0))
         t = f_tit.render(titulo, True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 70)))
-        etiqueta = f_p.render("MAQUETA - EN CONSTRUCCIÓN", True, (255, 220, 100))
+        etiqueta = f_p.render(etiqueta_txt, True, (255, 220, 100))
         pantalla.blit(etiqueta, etiqueta.get_rect(center=(w // 2, 108)))
         caja = pygame.Rect(40, 135, w - 80, h - 135 - 70)
         pygame.draw.rect(pantalla, (32, 44, 36), caja, border_radius=8)
@@ -508,7 +644,7 @@ def menu_principal(pantalla, fuente):
         "Bombero: flechas.  Veterinaria: W A S D.  El modo se elige al pulsar Jugar.",
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
-        "M: silenciar o activar la música.",
+        "M: silenciar o activar la música.  |  N: Cuaderno de Guardianes (pausa).",
         "",
         "Pulsa cualquier tecla para volver.",
     ]
@@ -572,6 +708,12 @@ def menu_principal(pantalla, fuente):
                 ayuda = True
             elif op == "Salir":
                 return False
+            elif op == "Salón de Guardianes":
+                if pantalla_maqueta(pantalla, "Salón de Guardianes", lineas_salon(), "TUS MEJORES RESULTADOS") == "salir":
+                    return False
+            elif op == "Cuaderno de Guardianes":
+                if cuaderno(pantalla, fuente) == "salir":
+                    return False
             elif op in MAQUETAS:
                 titulo_m, lineas_m = MAQUETAS[op]
                 if pantalla_maqueta(pantalla, titulo_m, lineas_m) == "salir":
@@ -887,6 +1029,7 @@ def paginas_final(est):
 def eventos_periodicos(est, pantalla, fuente):
     """Cuadro de final de mision y avisos de cooperacion. Se llama una vez por cuadro."""
     if est.pop("final_pend", False):
+        registrar_salon(est)
         pausa_prev = est["tick"]["pausa"]
         est["tick"]["pausa"] = True
         cuadro_grande(pantalla, paginas_final(est), fuente)
@@ -1119,7 +1262,7 @@ def main():
         est["vida"] = {"b": VIDA_MAX, "v": VIDA_MAX}
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
-        est["dlg"] = nuevo_dialogo()
+        est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
         dialogos_inicio(est)
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
@@ -1216,6 +1359,12 @@ def main():
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
+                elif e.key == pygame.K_n:
+                    pausa_prev_ = est["tick"]["pausa"]
+                    est["tick"]["pausa"] = True
+                    cuaderno(pantalla, fuente)
+                    est["tick"]["pausa"] = pausa_prev_
+                    est["tick"]["t_fin"] = pygame.time.get_ticks()
                 elif e.key == pygame.K_p:
                     est["tick"]["pausa"] = not est["tick"]["pausa"]
                     est["msg"] = "PAUSA (P para continuar)" if est["tick"]["pausa"] else ""
