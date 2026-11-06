@@ -411,6 +411,28 @@ CD_CORTAFUEGO_MS = 4000     # recuperacion entre cortafuegos
 RECARGA_MS = 1000           # 1 carga por segundo junto al rio
 RIO_DIST = 2                # celdas de distancia al agua para recargar
 
+CD_APOYO_MS = 15000        # recuperacion del apoyo de la veterinaria
+
+def estado_apoyo(est):
+    resto = CD_APOYO_MS - (pygame.time.get_ticks() - est["t_apoyo"])
+    return "listo" if resto <= 0 else f"{resto / 1000:.0f}s"
+
+def apoyo(est, ahora, avisar=True):
+    """La veterinaria, a 2 celdas o menos del bombero, le da +2 de agua y +15 de vida."""
+    if ahora - est["t_apoyo"] < CD_APOYO_MS:
+        if avisar:
+            est["msg"] = "Apoyo en recuperación"
+        return False
+    if (est["vx"] - est["bx"]) ** 2 + (est["vy"] - est["by"]) ** 2 > 4:
+        if avisar:
+            est["msg"] = "Acércate al bombero para apoyarlo"
+        return False
+    est["agua"] = min(TANQUE, est["agua"] + 2)
+    est["vida"]["b"] = min(VIDA_MAX, est["vida"]["b"] + 15)
+    est["t_apoyo"] = ahora
+    est["msg"] = "Apoyo: +2 agua y +15 vida al bombero"
+    return True
+
 def estado_cortafuego(est):
     resto = CD_CORTAFUEGO_MS - (pygame.time.get_ticks() - est["t_cf"])
     return "listo" if resto <= 0 else f"{resto / 1000:.1f}s"
@@ -443,6 +465,8 @@ def ia_veterinaria(est, ahora):
     if est["ver_eval"] or est["tick"]["pausa"] or ahora - est.get("t_movv", 0) < 160:
         return
     est["t_movv"] = ahora
+    if est["agua"] <= 2 or est["vida"]["b"] < 60:
+        apoyo(est, ahora, avisar=False)
     n, estado = est["n"], est["estado"]
     vx, vy = est["vx"], est["vy"]
     if est["carga"] is None:
@@ -617,7 +641,7 @@ def main():
         est["tick"] = dict(hilo=None, res=None, t_fin=pygame.time.get_ticks(), pausa=False)
         est["vida"] = {"b": VIDA_MAX, "v": VIDA_MAX}
         est["derrota"] = False; est["t_dano"] = 0
-        est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0
+        est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         redibujar()
 
     def redibujar():
@@ -691,6 +715,8 @@ def main():
                     t_, _, _ = est["pend"].pop()
                     if t_ == "APAGAR":
                         est["agua"] = min(TANQUE, est["agua"] + 1)
+                elif e.key == pygame.K_f:
+                    apoyo(est, pygame.time.get_ticks())
                 elif e.key == pygame.K_F9:
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
@@ -843,6 +869,9 @@ def main():
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
         pantalla.fill((0, 0, 0), txt_v.get_rect(topleft=(6, 24)))
         pantalla.blit(txt_v, (6, 24))
+        txt_m = fuente.render(f"Meta: {META_SALVOS} animales y {META_BOSQUE}% bosque", True, (255, 230, 120))
+        pantalla.fill((0, 0, 0), txt_m.get_rect(topleft=(6, 44)))
+        pantalla.blit(txt_m, (6, 44))
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
         pantalla.fill((0, 0, 0), txt_a.get_rect(topleft=(6, 4)))
         pantalla.blit(txt_a, (6, 4))
@@ -894,6 +923,7 @@ def main():
                          ("Proteccion termica (proximamente)", False),
                          ("Torre de vigilancia (proximamente)", False)]),
             ("VETERINARIA" + (" (IA)" if est.get("ia_rol", "veterinaria") == "veterinaria" else ""), [("Rescate (E)", True),
+                             ("Apoyo al bombero (F) " + estado_apoyo(est), True),
                              ("Botiquin (proximamente)", False),
                              ("Rastreo animal (proximamente)", False),
                              ("Senal de auxilio (proximamente)", False),
