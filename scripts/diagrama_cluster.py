@@ -18,7 +18,7 @@ def texto(t, f, col, x, y, centro=True):
 
 # host
 pygame.draw.rect(s, GRIS, (20, 20, W - 40, H - 40), 3, border_radius=12)
-texto("Host con Docker Engine - CPU y RAM del host: [PENDIENTE]", f_t, NEGRO, W // 2, 50)
+texto("Host Dell OptiPlex 7010 con Docker: i7-13700, 24 hilos, 31 GiB de RAM", f_t, NEGRO, W // 2, 50)
 
 # red bridge
 pygame.draw.rect(s, (225, 238, 255), (50, 100, W - 100, 46), border_radius=8)
@@ -38,7 +38,7 @@ for k, (nom, rol) in enumerate(nodos):
     pygame.draw.rect(s, (240, 248, 240), r, border_radius=10)
     pygame.draw.rect(s, VERDE, r, 3, border_radius=10)
     texto(nom, f_t, NEGRO, r.centerx, r.y + 30)
-    for i, l in enumerate(["4 CPUs y 8 GB de RAM por nodo",
+    for i, l in enumerate(["16 CPUs y 8 GB de RAM por nodo",
                            "4 slots MPI en el hostfile",
                            "Ubuntu 22.04, gcc/g++, OpenMP, OpenMPI",
                            "Usuario mpiuser", rol]):
