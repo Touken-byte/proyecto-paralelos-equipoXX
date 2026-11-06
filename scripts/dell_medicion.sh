@@ -54,13 +54,17 @@ cat $OUT/memoria.txt
 
 echo; echo "##### 6. MPI (n=$NMAX, 100 pasos) #####"
 for np in 1 2 3 6; do
-  $X "cd /home/mpiuser/proyecto && mpirun -np $np --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$NMAX.bin --pasos 100 | grep RESULT"
+  for r in $(seq 1 $REPS); do
+    $X "cd /home/mpiuser/proyecto && mpirun -np $np --bind-to none --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$NMAX.bin --pasos 100 | grep RESULT" | sed "s/^/rep=$r /"
+  done
 done | tee $OUT/mpi.txt
 
 echo; echo "##### 7. VIGIA (n=512, $SIMS simulaciones, 100 pasos) #####"
 for cfg in "1 1" "1 4" "3 1" "3 4"; do
   set -- $cfg
-  $X "cd /home/mpiuser/proyecto && mpirun -np $1 --hostfile infrastructure/hostfile --map-by node ./bin/vigia_hibrido --mapa data/maps/map_512.bin --sims $SIMS --pasos 100 --hilos $2 --salida output/vigia/riesgo_dell.pgm | grep RESULT"
+  for r in $(seq 1 $REPS); do
+    $X "cd /home/mpiuser/proyecto && mpirun -np $1 --bind-to none --hostfile infrastructure/hostfile --map-by node ./bin/vigia_hibrido --mapa data/maps/map_512.bin --sims $SIMS --pasos 100 --hilos $2 --salida output/vigia/riesgo_dell.pgm | grep RESULT" | sed "s/^/rep=$r /"
+  done
 done | tee $OUT/vigia.txt
 
 echo; echo "##### 8. IMAGENES Y ANALISIS #####"
