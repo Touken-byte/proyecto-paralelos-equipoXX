@@ -64,15 +64,25 @@ F. Corrección: checksum idéntico en todas las versiones (n=512, semilla 42, 10
 G. Integración con el videojuego: el motor secuencial (`fire_seq`) se ejecuta dentro del contenedor `master` y el videojuego en Python (pygame) lo invoca una vez por ronda de cinco pasos. Las acciones de los jugadores (cortafuegos y agua) se escriben en un archivo de acciones que el motor lee en el paso indicado, y el estado del mapa se guarda y se recupera entre rondas, de modo que la simulación continúa sin recalcularse desde cero. El cálculo corre en un hilo aparte para que la interfaz no se bloquee. Cada nivel de la campaña (Bosques de Yacuiba, Serranía del Aguaragüe, Región de Tarija y El gran incendio) define su propio tamaño de mapa (96, 112, 128 y 128 celdas de lado), su semilla y la dirección e intensidad del viento. El Vigía recibe los mismos parámetros de viento que el fuego real, para que su mapa de riesgo Monte Carlo sea coherente con la partida. Los recursos del bombero (tanque de seis cargas con recarga junto al río y tiempo de recuperación del cortafuegos) y el compañero controlado por reglas se implementan en el cliente y no modifican el motor, por lo que el checksum de referencia no cambia.
 
 ## VI. Resultados experimentales y análisis de rendimiento
-A. Protocolo: tamaños [DELL: 512, 1024, 2048], hilos [DELL: 1, 2, 4, 8], procesos MPI [DELL], [DELL: número de repeticiones y promedio]. Métricas: T_p, S_p = T_1/T_p, E_p = S_p/p.
+A. Protocolo: tamaños n=512, 1024 y 2048 con 100 pasos, hilos OpenMP 1, 2, 4, 8 y 16, y media de 5 repeticiones por configuración, todo en la Dell OptiPlex 7010; procesos MPI [PENDIENTE: Dell]. Métricas: T_p, S_p = T_1/T_p, E_p = S_p/p.
 
 B. Reproducibilidad: `scripts/dell_medicion.sh`, semilla fija, repositorio con un comando.
 
-C. Huella de memoria: n=512, unos 4,4 MB de RSS máximo. [DELL: n=1024 y 2048.]
+C. Huella de memoria: RSS máximo de la versión secuencial: 4,21 MB (n=512), 7,76 MB (n=1024) y 22,93 MB (n=2048).
 
-D. Escalabilidad fuerte: [DELL: tabla y gráfica de tiempo, speedup y eficiencia; ajuste de Amdahl y fracción secuencial f].
+D. Escalabilidad fuerte: T_seq = 0,1452 s (n=512), 0,5588 s (n=1024) y 2,2543 s (n=2048). Speedup S y eficiencia E de OpenMP (media de 5 repeticiones, 100 pasos, checksum idéntico):
 
-E. Escalabilidad débil: [DELL: eficiencia débil y comparación con Gustafson].
+| Hilos | n=512 S / E | n=1024 S / E | n=2048 S / E |
+|---|---|---|---|
+| 1 | 1,027 / 1,027 | 1,023 / 1,023 | 1,038 / 1,038 |
+| 2 | 1,926 / 0,963 | 1,955 / 0,977 | 2,027 / 1,014 |
+| 4 | 3,636 / 0,909 | 3,816 / 0,954 | 4,045 / 1,011 |
+| 8 | 6,748 / 0,843 | 7,242 / 0,905 | 7,870 / 0,984 |
+| 16 | 9,187 / 0,574 | 11,871 / 0,742 | 12,070 / 0,754 |
+
+El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) a 12,07 (n=2048). Las eficiencias ligeramente mayores que 1 (hasta 1,038) se atribuyen a variación de medición y a efectos de caché, no a un comportamiento superlineal. La caída de eficiencia con 16 hilos se discute en G. [PENDIENTE: ajuste de Amdahl y fracción secuencial f, desde analisis.txt.]
+
+E. Escalabilidad débil: con la carga por hilo constante (n=512, 724, 1024, 1448 y 2048 para 1, 2, 4, 8 y 16 hilos) el tiempo se mantiene entre 0,147 s y 0,151 s hasta 8 hilos y sube a 0,185 s con 16. La eficiencia débil es 0,993, 0,997, 0,972 y 0,792 para 2, 4, 8 y 16 hilos, y el speedup escalado con 16 hilos es 12,67. La fracción serial escalada media es α=0,068, con la que Gustafson predice unos 14,98 con 16 hilos; lo medido queda por debajo porque α no es solo código secuencial: incluye ancho de banda de memoria y efectos de hyperthreading, y con 16 hilos sube a 0,222.
 
 F. MPI e híbrido: [DELL: tiempos con 1, 2, 3, 6 procesos; Vigía].
 
