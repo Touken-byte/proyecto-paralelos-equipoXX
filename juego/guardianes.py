@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guardianes del Chaco - visor minimo (nivel Bosques de Yacuiba, malla 128x128).
+"""Guardianes del Chaco - visor minimo (niveles de la campana regional).
 El fuego lo calcula el motor C++ (fire_seq) dentro del contenedor 'master'.
 Este programa solo dibuja y envia las acciones del bombero.
 Uso (desde la raiz del repo): python3 juego/guardianes.py
@@ -12,7 +12,6 @@ import pygame
 CELDA = 6; PASOS_RONDA = 5; MAX_ACCIONES = 12; SEMILLA = 42
 ALCANCE = 6                                  # celdas desde el bombero
 LIMITES = {"APAGAR": 6, "CORTAFUEGO": 8}     # usos por ronda (se renuevan con Enter)
-MAPA_BASE = "data/maps/map_128.bin"
 DIR_SONIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sonidos")
 MAPA_JUEGO = "output/juego_mapa.bin"
 PANEL_W = 330                                # panel lateral derecho
@@ -236,6 +235,128 @@ def correr_ronda(paso, pendientes):
 
 MODO = {"ia": "veterinaria"}   # quien controla la IA: "veterinaria", "bombero" o None (dos jugadores)
 
+ALTO_PANT = {"h": 768}          # alto del escritorio, para calcular CELDA por nivel
+_MINIATURAS = {}
+_MAPAS_LISTOS = {"ok": False}
+DIALOGO_TXT = {"facil": "inicio, final, ocasionales y datos educativos",
+               "medio": "inicio, final y avisos importantes",
+               "dificil": "solo avisos críticos y un cierre corto",
+               "silencio": "casi en silencio: inicio y avisos críticos"}
+
+def texto_viento(niv):
+    dirs = ["este", "sureste", "sur", "suroeste", "oeste", "noroeste", "norte", "noreste"]
+    d = dirs[int(((niv["viento_ang"] % 360) + 22.5) // 45) % 8]
+    f = niv["viento_fuerza"]
+    fuerza = "suave" if f < 0.7 else "moderado" if f < 1.0 else "fuerte"
+    return f"viento {fuerza} hacia el {d}"
+
+def miniatura_nivel(niv, lado):
+    clave = (niv["id"], lado)
+    if clave not in _MINIATURAS:
+        n, estado, _ = leer_mapa(f"data/maps/map_{niv['n']}.bin")
+        s = pygame.Surface((n, n))
+        paleta = {1: (46, 125, 50), 2: (230, 60, 30), 5: (33, 110, 190)}
+        for y in range(n):
+            for x in range(n):
+                s.set_at((x, y), paleta.get(estado[y * n + x], (150, 125, 90)))
+        m = pygame.transform.smoothscale(s, (lado, lado))
+        k = lado / n
+        pygame.draw.rect(m, (120, 255, 120), pygame.Rect(int(4 * k), int((n - 14) * k), int(10 * k), int(10 * k)), 2)
+        _MINIATURAS[clave] = m
+    return _MINIATURAS[clave]
+
+def dibujar_estrellas(pantalla, cx, cy, llenas, total=4, r=7):
+    import math
+    for i in range(total):
+        c = cx + i * (2 * r + 4)
+        pts = []
+        for k in range(10):
+            a = -math.pi / 2 + k * math.pi / 5
+            rr = r if k % 2 == 0 else r * 0.45
+            pts.append((c + rr * math.cos(a), cy + rr * math.sin(a)))
+        if i < llenas:
+            pygame.draw.polygon(pantalla, (255, 200, 60), pts)
+        else:
+            pygame.draw.polygon(pantalla, (110, 110, 110), pts, 1)
+
+def seleccionar_nivel(pantalla, fuente):
+    """Devuelve el indice del nivel elegido, None si vuelve, 'salir' si cierra."""
+    w, h = pantalla.get_size()
+    f_tit = pygame.font.Font(None, 48)
+    f_nom = pygame.font.Font(None, 26)
+    f_p = pygame.font.Font(None, 21)
+    if not _MAPAS_LISTOS["ok"]:
+        pantalla.fill((22, 34, 26))
+        t = fuente.render("Preparando mapas de los niveles...", True, (230, 230, 230))
+        pantalla.blit(t, t.get_rect(center=(w // 2, h // 2)))
+        pygame.display.flip()
+        for niv in NIVELES:
+            asegurar_motor(niv)
+        _MAPAS_LISTOS["ok"] = True
+    k = len(NIVELES)
+    mg = 16
+    cw = (w - mg * (k + 1)) // k
+    lado = min(cw - 20, 170)
+    ch = lado + 86
+    y0 = 90
+    rects = [pygame.Rect(mg + i * (cw + mg), y0, cw, ch) for i in range(k)]
+    sel = NIVEL_SEL["i"]
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    return None
+                elif e.key == pygame.K_LEFT:
+                    sel = (sel - 1) % k
+                elif e.key == pygame.K_RIGHT:
+                    sel = (sel + 1) % k
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    return sel
+            elif e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        return i
+        pantalla.fill((22, 34, 26))
+        t = f_tit.render("Elige el nivel", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 45)))
+        for i, r in enumerate(rects):
+            niv = NIVELES[i]
+            pygame.draw.rect(pantalla, (40, 52, 44), r, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (90, 90, 90), r, 3, border_radius=8)
+            pantalla.blit(miniatura_nivel(niv, lado), (r.centerx - lado // 2, r.y + 10))
+            nom = f_nom.render(niv["nombre"], True, (255, 255, 255))
+            if nom.get_width() > cw - 8:
+                nom = f_p.render(niv["nombre"], True, (255, 255, 255))
+            pantalla.blit(nom, nom.get_rect(center=(r.centerx, r.y + lado + 30)))
+            dibujar_estrellas(pantalla, r.centerx - 33, r.y + lado + 56, niv["dificultad"])
+        niv = NIVELES[sel]
+        py = y0 + ch + 14
+        ficha = pygame.Rect(mg, py, w - 2 * mg, h - py - 44)
+        pygame.draw.rect(pantalla, (32, 44, 36), ficha, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 170, 60), ficha, 2, border_radius=8)
+        lineas = [
+            (niv["nombre"], f_nom, (255, 170, 60)),
+            (f"Mapa de {niv['n']}x{niv['n']} celdas, {texto_viento(niv)}.", fuente, (230, 230, 230)),
+            (f"Objetivo: apagar el incendio, llevar los {niv['animales']} animales al refugio y conservar el bosque.", fuente, (230, 230, 230)),
+            ("Comentarios de los personajes: " + DIALOGO_TXT[niv["dialogos"]] + ".", fuente, (230, 230, 230)),
+            ("Mapa ilustrativo, no a escala real.", f_p, (170, 170, 170)),
+        ]
+        yy = ficha.y + 14
+        for txt, fnt, col in lineas:
+            pantalla.blit(fnt.render(txt, True, col), (ficha.x + 16, yy))
+            yy += 30
+        v = fuente.render("Izq/Der: elegir   Enter: jugar   Esc: volver", True, (170, 170, 170))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h - 22)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def seleccionar_modo(pantalla, fuente):
     """Devuelve 'dos', 'veterinaria' o 'bombero' (rol que controla la IA), None si vuelve, 'salir' si cierra."""
     f_tit = pygame.font.Font(None, 56)
@@ -350,8 +471,13 @@ def menu_principal(pantalla, fuente):
             if m == "salir":
                 return False
             if m is not None:
-                MODO["ia"] = None if m == "dos" else m
-                return True
+                k = seleccionar_nivel(pantalla, fuente)
+                if k == "salir":
+                    return False
+                if k is not None:
+                    NIVEL_SEL["i"] = k
+                    MODO["ia"] = None if m == "dos" else m
+                    return True
         if accion == 1:
             ayuda = True
         if accion == 2:
@@ -632,7 +758,7 @@ def main():
     if os.environ.get("CELDA"):
         CELDA = max(3, min(8, int(os.environ["CELDA"])))
     else:   # ajusta el tamano de celda a la altura de la pantalla
-        CELDA = max(5, min(6, (pygame.display.Info().current_h - 110) // nivel_actual()["n"]))
+        ALTO_PANT["h"] = pygame.display.Info().current_h; CELDA = max(5, min(6, (ALTO_PANT["h"] - 110) // nivel_actual()["n"]))
     sonidos = {}
     try:   # si no hay audio, el juego sigue sin sonido
         pygame.mixer.init()
@@ -695,7 +821,17 @@ def main():
     reiniciar()
     n = est["n"]
     pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
-    if not menu_principal(pantalla, fuente):
+    ok_menu = menu_principal(pantalla, fuente)
+    if ok_menu:
+        niv = nivel_actual()
+        asegurar_motor(niv)
+        if not os.environ.get("CELDA"):
+            CELDA = max(5, min(6, (ALTO_PANT["h"] - 110) // niv["n"]))
+        reiniciar()
+        n = est["n"]
+        pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
+        pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
+    if not ok_menu:
         pygame.quit()
         return
     est["ia_rol"] = MODO["ia"]
