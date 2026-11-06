@@ -46,6 +46,16 @@ def tabla(doc, filas):
     for fila in t.rows:
         for c in fila.cells:
             c.width = ancho
+    tw = int(8.2 / 2.54 * 1440)
+    tp = t._tbl.tblPr
+    for tag in ("w:tblW", "w:tblLayout"):
+        e = tp.find(qn(tag))
+        if e is not None:
+            tp.remove(e)
+    w = OxmlElement("w:tblW"); w.set(qn("w:w"), str(tw)); w.set(qn("w:type"), "dxa"); tp.append(w)
+    lay = OxmlElement("w:tblLayout"); lay.set(qn("w:type"), "fixed"); tp.append(lay)
+    for g in t._tbl.tblGrid.findall(qn("w:gridCol")):
+        g.set(qn("w:w"), str(tw // len(datos[0])))
     for i, fila in enumerate(datos):
         for j, txt in enumerate(fila):
             p = t.cell(i, j).paragraphs[0]; p.alignment = AL.CENTER
