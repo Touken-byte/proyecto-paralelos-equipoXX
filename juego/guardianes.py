@@ -591,6 +591,105 @@ def estado_cortafuego(est):
     resto = CD_CORTAFUEGO_MS - (pygame.time.get_ticks() - est["t_cf"])
     return "listo" if resto <= 0 else f"{resto / 1000:.1f}s"
 
+DLG_DURACION_MS = 3500      # tiempo que dura un globo en pantalla
+DLG_ESPERA_MS = 8000        # espera minima entre globos
+DLG_REPITE_CRIT_MS = 20000  # un aviso critico no se repite antes de esto
+DLG_COLA_MAX = 3
+# Tipos de comentario que permite cada modo de dialogos del nivel
+DLG_POLITICA = {"facil": {"critico", "importante", "educativo", "ocasional"},
+                "medio": {"critico", "importante"},
+                "dificil": {"critico"},
+                "silencio": {"critico"}}
+
+def nuevo_dialogo():
+    return dict(cola=[], actual=None, t_ini=0, t_ultimo=-99999, crit={})
+
+def decir(est, quien, texto, tipo="ocasional", clave=None):
+    """Encola un comentario. quien: 'b' (bombero) o 'v' (veterinaria).
+    tipo: 'critico', 'importante', 'educativo' u 'ocasional'. Devuelve True si se encolo."""
+    d = est["dlg"]
+    if tipo not in DLG_POLITICA[nivel_actual()["dialogos"]]:
+        return False
+    ahora = pygame.time.get_ticks()
+    clave = clave or texto
+    if tipo == "critico":
+        if ahora - d["crit"].get(clave, -99999) < DLG_REPITE_CRIT_MS:
+            return False
+        d["crit"][clave] = ahora
+    else:
+        if tipo in ("ocasional", "educativo") and (d["actual"] or d["cola"]):
+            return False
+        if len(d["cola"]) >= DLG_COLA_MAX:
+            return False
+    if any(c["texto"] == texto for c in d["cola"]):
+        return False
+    item = dict(quien=quien, texto=texto, tipo=tipo)
+    if tipo == "critico":
+        d["cola"].insert(0, item)
+    else:
+        d["cola"].append(item)
+    return True
+
+def _ajustar(texto, fnt, ancho):
+    lineas, act = [], ""
+    for p in texto.split():
+        prueba = (act + " " + p).strip()
+        if fnt.size(prueba)[0] <= ancho or not act:
+            act = prueba
+        else:
+            lineas.append(act)
+            act = p
+    if act:
+        lineas.append(act)
+    return lineas
+
+def dibujar_globo(pantalla, est, fnt):
+    """Avanza la cola y dibuja el globo actual cerca del personaje que habla."""
+    d = est["dlg"]
+    ahora = pygame.time.get_ticks()
+    if d["actual"] and ahora - d["t_ini"] >= DLG_DURACION_MS:
+        d["actual"] = None
+        d["t_ultimo"] = ahora
+    if d["actual"] is None and d["cola"]:
+        cab = d["cola"][0]
+        if cab["tipo"] == "critico" or ahora - d["t_ultimo"] >= DLG_ESPERA_MS:
+            d["actual"] = d["cola"].pop(0)
+            d["t_ini"] = ahora
+    a = d["actual"]
+    if not a:
+        return
+    es_b = a["quien"] == "b"
+    nombre = "Bombero" if es_b else "Veterinaria"
+    col_n = (255, 170, 60) if es_b else (120, 220, 255)
+    lineas = _ajustar(a["texto"], fnt, 230)
+    sn = fnt.render(nombre, True, col_n)
+    lh = fnt.get_linesize()
+    ancho = max([sn.get_width()] + [fnt.size(l)[0] for l in lineas]) + 20
+    alto = 12 + lh * (len(lineas) + 1)
+    cx, cy = (est["bx"], est["by"]) if es_b else (est["vx"], est["vy"])
+    px_, py_ = cx * CELDA + CELDA // 2, cy * CELDA
+    lim = est["n"] * CELDA
+    x = max(4, min(lim - ancho - 4, px_ - ancho // 2))
+    y = py_ - alto - 14
+    abajo = y < 4
+    if abajo:
+        y = py_ + CELDA + 14
+    y = max(4, min(y, lim - alto - 4))
+    rect = pygame.Rect(x, y, ancho, alto)
+    pygame.draw.rect(pantalla, (45, 25, 70), rect, border_radius=6)
+    pygame.draw.rect(pantalla, (200, 180, 240), rect, 2, border_radius=6)
+    pygame.draw.rect(pantalla, (120, 95, 170), rect.inflate(-8, -8), 1, border_radius=4)
+    tx = max(x + 10, min(x + ancho - 10, px_))
+    if abajo:
+        pts = [(tx - 6, y), (tx + 6, y), (tx, y - 10)]
+    else:
+        pts = [(tx - 6, y + alto), (tx + 6, y + alto), (tx, y + alto + 10)]
+    pygame.draw.polygon(pantalla, (45, 25, 70), pts)
+    pygame.draw.lines(pantalla, (200, 180, 240), False, pts, 2)
+    pantalla.blit(sn, (x + 10, y + 6))
+    for k, l in enumerate(lineas):
+        pantalla.blit(fnt.render(l, True, (240, 240, 240)), (x + 10, y + 6 + lh * (k + 1)))
+
 def _hilo_tick(paso, pend, res):
     """Corre un tick del motor en segundo plano (no congela la ventana)."""
     try:
@@ -796,6 +895,11 @@ def main():
         est["vida"] = {"b": VIDA_MAX, "v": VIDA_MAX}
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
+        est["dlg"] = nuevo_dialogo()
+        if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
+            decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
+            decir(est, "v", "Concéntrate. Hay animales que dependen de que no te pongas a bromear.", "importante")
+            decir(est, "b", "Sal de ahí, estás hecho una brasa.", "critico", "prueba_vida")
         redibujar()
 
     def redibujar():
@@ -1046,6 +1150,7 @@ def main():
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
                   f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{TANQUE}  "
                   f"Cortafuego {estado_cortafuego(est)}")
+        dibujar_globo(pantalla, est, fuente_p)
         if est["msg"]:
             linea2 = est["msg"]
         elif quemando == 0:
