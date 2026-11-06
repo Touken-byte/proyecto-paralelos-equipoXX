@@ -13,6 +13,7 @@
 int main(int argc, char** argv) {
     int provided = 0;
     MPI_Init_thread(&argc, &argv, MPI_THREAD_FUNNELED, &provided);
+    std::string ruta_acc;
     int rank = 0, size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
         else if (k == "--viento-fuerza") p.viento_fuerza = atof(sig());
         else if (k == "--hilos") hilos = atoi(sig());
         else if (k == "--salida") salida = sig();
+        else if (k == "--acciones") ruta_acc = sig();
         else { if (rank == 0) fprintf(stderr, "Argumento desconocido: %s\n", k.c_str()); MPI_Finalize(); return 1; }
     }
     if (hilos > 0) omp_set_num_threads(hilos);
@@ -52,6 +54,8 @@ int main(int argc, char** argv) {
     const uint8_t* hum = m.hum.data();
 
     const int mis = (sims - rank + size - 1) / size;   // simulaciones de este proceso
+    std::vector<Accion> acciones;
+    if (!ruta_acc.empty()) cargar_acciones(ruta_acc, acciones);
     std::vector<uint32_t> acc_rank(total, 0);
     int hilos_reales = 1;
 
@@ -74,7 +78,9 @@ int main(int argc, char** argv) {
             A = m.estado;
             uint8_t* pc = A.data();
             uint8_t* pn = B.data();
+            size_t pos_acc = 0;
             for (int t = 0; t < p.pasos; t++) {
+                aplicar_acciones(pc, n, acciones, pos_acc, t);
                 for (int i = 0; i < n; i++)
                     for (int j = 0; j < n; j++)
                         pn[idx(i, j, n)] = nueva_celda(pc, fuel, hum, i, j, n, ps, vec, (uint64_t)t);
