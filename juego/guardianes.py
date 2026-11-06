@@ -618,6 +618,7 @@ INICIO_TXT = {
 
 def dialogos_inicio(est):
     b, v = INICIO_TXT[nivel_actual()["id"]]
+    return   # el inicio lo presenta cuadro_grande (intro_nivel)
     decir(est, "b", b, "inicio")
     if v:
         decir(est, "v", v, "inicio")
@@ -710,6 +711,108 @@ def dibujar_globo(pantalla, est, fnt):
     pantalla.blit(sn, (x + 10, y + 6))
     for k, l in enumerate(lineas):
         pantalla.blit(fnt.render(l, True, (240, 240, 240)), (x + 10, y + 6 + lh * (k + 1)))
+
+def cuadro_grande(pantalla, paginas, fuente):
+    """Cuadro de dialogo grande. paginas: lista de (quien, texto); quien: 'b', 'v' o None.
+    Enter, espacio o clic avanzan. Bloquea mientras esta abierto (la partida queda en pausa)."""
+    w, h = pantalla.get_size()
+    fondo = pantalla.copy()
+    f_n = pygame.font.Font(None, 30)
+    f_t = pygame.font.Font(None, 28)
+    f_p = pygame.font.Font(None, 22)
+    reloj = pygame.time.Clock()
+    i = 0
+    while i < len(paginas):
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                return
+            if e.type == pygame.KEYDOWN and e.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                i += 1
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                i += 1
+        if i >= len(paginas):
+            break
+        quien, texto = paginas[i]
+        pantalla.blit(fondo, (0, 0))
+        caja = pygame.Rect(30, h - 220, w - 60, 175)
+        pygame.draw.rect(pantalla, (45, 25, 70), caja, border_radius=8)
+        pygame.draw.rect(pantalla, (200, 180, 240), caja, 3, border_radius=8)
+        pygame.draw.rect(pantalla, (120, 95, 170), caja.inflate(-14, -14), 1, border_radius=6)
+        tx = caja.x + 24
+        if quien:
+            es_b = quien == "b"
+            ret = pygame.Rect(caja.x + 24, caja.y + 26, 96, 96)
+            pygame.draw.rect(pantalla, (30, 16, 50), ret, border_radius=6)
+            pygame.draw.rect(pantalla, (255, 170, 60) if es_b else (120, 220, 255), ret, 3, border_radius=6)
+            ini = pygame.font.Font(None, 80).render("B" if es_b else "V", True,
+                                                    (255, 170, 60) if es_b else (120, 220, 255))
+            pantalla.blit(ini, ini.get_rect(center=ret.center))
+            nom = f_n.render("Bombero" if es_b else "Veterinaria", True,
+                             (255, 170, 60) if es_b else (120, 220, 255))
+            pantalla.blit(nom, (ret.right + 20, caja.y + 18))
+            tx = ret.right + 20
+            ty = caja.y + 50
+        else:
+            ty = caja.y + 26
+        for k, l in enumerate(_ajustar(texto, f_t, caja.right - tx - 24)):
+            pantalla.blit(f_t.render(l, True, (240, 240, 240)), (tx, ty + 28 * k))
+        pie = f_p.render(f"Enter: continuar  ({i + 1}/{len(paginas)})", True, (190, 170, 220))
+        pantalla.blit(pie, (caja.right - pie.get_width() - 22, caja.bottom - 30))
+        pygame.display.flip()
+        reloj.tick(30)
+
+def intro_nivel(pantalla, fuente, est):
+    niv = nivel_actual()
+    b, v = INICIO_TXT[niv["id"]]
+    pag = [(None, f"{niv['nombre']}. Apaga el incendio, lleva los {niv['animales']} animales al refugio y conserva el bosque."),
+           ("b", b)]
+    if v:
+        pag.append(("v", v))
+    cuadro_grande(pantalla, pag, fuente)
+    est["tick"]["t_fin"] = pygame.time.get_ticks()
+
+def paginas_final(est):
+    ev = est.get("evaluacion") or {}
+    if est.get("derrota"):
+        p = [("v", "Tenemos que replegarnos. Lo intentaremos otra vez."),
+             ("b", "Aprendimos algo. A la próxima apagamos más rápido.")]
+    else:
+        e, s, t = ev.get("estrellas", 0), ev.get("salvos", 0), ev.get("total", 0)
+        b = ev.get("bosque", 0)
+        if e >= 2:
+            p = [("b", "¡Lo logramos! Ese fuego se fue con la cola entre las patas."),
+                 ("v", f"{s} de {t} animales a salvo y {b}% del bosque. Nada mal.")]
+        else:
+            p = [("b", "Pudo ser mejor, pero seguimos en pie."),
+                 ("v", f"{s} de {t} animales a salvo y {b}% del bosque. Hay que mejorar.")]
+    if nivel_actual()["dialogos"] in ("dificil", "silencio"):
+        p = p[:1]
+    return p
+
+def eventos_periodicos(est, pantalla, fuente):
+    """Cuadro de final de mision y avisos de cooperacion. Se llama una vez por cuadro."""
+    if est.pop("final_pend", False):
+        pausa_prev = est["tick"]["pausa"]
+        est["tick"]["pausa"] = True
+        cuadro_grande(pantalla, paginas_final(est), fuente)
+        est["tick"]["pausa"] = pausa_prev
+        return
+    ahora = pygame.time.get_ticks()
+    if ahora - est.get("t_ev", 0) < 1500:
+        return
+    est["t_ev"] = ahora
+    if ahora - est.get("t_aislado", -99999) > 30000 and "aislado" in estados_fauna(est):
+        if decir(est, "v", "Hay un animal aislado. Hay que llegar antes de que cierre el fuego.", "importante", "aislado"):
+            est["t_aislado"] = ahora
+
+def _aviso_vida(est, k):
+    if est["vida"][k] >= 35 or est.get("derrota"):
+        return
+    if k == "b":
+        decir(est, "v", "Estás hecho una brasa. Sal de ahí.", "critico", "vida_b")
+    else:
+        decir(est, "b", "Veterinaria, sal de ahí. Hay fuego cerca.", "critico", "vida_v")
 
 def _hilo_tick(paso, pend, res):
     """Corre un tick del motor en segundo plano (no congela la ventana)."""
@@ -873,7 +976,7 @@ def actualizar_emergencia(est):
         else:
             est["cuenta"] -= 1
     if quem == 0 or (est["cuenta"] is not None and est["cuenta"] <= 0 and est["evaluacion"] is None):
-        est["evaluacion"] = evaluar(est)
+        est["evaluacion"] = evaluar(est); est["final_pend"] = True
         est["ver_eval"] = True
 
 def main():
@@ -963,6 +1066,8 @@ def main():
         n = est["n"]
         pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
         pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
+    if ok_menu:
+        intro_nivel(pantalla, fuente, est)
     if not ok_menu:
         pygame.quit()
         return
@@ -1112,7 +1217,7 @@ def main():
             rx0, ry0, rw0, rh0 = est["refugio"]
             for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
                 if est["estado"][cy_ * n + cx_] == 2:
-                    est["vida"][k_] = max(0, est["vida"][k_] - DANO_LLAMAS)
+                    est["vida"][k_] = max(0, est["vida"][k_] - DANO_LLAMAS); _aviso_vida(est, k_)
                 elif rx0 <= cx_ < rx0 + rw0 and ry0 <= cy_ < ry0 + rh0:
                     est["vida"][k_] = min(VIDA_MAX, est["vida"][k_] + CURA_REFUGIO)
             if (est["vida"]["b"] <= 0 or est["vida"]["v"] <= 0) and not est["derrota"]:
@@ -1120,7 +1225,7 @@ def main():
                 ev = evaluar(est)
                 ev["titulo"] = "MISION FALLIDA: " + quien + " cayo"
                 ev["estrellas"] = 0
-                est["evaluacion"] = ev; est["ver_eval"] = True; est["derrota"] = True
+                est["evaluacion"] = ev; est["ver_eval"] = True; est["derrota"] = True; est["final_pend"] = True
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 140
@@ -1179,6 +1284,7 @@ def main():
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
                   f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{TANQUE}  "
                   f"Cortafuego {estado_cortafuego(est)}")
+        eventos_periodicos(est, pantalla, fuente)
         dibujar_globo(pantalla, est, fuente_p)
         if est["msg"]:
             linea2 = est["msg"]
