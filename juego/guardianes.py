@@ -584,7 +584,7 @@ def apoyo(est, ahora, avisar=True):
     est["agua"] = min(TANQUE, est["agua"] + 2)
     est["vida"]["b"] = min(VIDA_MAX, est["vida"]["b"] + 15)
     est["t_apoyo"] = ahora
-    est["msg"] = "Apoyo: +2 agua y +15 vida al bombero"
+    est["msg"] = "Apoyo: +2 agua y +15 vida al bombero"; decir(est, "v", "Toma agua. De nada, por cierto.", "importante")
     return True
 
 def estado_cortafuego(est):
@@ -600,6 +600,27 @@ DLG_POLITICA = {"facil": {"critico", "importante", "educativo", "ocasional"},
                 "medio": {"critico", "importante"},
                 "dificil": {"critico"},
                 "silencio": {"critico"}}
+
+for _k, _v in {"facil": {"inicio", "final"}, "medio": {"inicio", "final"},
+               "dificil": {"final"}, "silencio": {"inicio"}}.items():
+    DLG_POLITICA[_k] |= _v
+
+# Texto de inicio por nivel: (bombero, veterinaria o None). Se editan aqui.
+INICIO_TXT = {
+    "yacuiba": ("¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.",
+                "Concéntrate. Hay animales que dependen de que no te pongas a bromear."),
+    "aguarague": ("Serranía y viento en contra. Me gustan los retos.",
+                  "Ojo con las laderas: el fuego sube más rápido de lo que crees."),
+    "tarija": ("Mucho mapa y muchos focos. Esto ya no es entrenamiento.",
+               "Prioricemos el refugio y repartámonos el terreno."),
+    "gran_incendio": ("Todos a lo suyo. Hoy no hay bromas.", None),
+}
+
+def dialogos_inicio(est):
+    b, v = INICIO_TXT[nivel_actual()["id"]]
+    decir(est, "b", b, "inicio")
+    if v:
+        decir(est, "v", v, "inicio")
 
 def nuevo_dialogo():
     return dict(cola=[], actual=None, t_ini=0, t_ultimo=-99999, crit={})
@@ -839,7 +860,13 @@ def actualizar_emergencia(est):
     veg = est["estado"].count(1)
     quem = est["estado"].count(2)
     perdida = 100 - veg * 100 // est["veg0"]
+    _prev = est.get("nivel")
     est["nivel"] = "inicial" if perdida < 15 else "avanzada" if perdida < 35 else "critica"
+    if est["nivel"] != _prev and "dlg" in est:
+        if est["nivel"] == "avanzada":
+            decir(est, "b", "Se está extendiendo. Hay que priorizar los focos.", "importante", "avanzada")
+        elif est["nivel"] == "critica":
+            decir(est, "b", "Ok, ahora sí se puso serio. Todos a lo suyo.", "critico", "critica")
     if est["nivel"] == "critica":
         if est["cuenta"] is None:
             est["cuenta"] = CUENTA_RONDAS
@@ -896,6 +923,7 @@ def main():
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         est["dlg"] = nuevo_dialogo()
+        dialogos_inicio(est)
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
             decir(est, "v", "Concéntrate. Hay animales que dependen de que no te pongas a bromear.", "importante")
@@ -1003,7 +1031,7 @@ def main():
                     if (cx - est["bx"]) ** 2 + (cy - est["by"]) ** 2 > ALCANCE ** 2:
                         est["msg"] = "Fuera de alcance: acércate con el bombero"
                     elif tipo == "APAGAR" and est["agua"] <= 0:
-                        est["msg"] = "Tanque vacío: recárgalo junto al río"
+                        est["msg"] = "Tanque vacío: recárgalo junto al río"; decir(est, "b", "Me quedé sin agua. Voy al río, no me extrañen.", "critico", "tanque")
                     elif tipo == "CORTAFUEGO" and ahora_c - est["t_cf"] < CD_CORTAFUEGO_MS:
                         est["msg"] = "Cortafuegos en recuperación"
                     else:
@@ -1072,6 +1100,7 @@ def main():
                 est["carga"][1] = ry + 2 + ((nsalvos - 1) // 5) * 2
                 est["carga"] = None
                 est["msg"] = "Animal a salvo" if nsalvos < len(est["animales"]) else "¡Todos los animales a salvo!"
+                decir(est, "v", "Uno menos en peligro. Lástima que el resto no lea instrucciones." if nsalvos < len(est["animales"]) else "Todos a salvo. Esta vez no hizo falta el sarcasmo.", "importante", "salvo")
 
         if not est["ver_eval"] and not est["tick"]["pausa"] and est["agua"] < TANQUE and ahora - est["t_rec"] >= RECARGA_MS:
             bx2, by2 = est["bx"], est["by"]
