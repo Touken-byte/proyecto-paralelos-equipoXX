@@ -399,6 +399,10 @@ def calcular_vigia(n):
     return sup, info
 
 
+VIDA_MAX = 100
+DANO_LLAMAS = 5          # por golpe, cada 600 ms sobre una celda en llamas
+CURA_REFUGIO = 2         # por golpe, dentro del refugio
+META_SALVOS, META_BOSQUE = 3, 40
 CUENTA_RONDAS = 15                           # ticks de la cuenta regresiva (~30 s en critico)
 TICK_MS = {"inicial": 3000, "avanzada": 2500, "critica": 2000}   # ritmo del fuego en tiempo real
 
@@ -419,7 +423,9 @@ def evaluar(est):
     estrellas = 3 if frac >= 0.75 else 2 if frac >= 0.5 else 1
     puntos = salvos * 100 + bosque * 5 + estrellas * 50
     return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
-                puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2))
+                puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2),
+                titulo=("MISION CUMPLIDA" if salvos >= META_SALVOS and bosque >= META_BOSQUE
+                        else "MISION FALLIDA: meta no alcanzada"))
 
 def ia_veterinaria(est, ahora):
     """IA basica de la veterinaria: camino mas corto (BFS) al animal libre mas cercano,
@@ -588,6 +594,8 @@ def main():
         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
         est.update(nivel="inicial", cuenta=None, evaluacion=None, ver_eval=False)
         est["tick"] = dict(hilo=None, res=None, t_fin=pygame.time.get_ticks(), pausa=False)
+        est["vida"] = {"b": VIDA_MAX, "v": VIDA_MAX}
+        est["derrota"] = False; est["t_dano"] = 0
         redibujar()
 
     def redibujar():
@@ -651,7 +659,8 @@ def main():
                         except Exception as ex:
                             est["msg"] = "Error del Vigia: " + str(ex)
                 elif e.key == pygame.K_c:
-                    est["ver_eval"] = False
+                    if not est["derrota"]:
+                        est["ver_eval"] = False
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_m and "musica" in sonidos:
@@ -740,6 +749,20 @@ def main():
                 est["carga"] = None
                 est["msg"] = "Animal a salvo" if nsalvos < len(est["animales"]) else "¡Todos los animales a salvo!"
 
+        if not est["ver_eval"] and not est["tick"]["pausa"] and ahora - est["t_dano"] >= 600:
+            est["t_dano"] = ahora
+            rx0, ry0, rw0, rh0 = est["refugio"]
+            for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
+                if est["estado"][cy_ * n + cx_] == 2:
+                    est["vida"][k_] = max(0, est["vida"][k_] - DANO_LLAMAS)
+                elif rx0 <= cx_ < rx0 + rw0 and ry0 <= cy_ < ry0 + rh0:
+                    est["vida"][k_] = min(VIDA_MAX, est["vida"][k_] + CURA_REFUGIO)
+            if (est["vida"]["b"] <= 0 or est["vida"]["v"] <= 0) and not est["derrota"]:
+                quien = "El bombero" if est["vida"]["b"] <= 0 else "La veterinaria"
+                ev = evaluar(est)
+                ev["titulo"] = "MISION FALLIDA: " + quien + " cayo"
+                ev["estrellas"] = 0
+                est["evaluacion"] = ev; est["ver_eval"] = True; est["derrota"] = True
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 140
@@ -777,6 +800,14 @@ def main():
         pantalla.blit(sv, (est["vx"] * CELDA + CELDA // 2 - sv.get_width() // 2,
                            est["vy"] * CELDA + CELDA - sv.get_height()))
         salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
+        for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
+            frac_ = est["vida"][k_] / VIDA_MAX
+            bx_, by_ = cx_ * CELDA + CELDA // 2 - 14, cy_ * CELDA - 22
+            pygame.draw.rect(pantalla, (40, 0, 0), (bx_, by_, 28, 4))
+            pygame.draw.rect(pantalla, (255, 60, 60) if frac_ < 0.35 else (80, 220, 90), (bx_, by_, int(28 * frac_), 4))
+        txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
+        pantalla.fill((0, 0, 0), txt_v.get_rect(topleft=(6, 24)))
+        pantalla.blit(txt_v, (6, 24))
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
         pantalla.fill((0, 0, 0), txt_a.get_rect(topleft=(6, 4)))
         pantalla.blit(txt_a, (6, 4))
@@ -846,7 +877,7 @@ def main():
             ev = est["evaluacion"]
             pygame.draw.rect(pantalla, (15, 20, 25), (60, 120, 440, 250))
             pygame.draw.rect(pantalla, (255, 220, 100), (60, 120, 440, 250), 2)
-            lineas = ["EVALUACION DE LA MISION",
+            lineas = [ev.get("titulo", "EVALUACION DE LA MISION"),
                       "Estrellas: " + "*" * ev["estrellas"] + "-" * (3 - ev["estrellas"]),
                       "Animales rescatados: " + str(ev["salvos"]) + "/" + str(ev["total"]),
                       "Bosque conservado: " + str(ev["bosque"]) + "%",
