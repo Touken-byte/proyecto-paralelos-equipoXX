@@ -184,11 +184,38 @@ def crear_animales(n, estado, refugio, k=5):
     return [[x, y, "libre", ESPECIES[i % len(ESPECIES)]] for i, (x, y) in enumerate(pos)]
 
 
-def asegurar_motor():
-    """Compila fire_seq y genera el mapa 128x128 dentro del contenedor si faltan."""
+# Tabla de niveles: una sola fuente de verdad por nivel.
+# focos=None usa el valor por defecto de gen_map.py (se ajusta mas adelante).
+NIVELES = [
+    dict(id="yacuiba", nombre="Bosques de Yacuiba", n=96, semilla_mapa=42, focos=None,
+         semilla=42, viento_ang=0.0, viento_fuerza=0.6, animales=5,
+         dialogos="facil", dificultad=1),
+    dict(id="aguarague", nombre="Serranía del Aguaragüe", n=112, semilla_mapa=7, focos=None,
+         semilla=7, viento_ang=45.0, viento_fuerza=0.8, animales=6,
+         dialogos="medio", dificultad=2),
+    dict(id="tarija", nombre="Región de Tarija", n=128, semilla_mapa=21, focos=None,
+         semilla=21, viento_ang=90.0, viento_fuerza=0.9, animales=7,
+         dialogos="dificil", dificultad=3),
+    dict(id="gran_incendio", nombre="El gran incendio", n=128, semilla_mapa=99, focos=None,
+         semilla=99, viento_ang=135.0, viento_fuerza=1.1, animales=8,
+         dialogos="silencio", dificultad=4),
+]
+NIVEL_SEL = {"i": 0}   # indice del nivel activo (el menu de niveles lo cambiara)
+
+def nivel_actual():
+    return NIVELES[NIVEL_SEL["i"]]
+
+def args_viento(niv):
+    return f"--viento-ang {niv['viento_ang']} --viento-fuerza {niv['viento_fuerza']}"
+
+def asegurar_motor(niv=None):
+    """Compila fire_seq y genera el mapa del nivel dentro del contenedor si faltan."""
+    niv = niv or nivel_actual()
+    focos = f" --focos {niv['focos']}" if niv["focos"] is not None else ""
+    mapa = f"data/maps/map_{niv['n']}.bin"
     orden = ("cd /home/mpiuser/proyecto && mkdir -p bin data/maps output && "
              "{ [ -x bin/fire_seq ] || g++ -std=c++17 -O2 -I src/common src/sequential/fire_seq.cpp -o bin/fire_seq; } && "
-             "{ [ -f data/maps/map_128.bin ] || python3 data/gen_map.py --n 128 --seed 42 --out data/maps/map_128.bin; }")
+             f"{{ [ -f {mapa} ] || python3 data/gen_map.py --n {niv['n']} --seed {niv['semilla_mapa']}{focos} --out {mapa}; }}")
     r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c", orden],
                        capture_output=True, text=True)
     if r.returncode != 0:
@@ -200,7 +227,8 @@ def correr_ronda(paso, pendientes):
         for tipo, x, y in pendientes:
             f.write(f"{paso} {tipo} {x} {y}\n")
     orden = (f"cd /home/mpiuser/proyecto && ./bin/fire_seq --mapa {MAPA_JUEGO} --pasos {PASOS_RONDA} "
-             f"--semilla {SEMILLA} --paso-inicial {paso} --acciones {ACCIONES} --guardar-mapa {MAPA_JUEGO}")
+             f"--semilla {nivel_actual()['semilla']} {args_viento(nivel_actual())} "
+             f"--paso-inicial {paso} --acciones {ACCIONES} --guardar-mapa {MAPA_JUEGO}")
     r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c", orden],
                        capture_output=True, text=True)
     if r.returncode != 0:
@@ -364,7 +392,7 @@ def calcular_vigia(n):
         if r.returncode != 0:
             raise RuntimeError("no compila vigia_hibrido")
     cmd = (f"cd /home/mpiuser/proyecto && mpirun -np {VIGIA_PROCS} --hostfile infrastructure/hostfile "
-           f"--map-by node ./bin/vigia_hibrido --mapa {MAPA_JUEGO} --sims {VIGIA_SIMS} "
+           f"--map-by node ./bin/vigia_hibrido --mapa {MAPA_JUEGO} --sims {VIGIA_SIMS} {args_viento(nivel_actual())} "
            f"--pasos {VIGIA_PASOS} --hilos {VIGIA_HILOS} --salida {SALIDA_VIGIA} < /dev/null")
     t0 = perf_counter()
     r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c", cmd],
@@ -604,7 +632,7 @@ def main():
     if os.environ.get("CELDA"):
         CELDA = max(3, min(8, int(os.environ["CELDA"])))
     else:   # ajusta el tamano de celda a la altura de la pantalla
-        CELDA = max(5, min(6, (pygame.display.Info().current_h - 110) // 128))
+        CELDA = max(5, min(6, (pygame.display.Info().current_h - 110) // nivel_actual()["n"]))
     sonidos = {}
     try:   # si no hay audio, el juego sigue sin sonido
         pygame.mixer.init()
@@ -616,7 +644,7 @@ def main():
         sonidos["musica"] = musica
     except Exception as ex:
         print("Aviso: sin audio (" + str(ex) + ")")
-    pygame.display.set_caption("Guardianes del Chaco - Bosques de Yacuiba")
+    pygame.display.set_caption("Guardianes del Chaco - " + nivel_actual()["nombre"])
     fuente = pygame.font.Font(None, 24)
     fuente_p = pygame.font.Font(None, 20)
     reloj = pygame.time.Clock()
@@ -626,7 +654,7 @@ def main():
         h = est.get("tick", {}).get("hilo")
         if h is not None and h.is_alive():
             h.join()
-        shutil.copy(MAPA_BASE, MAPA_JUEGO)
+        shutil.copy(f"data/maps/map_{nivel_actual()['n']}.bin", MAPA_JUEGO)
         os.chmod(MAPA_JUEGO, 0o666)   # el contenedor (mpiuser) debe poder reescribirlo
         n, estado, fuel = leer_mapa(MAPA_JUEGO)
         est.update(n=n, estado=estado, fuel=fuel, paso=0, ronda=0, pend=[], msg="",
@@ -634,7 +662,7 @@ def main():
         est["bx"], est["by"] = posicion_inicial(n, estado)
         est["refugio"] = (4, n - 14, 10, 10)
         est["vx"], est["vy"] = 4 + 5, n - 14 + 5
-        est["animales"] = crear_animales(n, estado, est["refugio"])
+        est["animales"] = crear_animales(n, estado, est["refugio"], nivel_actual()["animales"])
         est["carga"] = None
         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
         est.update(nivel="inicial", cuenta=None, evaluacion=None, ver_eval=False)
