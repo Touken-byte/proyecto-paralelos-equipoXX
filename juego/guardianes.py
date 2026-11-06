@@ -676,6 +676,10 @@ def menu_principal(pantalla, fuente):
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
                     return False
+                elif e.key == pygame.K_LEFT:
+                    cambiar_volumen(-0.1)
+                elif e.key == pygame.K_RIGHT:
+                    cambiar_volumen(0.1)
                 elif e.key == pygame.K_UP:
                     sel = (sel - 1) % len(opciones)
                 elif e.key == pygame.K_DOWN:
@@ -731,6 +735,7 @@ def menu_principal(pantalla, fuente):
                 pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
                 centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery)
             centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
+        dibujar_barra_volumen(pantalla, 20, h - 46)
         pygame.display.flip()
         reloj.tick(30)
 
@@ -1331,6 +1336,59 @@ def actualizar_emergencia(est):
         est["evaluacion"] = evaluar(est); est["final_pend"] = True
         est["ver_eval"] = True
 
+AJUSTES_RUTA = os.path.join("output", "ajustes.json")
+AJ = {"vol": 0.5, "mute": False, "t": -10000, "snd": {}, "f": None}
+BASE_VOL = {"musica": 0.35}   # volumen base de cada sonido; los efectos usan 1.0
+
+
+def aplicar_volumen():
+    for k, s in AJ["snd"].items():
+        try:
+            s.set_volume(0.0 if AJ["mute"] else AJ["vol"] * BASE_VOL.get(k, 1.0))
+        except Exception:
+            pass
+
+
+def cargar_ajustes():
+    import json as _j
+    try:
+        with open(AJUSTES_RUTA, encoding="utf-8") as f:
+            d = _j.load(f)
+        AJ["vol"] = max(0.0, min(1.0, float(d.get("vol", 0.5))))
+        AJ["mute"] = bool(d.get("mute", False))
+    except Exception:
+        pass
+
+
+def guardar_ajustes():
+    import json as _j
+    try:
+        os.makedirs("output", exist_ok=True)
+        with open(AJUSTES_RUTA, "w", encoding="utf-8") as f:
+            _j.dump({"vol": AJ["vol"], "mute": AJ["mute"]}, f)
+    except Exception:
+        pass
+
+
+def cambiar_volumen(delta):
+    AJ["vol"] = round(max(0.0, min(1.0, AJ["vol"] + delta)), 2)
+    AJ["mute"] = False
+    AJ["t"] = pygame.time.get_ticks()
+    aplicar_volumen()
+    guardar_ajustes()
+
+
+def dibujar_barra_volumen(pantalla, x, y, ancho=150):
+    if AJ["f"] is None:
+        AJ["f"] = pygame.font.Font(None, 20)
+    pygame.draw.rect(pantalla, (20, 24, 28), (x - 6, y - 4, ancho + 12, 40), border_radius=6)
+    txt = "Silenciado" if AJ["mute"] else "Volumen " + str(int(round(AJ["vol"] * 100))) + "%"
+    pantalla.blit(AJ["f"].render(txt, True, (235, 235, 235)), (x, y))
+    pygame.draw.rect(pantalla, (70, 70, 70), (x, y + 20, ancho, 8), border_radius=4)
+    if not AJ["mute"]:
+        pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * AJ["vol"]), 8), border_radius=4)
+
+
 def main():
     global CELDA
     os.makedirs("output", exist_ok=True)
@@ -1346,9 +1404,11 @@ def main():
         sonidos["CORTAFUEGO"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "cortafuegos.wav"))
         sonidos["APAGAR"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "agua.wav"))
         musica = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "musica.wav"))
-        musica.set_volume(0.35)
+        cargar_ajustes()
         musica.play(loops=-1)
         sonidos["musica"] = musica
+        AJ["snd"] = sonidos
+        aplicar_volumen()
     except Exception as ex:
         print("Aviso: sin audio (" + str(ex) + ")")
     pygame.display.set_caption("Guardianes del Chaco - " + nivel_actual()["nombre"])
@@ -1464,7 +1524,11 @@ def main():
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_m and "musica" in sonidos:
-                    sonidos["musica"].set_volume(0.0 if sonidos["musica"].get_volume() > 0 else 0.35)
+                    AJ["mute"] = not AJ["mute"]; AJ["t"] = pygame.time.get_ticks(); aplicar_volumen(); guardar_ajustes()
+                elif e.key in (pygame.K_MINUS, pygame.K_KP_MINUS):
+                    cambiar_volumen(-0.1)
+                elif e.key in (pygame.K_EQUALS, pygame.K_PLUS, pygame.K_KP_PLUS):
+                    cambiar_volumen(0.1)
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
                     t_, _, _ = est["pend"].pop()
                     if t_ == "APAGAR":
@@ -1659,6 +1723,8 @@ def main():
         pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
         px = n * CELDA + 10
         pantalla.blit(fuente.render("EL VIGIA", True, (255, 255, 255)), (px, 10))
+        if pygame.time.get_ticks() - AJ["t"] < 2500:
+            dibujar_barra_volumen(pantalla, n * CELDA - 170, 6)
         pantalla.blit(fuente.render("V: mapa de riesgo", True, (200, 200, 200)), (px, 34))
         if est.get("riesgo") is None:
             pantalla.blit(fuente.render("(sin calcular)", True, (150, 150, 150)), (px, 62))
