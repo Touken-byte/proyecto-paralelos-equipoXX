@@ -406,6 +406,15 @@ META_SALVOS, META_BOSQUE = 3, 40
 CUENTA_RONDAS = 15                           # ticks de la cuenta regresiva (~30 s en critico)
 TICK_MS = {"inicial": 3000, "avanzada": 2500, "critica": 2000}   # ritmo del fuego en tiempo real
 
+TANQUE = 6                  # cargas de agua del bombero
+CD_CORTAFUEGO_MS = 4000     # recuperacion entre cortafuegos
+RECARGA_MS = 1000           # 1 carga por segundo junto al rio
+RIO_DIST = 2                # celdas de distancia al agua para recargar
+
+def estado_cortafuego(est):
+    resto = CD_CORTAFUEGO_MS - (pygame.time.get_ticks() - est["t_cf"])
+    return "listo" if resto <= 0 else f"{resto / 1000:.1f}s"
+
 def _hilo_tick(paso, pend, res):
     """Corre un tick del motor en segundo plano (no congela la ventana)."""
     try:
@@ -483,21 +492,33 @@ def ia_bombero(est, ahora):
     if not fuegos:
         return
     fuegos.sort(key=lambda f: (f[0] - bx) ** 2 + (f[1] - by) ** 2)
-    usados = len(pend_apagar)
-    for fx, fy in fuegos:
-        if usados >= LIMITES["APAGAR"]:
-            break
-        if (fx - bx) ** 2 + (fy - by) ** 2 <= (ALCANCE - 1) ** 2:
-            est["pend"].append(("APAGAR", fx, fy)); usados += 1
-    if usados > len(pend_apagar):
-        return
+    if est["agua"] <= 0:
+        est["ia_rec"] = True
+    elif est["agua"] >= TANQUE:
+        est["ia_rec"] = False
+    en_rio = est.get("ia_rec", False)
+    if not en_rio:
+        gastado = False
+        for fx, fy in fuegos:
+            if est["agua"] <= 0:
+                break
+            if (fx - bx) ** 2 + (fy - by) ** 2 <= (ALCANCE - 1) ** 2:
+                est["pend"].append(("APAGAR", fx, fy)); est["agua"] -= 1; gastado = True
+        if gastado:
+            return
     tx, ty = fuegos[0]
+
+    def llego(c):
+        if en_rio:
+            return any(0 <= c[0] + dx < n and 0 <= c[1] + dy < n and estado[(c[1] + dy) * n + c[0] + dx] == 5
+                       for dy in range(-RIO_DIST, RIO_DIST + 1) for dx in range(-RIO_DIST, RIO_DIST + 1))
+        return (c[0] - tx) ** 2 + (c[1] - ty) ** 2 <= (ALCANCE - 2) ** 2
     prev = {(bx, by): None}
     cola = deque([(bx, by)])
     meta = None
     while cola:
         c = cola.popleft()
-        if (c[0] - tx) ** 2 + (c[1] - ty) ** 2 <= (ALCANCE - 2) ** 2:
+        if llego(c):
             meta = c
             break
         x, y = c
@@ -596,6 +617,7 @@ def main():
         est["tick"] = dict(hilo=None, res=None, t_fin=pygame.time.get_ticks(), pausa=False)
         est["vida"] = {"b": VIDA_MAX, "v": VIDA_MAX}
         est["derrota"] = False; est["t_dano"] = 0
+        est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0
         redibujar()
 
     def redibujar():
@@ -666,7 +688,9 @@ def main():
                 elif e.key == pygame.K_m and "musica" in sonidos:
                     sonidos["musica"].set_volume(0.0 if sonidos["musica"].get_volume() > 0 else 0.35)
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
-                    est["pend"].pop()
+                    t_, _, _ = est["pend"].pop()
+                    if t_ == "APAGAR":
+                        est["agua"] = min(TANQUE, est["agua"] + 1)
                 elif e.key == pygame.K_F9:
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
@@ -681,14 +705,20 @@ def main():
                 if my < n * CELDA and mx < n * CELDA:
                     tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
                     cx, cy = mx // CELDA, my // CELDA
-                    usados = sum(1 for t, _, _ in est["pend"] if t == tipo)
+                    ahora_c = pygame.time.get_ticks()
                     if (cx - est["bx"]) ** 2 + (cy - est["by"]) ** 2 > ALCANCE ** 2:
                         est["msg"] = "Fuera de alcance: acércate con el bombero"
-                    elif usados >= LIMITES[tipo]:
-                        est["msg"] = "Sin recursos de " + ("agua" if tipo == "APAGAR" else "cortafuegos") + " esta ronda"
+                    elif tipo == "APAGAR" and est["agua"] <= 0:
+                        est["msg"] = "Tanque vacío: recárgalo junto al río"
+                    elif tipo == "CORTAFUEGO" and ahora_c - est["t_cf"] < CD_CORTAFUEGO_MS:
+                        est["msg"] = "Cortafuegos en recuperación"
                     else:
                         est["msg"] = ""
                         est["pend"].append((tipo, cx, cy))
+                        if tipo == "APAGAR":
+                            est["agua"] -= 1
+                        else:
+                            est["t_cf"] = ahora_c
                         if tipo in sonidos:
                             sonidos[tipo].play()
 
@@ -749,6 +779,11 @@ def main():
                 est["carga"] = None
                 est["msg"] = "Animal a salvo" if nsalvos < len(est["animales"]) else "¡Todos los animales a salvo!"
 
+        if not est["ver_eval"] and not est["tick"]["pausa"] and est["agua"] < TANQUE and ahora - est["t_rec"] >= RECARGA_MS:
+            bx2, by2 = est["bx"], est["by"]
+            if any(0 <= bx2 + dx < n and 0 <= by2 + dy < n and est["estado"][(by2 + dy) * n + bx2 + dx] == 5
+                   for dy in range(-RIO_DIST, RIO_DIST + 1) for dx in range(-RIO_DIST, RIO_DIST + 1)):
+                est["agua"] += 1; est["t_rec"] = ahora
         if not est["ver_eval"] and not est["tick"]["pausa"] and ahora - est["t_dano"] >= 600:
             est["t_dano"] = ahora
             rx0, ry0, rw0, rh0 = est["refugio"]
@@ -816,8 +851,8 @@ def main():
             pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
         quemando, veg = est["estado"].count(2), est["estado"].count(1)
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
-                  f"Bosque {veg * 100 // est['veg0']}%  Agua {sum(1 for t, _, _ in est['pend'] if t == 'APAGAR')}/{LIMITES['APAGAR']}  "
-                  f"Cortafuego {sum(1 for t, _, _ in est['pend'] if t == 'CORTAFUEGO')}/{LIMITES['CORTAFUEGO']}")
+                  f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{TANQUE}  "
+                  f"Cortafuego {estado_cortafuego(est)}")
         if est["msg"]:
             linea2 = est["msg"]
         elif quemando == 0:
@@ -853,8 +888,8 @@ def main():
         ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
         uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
         bloques = [
-            ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(ua) + "/" + str(LIMITES["APAGAR"]), True),
-                         ("Cortafuegos (clic izq.) " + str(uc) + "/" + str(LIMITES["CORTAFUEGO"]), True),
+            ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(est["agua"]) + "/" + str(TANQUE), True),
+                         ("Cortafuegos (clic izq.) " + estado_cortafuego(est), True),
                          ("Manguera de presion (proximamente)", False),
                          ("Proteccion termica (proximamente)", False),
                          ("Torre de vigilancia (proximamente)", False)]),
