@@ -206,6 +206,57 @@ def correr_ronda(paso, pendientes):
     if r.returncode != 0:
         raise RuntimeError((r.stderr or r.stdout).strip()[:120])
 
+MODO = {"ia": "veterinaria"}   # quien controla la IA: "veterinaria", "bombero" o None (dos jugadores)
+
+def seleccionar_modo(pantalla, fuente):
+    """Devuelve 'dos', 'veterinaria' o 'bombero' (rol que controla la IA), None si vuelve, 'salir' si cierra."""
+    f_tit = pygame.font.Font(None, 56)
+    f_op = pygame.font.Font(None, 36)
+    opciones = [("Dos jugadores", "dos",
+                 "Veterinaria: W A S D y E.   Bombero: flechas y ratón."),
+                ("Solitario: soy el Bombero", "veterinaria",
+                 "Flechas y ratón. La IA controla a la veterinaria."),
+                ("Solitario: soy la Veterinaria", "bombero",
+                 "W A S D y E. La IA controla al bombero.")]
+    w, h = pantalla.get_size()
+    rects = [pygame.Rect(w // 2 - 260, 280 + i * 80, 520, 56) for i in range(len(opciones))]
+    reloj = pygame.time.Clock()
+    sel = 0
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    return None
+                elif e.key == pygame.K_UP:
+                    sel = (sel - 1) % len(opciones)
+                elif e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % len(opciones)
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    return opciones[sel][1]
+            elif e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        return opciones[i][1]
+        pantalla.fill((22, 34, 26))
+        t = f_tit.render("Elige el modo de juego", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 170)))
+        for i, r in enumerate(rects):
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
+            s = f_op.render(opciones[i][0], True, (255, 255, 255))
+            pantalla.blit(s, s.get_rect(center=r.center))
+        d = fuente.render(opciones[sel][2], True, (230, 230, 230))
+        pantalla.blit(d, d.get_rect(center=(w // 2, 280 + 3 * 80 + 20)))
+        v = fuente.render("Esc: volver", True, (170, 170, 170))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h - 40)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
@@ -218,7 +269,7 @@ def menu_principal(pantalla, fuente):
         "Clic derecho: mochila de agua (apaga una celda en llamas).",
         "El fuego avanza solo. P: pausa  |  Enter: adelantar el fuego (depuración).",
         "Retroceso: deshacer la última acción  |  R: reiniciar.",
-        "Bombero: flechas.  Veterinaria: W A S D.  T: cambia quien es IA.",
+        "Bombero: flechas.  Veterinaria: W A S D.  El modo se elige al pulsar Jugar.",
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
         "M: silenciar o activar la música.",
@@ -267,7 +318,12 @@ def menu_principal(pantalla, fuente):
                         sel = i
                         accion = i
         if accion == 0:
-            return True
+            m = seleccionar_modo(pantalla, fuente)
+            if m == "salir":
+                return False
+            if m is not None:
+                MODO["ia"] = None if m == "dos" else m
+                return True
         if accion == 1:
             ayuda = True
         if accion == 2:
@@ -560,6 +616,7 @@ def main():
     if not menu_principal(pantalla, fuente):
         pygame.quit()
         return
+    est["ia_rol"] = MODO["ia"]
     corriendo = True
     while corriendo:
         for e in pygame.event.get():
@@ -601,7 +658,7 @@ def main():
                     sonidos["musica"].set_volume(0.0 if sonidos["musica"].get_volume() > 0 else 0.35)
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
                     est["pend"].pop()
-                elif e.key == pygame.K_t:
+                elif e.key == pygame.K_F9:
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
