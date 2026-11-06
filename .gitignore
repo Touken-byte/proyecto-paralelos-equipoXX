@@ -27,3 +27,4 @@ __pycache__/
 .idea/
 .DS_Store
 data/maps/
+data/acc_barrera_fila64.txt
