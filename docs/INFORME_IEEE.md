@@ -21,7 +21,7 @@ Este trabajo presenta (1) un motor de simulación secuencial que sirve de refere
 El documento se organiza así: la Sección III presenta el marco teórico, la IV la arquitectura e infraestructura, la V la implementación paralela, la VI los resultados experimentales y la VII las conclusiones.
 
 ## III. Marco teórico y estado del arte
-A. Taxonomía de Flynn: Flynn clasifica los sistemas según sus flujos de instrucciones y de datos en SISD, SIMD, MISD y MIMD [6]. La versión secuencial es SISD. MIMD, SPMD; memoria compartida (OpenMP) y distribuida (MPI). Es decir, procesadores independientes ejecutan el mismo programa sobre porciones distintas de los datos.
+A. Taxonomía de Flynn: Flynn clasifica los sistemas según sus flujos de instrucciones y de datos en SISD, SIMD, MISD y MIMD [6]. La versión secuencial es SISD; las versiones paralelas son MIMD con el modelo SPMD, con memoria compartida (OpenMP) y distribuida (MPI): procesadores independientes ejecutan el mismo programa sobre porciones distintas de los datos.
 
 B. Modelo de memoria: en memoria compartida (OpenMP), los hilos de un mismo proceso ven un único espacio de direcciones y deben evitar condiciones de carrera; aquí se evitan con el doble buffer, que separa la lectura del paso t de la escritura del paso t+1. En memoria distribuida (MPI), cada proceso tiene su propia memoria y los datos se mueven con mensajes explícitos [7]. El modelo híbrido usa MPI entre procesos y OpenMP dentro de cada uno; el Vigía inicializa MPI con MPI_THREAD_FUNNELED, de modo que solo el hilo principal hace llamadas MPI.
 
@@ -70,7 +70,7 @@ G. Integración con el videojuego: el motor secuencial (`fire_seq`) se ejecuta d
 ![Fig. 3. Interfaz del juego con las habilidades de los personajes.](docs/evidencias/E39_juego_habilidades.png)
 
 ## VI. Resultados experimentales y análisis de rendimiento
-A. Protocolo: tamaños n=512, 1024 y 2048 con 100 pasos, hilos OpenMP 1, 2, 4, 8 y 16, y media de 5 repeticiones por configuración, todo en la Dell OptiPlex 7010; procesos MPI [PENDIENTE: Dell]. Métricas: T_p, S_p = T_1/T_p, E_p = S_p/p.
+A. Protocolo: tamaños n=512, 1024 y 2048 con 100 pasos, hilos OpenMP 1, 2, 4, 8 y 16, y media de 5 repeticiones por configuración, todo en la Dell OptiPlex 7010; procesos MPI 1, 2, 3 y 6 (n=2048, una medición). Métricas: T_p, S_p = T_1/T_p, E_p = S_p/p.
 
 B. Reproducibilidad: `scripts/dell_medicion.sh`, semilla fija, repositorio con un comando.
 
@@ -86,7 +86,7 @@ D. Escalabilidad fuerte: T_seq = 0,1452 s (n=512), 0,5588 s (n=1024) y 2,2543 s 
 | 8 | 6,748 / 0,843 | 7,242 / 0,905 | 7,870 / 0,984 |
 | 16 | 9,187 / 0,574 | 11,871 / 0,742 | 12,070 / 0,754 |
 
-El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) a 12,07 (n=2048). Las eficiencias ligeramente mayores que 1 (hasta 1,038) se atribuyen a variación de medición y a efectos de caché, no a un comportamiento superlineal. La caída de eficiencia con 16 hilos se discute en G. Ajuste de Amdahl: la fracción serial efectiva es f=0,046 (n=512), 0,022 (n=1024) y 0,020 (n=2048), con speedup máximo teórico de 21,7, 45,5 y 50,0. Con 16 hilos Amdahl predice 9,47, 12,03 y 12,31 frente a 9,19, 11,87 y 12,07 medidos. f incluye el efecto del ancho de banda de memoria, no solo el código secuencial. La Fig. 4 resume el speedup y la eficiencia.
+El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) a 12,07 (n=2048). Las eficiencias ligeramente mayores que 1 (hasta 1,038) se atribuyen a variación de medición y a efectos de caché, no a un comportamiento superlineal. La caída de eficiencia con 16 hilos se discute en VI.G. Ajuste de Amdahl: la fracción serial efectiva es f=0,046 (n=512), 0,022 (n=1024) y 0,020 (n=2048), con speedup máximo teórico de 21,7, 45,5 y 50,0. Con 16 hilos Amdahl predice 9,47, 12,03 y 12,31 frente a 9,19, 11,87 y 12,07 medidos. f incluye el efecto del ancho de banda de memoria, no solo el código secuencial. La Fig. 4 resume el speedup y la eficiencia.
 
 ![Fig. 4. Escalabilidad fuerte de OpenMP: (a) speedup y (b) eficiencia.](docs/figuras/fig_fuerte.png)
 
@@ -116,7 +116,7 @@ Con 3 procesos y 4 hilos (12 unidades de trabajo) la eficiencia es 0,75. Que 4 h
 
 G. Cuellos de botella: ancho de banda de memoria, hyperthreading, los 3 nodos comparten la misma CPU física, red virtual sin latencia real.
 
-H. Datos preliminares (laptop, no oficiales): speedup OpenMP con 2 hilos de 1,90 (n=512, 100 pasos); con 4 hilos cae a unos 0,92 por hyperthreading. Se sustituyen por los de la Dell. Vigía con cortafuegos (laptop; mapa de 128 celdas, 8 simulaciones, 50 pasos): el porcentaje de celdas con riesgo mayor al 50 % baja de 9,8 % (1611 celdas) a 7,7 % (1259 celdas) al agregar una barrera completa; es una demostración cualitativa que se repetirá en la Dell.
+H. Datos preliminares (laptop, no oficiales): Vigía con cortafuegos (laptop; mapa de 128 celdas, 8 simulaciones, 50 pasos): el porcentaje de celdas con riesgo mayor al 50 % baja de 9,8 % (1611 celdas) a 7,7 % (1259 celdas) al agregar una barrera completa; es una demostración cualitativa que se repetirá en la Dell.
 
 ## VII. Conclusiones e impacto social y productivo
 [Escribir con los resultados de la Dell.] Trabajo futuro: CUDA, más regiones, juego completo, otras redes.

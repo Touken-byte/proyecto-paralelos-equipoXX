@@ -41,10 +41,16 @@ def tabla(doc, filas):
     filas = [f for f in filas if not re.match(r"^\|[\s:\-|]+\|$", f)]
     datos = [[c.strip() for c in f.strip().strip("|").split("|")] for f in filas]
     t = doc.add_table(rows=len(datos), cols=len(datos[0])); t.style = "Table Grid"
+    t.autofit = False
+    ancho = Cm(8.2 / len(datos[0]))
+    for fila in t.rows:
+        for c in fila.cells:
+            c.width = ancho
     for i, fila in enumerate(datos):
         for j, txt in enumerate(fila):
             p = t.cell(i, j).paragraphs[0]; p.alignment = AL.CENTER
             p.paragraph_format.space_after = Pt(0)
+            p.paragraph_format.keep_with_next = True
             runs(p, txt, 8)
             if i == 0:
                 for r in p.runs:
