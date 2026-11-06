@@ -38,7 +38,7 @@ for k, (nom, rol) in enumerate(nodos):
     pygame.draw.rect(s, (240, 248, 240), r, border_radius=10)
     pygame.draw.rect(s, VERDE, r, 3, border_radius=10)
     texto(nom, f_t, NEGRO, r.centerx, r.y + 30)
-    for i, l in enumerate(["4 CPUs (cpus=CPUS_NODO) y 8 GB (mem_limit)",
+    for i, l in enumerate(["4 CPUs y 8 GB de RAM por nodo",
                            "4 slots MPI en el hostfile",
                            "Ubuntu 22.04, gcc/g++, OpenMP, OpenMPI",
                            "Usuario mpiuser", rol]):
