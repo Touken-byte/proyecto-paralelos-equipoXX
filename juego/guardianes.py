@@ -5,7 +5,7 @@ Este programa solo dibuja y envia las acciones del bombero.
 Uso (desde la raiz del repo): python3 juego/guardianes.py
 Controles: clic izq = cortafuegos | clic der = mochila de agua | Enter = avanzar ronda
            Retroceso = deshacer ultima accion | R = reiniciar | Esc = salir"""
-import os, random, re, shutil, struct, subprocess
+import os, random, re, shutil, struct, subprocess, threading
 from time import perf_counter
 import pygame
 
@@ -216,9 +216,9 @@ def menu_principal(pantalla, fuente):
         "Eres el bombero forestal de los Bosques de Yacuiba.",
         "Clic izquierdo: cortafuegos (frena el avance del fuego).",
         "Clic derecho: mochila de agua (apaga una celda en llamas).",
-        "Enter: avanzar una ronda (el motor calcula 5 pasos).",
+        "El fuego avanza solo. P: pausa  |  Enter: adelantar el fuego (depuración).",
         "Retroceso: deshacer la última acción  |  R: reiniciar.",
-        "Bombero: flechas o WASD.  Veterinaria: I J K L.",
+        "Bombero: flechas.  Veterinaria: W A S D.  T: cambia quien es IA.",
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
         "M: silenciar o activar la música.",
@@ -343,7 +343,17 @@ def calcular_vigia(n):
     return sup, info
 
 
-CUENTA_RONDAS = 5
+CUENTA_RONDAS = 15                           # ticks de la cuenta regresiva (~30 s en critico)
+TICK_MS = {"inicial": 3000, "avanzada": 2500, "critica": 2000}   # ritmo del fuego en tiempo real
+
+def _hilo_tick(paso, pend, res):
+    """Corre un tick del motor en segundo plano (no congela la ventana)."""
+    try:
+        correr_ronda(paso, pend)
+        res["mapa"] = leer_mapa(MAPA_JUEGO)
+    except Exception as ex:
+        res["err"] = str(ex)
+    res["listo"] = True
 
 def evaluar(est):
     salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
@@ -354,6 +364,92 @@ def evaluar(est):
     puntos = salvos * 100 + bosque * 5 + estrellas * 50
     return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
                 puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2))
+
+def ia_veterinaria(est, ahora):
+    """IA basica de la veterinaria: camino mas corto (BFS) al animal libre mas cercano,
+    lo recoge y lo lleva al refugio. Esquiva agua y celdas en llamas."""
+    from collections import deque
+    if est["ver_eval"] or est["tick"]["pausa"] or ahora - est.get("t_movv", 0) < 160:
+        return
+    est["t_movv"] = ahora
+    n, estado = est["n"], est["estado"]
+    vx, vy = est["vx"], est["vy"]
+    if est["carga"] is None:
+        libres = [a for a in est["animales"] if a[2] == "libre"]
+        for a in libres:
+            if (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= 4:
+                a[2] = "cargado"; est["carga"] = a
+                est["msg"] = "La IA recogio un animal"
+                return
+        metas = {(a[0] + dx, a[1] + dy) for a in libres for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
+    else:
+        rx, ry, rw, rh = est["refugio"]
+        metas = {(x, y) for x in range(rx, rx + rw) for y in range(ry, ry + rh)}
+    if not metas:
+        return
+    prev = {(vx, vy): None}
+    cola = deque([(vx, vy)])
+    meta = None
+    while cola:
+        c = cola.popleft()
+        if c in metas:
+            meta = c
+            break
+        x, y = c
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < n and 0 <= ny < n and (nx, ny) not in prev and estado[ny * n + nx] != 2:
+                prev[(nx, ny)] = c
+                cola.append((nx, ny))
+    if meta is None or meta == (vx, vy):
+        return
+    while prev[meta] != (vx, vy):
+        meta = prev[meta]
+    est["vx"], est["vy"] = meta
+    if estado[meta[1] * n + meta[0]] == 5:
+        est["t_movv"] = ahora + 110    # vadear el rio es mas lento
+
+def ia_bombero(est, ahora):
+    """IA basica del bombero: va al foco mas cercano, se pone al alcance y lo apaga."""
+    from collections import deque
+    if est["ver_eval"] or est["tick"]["pausa"] or ahora - est.get("t_mov", 0) < 220:
+        return
+    est["t_mov"] = ahora
+    n, estado = est["n"], est["estado"]
+    bx, by = est["bx"], est["by"]
+    pend_apagar = {(x, y) for t, x, y in est["pend"] if t == "APAGAR"}
+    fuegos = [(i % n, i // n) for i, v in enumerate(estado) if v == 2 and (i % n, i // n) not in pend_apagar]
+    if not fuegos:
+        return
+    fuegos.sort(key=lambda f: (f[0] - bx) ** 2 + (f[1] - by) ** 2)
+    usados = len(pend_apagar)
+    for fx, fy in fuegos:
+        if usados >= LIMITES["APAGAR"]:
+            break
+        if (fx - bx) ** 2 + (fy - by) ** 2 <= (ALCANCE - 1) ** 2:
+            est["pend"].append(("APAGAR", fx, fy)); usados += 1
+    if usados > len(pend_apagar):
+        return
+    tx, ty = fuegos[0]
+    prev = {(bx, by): None}
+    cola = deque([(bx, by)])
+    meta = None
+    while cola:
+        c = cola.popleft()
+        if (c[0] - tx) ** 2 + (c[1] - ty) ** 2 <= (ALCANCE - 2) ** 2:
+            meta = c
+            break
+        x, y = c
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < n and 0 <= ny < n and (nx, ny) not in prev and estado[ny * n + nx] != 2:
+                prev[(nx, ny)] = c
+                cola.append((nx, ny))
+    if meta is None or meta == (bx, by):
+        return
+    while prev[meta] != (bx, by):
+        meta = prev[meta]
+    est["bx"], est["by"] = meta
+    if estado[meta[1] * n + meta[0]] == 5:
+        est["t_mov"] = ahora + 110
 
 def estados_fauna(est):
     """Estado de cada animal segun su situacion y la distancia al fuego (no toca a[2])."""
@@ -420,6 +516,9 @@ def main():
     est = {}
 
     def reiniciar():
+        h = est.get("tick", {}).get("hilo")
+        if h is not None and h.is_alive():
+            h.join()
         shutil.copy(MAPA_BASE, MAPA_JUEGO)
         os.chmod(MAPA_JUEGO, 0o666)   # el contenedor (mpiuser) debe poder reescribirlo
         n, estado, fuel = leer_mapa(MAPA_JUEGO)
@@ -432,6 +531,7 @@ def main():
         est["carga"] = None
         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
         est.update(nivel="inicial", cuenta=None, evaluacion=None, ver_eval=False)
+        est["tick"] = dict(hilo=None, res=None, t_fin=pygame.time.get_ticks(), pausa=False)
         redibujar()
 
     def redibujar():
@@ -501,19 +601,15 @@ def main():
                     sonidos["musica"].set_volume(0.0 if sonidos["musica"].get_volume() > 0 else 0.35)
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
                     est["pend"].pop()
+                elif e.key == pygame.K_t:
+                    ciclo = ["veterinaria", "bombero", None]
+                    est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
+                    est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
+                elif e.key == pygame.K_p:
+                    est["tick"]["pausa"] = not est["tick"]["pausa"]
+                    est["msg"] = "PAUSA (P para continuar)" if est["tick"]["pausa"] else ""
                 elif e.key == pygame.K_RETURN:
-                    pantalla.blit(fuente.render("Simulando ronda...", True, (255, 255, 255)), (10, n * CELDA + 18))
-                    pygame.display.flip()
-                    try:
-                        correr_ronda(est["paso"], est["pend"])
-                        _, est["estado"], est["fuel"] = leer_mapa(MAPA_JUEGO)
-                        est["paso"] += PASOS_RONDA; est["ronda"] += 1
-                        actualizar_emergencia(est)
-                        est["pend"] = []; est["msg"] = ""
-                        est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
-                        redibujar()
-                    except Exception as ex:
-                        est["msg"] = "Error del motor: " + str(ex)
+                    est["tick"]["t_fin"] = 0     # depuracion: adelanta el siguiente tick
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
                 if my < n * CELDA and mx < n * CELDA:
@@ -531,25 +627,51 @@ def main():
                             sonidos[tipo].play()
 
         ahora = pygame.time.get_ticks()
-        if ahora - est.get("t_mov", 0) >= 90:   # el bombero se mueve cada 90 ms
+        tk = est["tick"]
+        if tk["res"] is None:
+            if (not tk["pausa"] and not est["ver_eval"] and est["estado"].count(2) > 0
+                    and ahora - tk["t_fin"] >= TICK_MS[est["nivel"]]):
+                tk["res"] = {}
+                envio, est["pend"] = est["pend"], []
+                tk["hilo"] = threading.Thread(target=_hilo_tick, args=(est["paso"], envio, tk["res"]), daemon=True)
+                tk["hilo"].start()
+        elif tk["res"].get("listo"):
+            if "err" in tk["res"]:
+                est["msg"] = "Error del motor: " + tk["res"]["err"]
+            else:
+                _, est["estado"], est["fuel"] = tk["res"]["mapa"]
+                est["paso"] += PASOS_RONDA; est["ronda"] += 1
+                actualizar_emergencia(est)
+                est["msg"] = ""
+                redibujar()
+            tk["res"] = None; tk["t_fin"] = ahora
+        if est.get("ia_rol", "veterinaria") == "bombero":
+            ia_bombero(est, ahora)
+        elif ahora - est.get("t_mov", 0) >= 90:   # el bombero se mueve cada 90 ms
             k = pygame.key.get_pressed()
-            dx = int(bool(k[pygame.K_RIGHT] or k[pygame.K_d])) - int(bool(k[pygame.K_LEFT] or k[pygame.K_a]))
-            dy = int(bool(k[pygame.K_DOWN] or k[pygame.K_s])) - int(bool(k[pygame.K_UP] or k[pygame.K_w]))
+            dx = int(bool(k[pygame.K_RIGHT])) - int(bool(k[pygame.K_LEFT]))
+            dy = int(bool(k[pygame.K_DOWN])) - int(bool(k[pygame.K_UP]))
             if dx or dy:
                 est["t_mov"] = ahora
                 nx, ny = est["bx"] + dx, est["by"] + dy
-                if 0 <= nx < n and 0 <= ny < n and est["estado"][ny * n + nx] != 5:
+                if 0 <= nx < n and 0 <= ny < n:
                     est["bx"], est["by"] = nx, ny
+                    if est["estado"][ny * n + nx] == 5:
+                        est["t_mov"] = ahora + 110    # vadear el rio es mas lento
 
-        if ahora - est.get("t_movv", 0) >= 90:   # la veterinaria se mueve con I J K L
+        if est.get("ia_rol", "veterinaria") == "veterinaria":
+            ia_veterinaria(est, ahora)
+        elif ahora - est.get("t_movv", 0) >= 90:   # la veterinaria se mueve con W A S D
             k = pygame.key.get_pressed()
-            dx = int(bool(k[pygame.K_l])) - int(bool(k[pygame.K_j]))
-            dy = int(bool(k[pygame.K_k])) - int(bool(k[pygame.K_i]))
+            dx = int(bool(k[pygame.K_d])) - int(bool(k[pygame.K_a]))
+            dy = int(bool(k[pygame.K_s])) - int(bool(k[pygame.K_w]))
             if dx or dy:
                 est["t_movv"] = ahora
                 nx, ny = est["vx"] + dx, est["vy"] + dy
-                if 0 <= nx < n and 0 <= ny < n and est["estado"][ny * n + nx] != 5:
+                if 0 <= nx < n and 0 <= ny < n:
                     est["vx"], est["vy"] = nx, ny
+                    if est["estado"][ny * n + nx] == 5:
+                        est["t_movv"] = ahora + 110
         if est["carga"] is not None:
             est["carga"][0], est["carga"][1] = est["vx"], est["vy"]
             rx, ry, rw, rh = est["refugio"]
@@ -613,7 +735,7 @@ def main():
         elif quemando == 0:
             linea2 = f"Incendio controlado. Bosque conservado: {veg * 100 // est['veg0']}%  (R = reiniciar)"
         else:
-            linea2 = "Izq: cortafuegos | Der: agua | Enter: ronda | Retroceso: deshacer | R: reiniciar"
+            linea2 = "Izq: cortafuegos | Der: agua | P: pausa | Retroceso: deshacer | R: reiniciar"
         pantalla.blit(fuente.render(linea1, True, (255, 255, 255)), (10, n * CELDA + 6))
         pantalla.blit(fuente.render(linea2, True, (200, 200, 200)), (10, n * CELDA + 30))
         pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
@@ -637,18 +759,18 @@ def main():
         col_n = {"inicial": (120, 255, 160), "avanzada": (255, 200, 80), "critica": (255, 80, 80)}[est["nivel"]]
         pantalla.blit(fuente_p.render("EMERGENCIA: " + est["nivel"].upper(), True, col_n), (px, py))
         if est["cuenta"] is not None:
-            pantalla.blit(fuente_p.render("Cuenta regresiva: " + str(max(0, est["cuenta"])) + " rondas",
+            pantalla.blit(fuente_p.render("Cuenta regresiva: " + str(max(0, est["cuenta"]) * TICK_MS["critica"] // 1000) + " s",
                                           True, (255, 120, 120)), (px, py + 20))
         py += 50
         ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
         uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
         bloques = [
-            ("BOMBERO", [("Mochila de agua (clic der.) " + str(ua) + "/" + str(LIMITES["APAGAR"]), True),
+            ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(ua) + "/" + str(LIMITES["APAGAR"]), True),
                          ("Cortafuegos (clic izq.) " + str(uc) + "/" + str(LIMITES["CORTAFUEGO"]), True),
                          ("Manguera de presion (proximamente)", False),
                          ("Proteccion termica (proximamente)", False),
                          ("Torre de vigilancia (proximamente)", False)]),
-            ("VETERINARIA", [("Rescate (E)", True),
+            ("VETERINARIA" + (" (IA)" if est.get("ia_rol", "veterinaria") == "veterinaria" else ""), [("Rescate (E)", True),
                              ("Botiquin (proximamente)", False),
                              ("Rastreo animal (proximamente)", False),
                              ("Senal de auxilio (proximamente)", False),
