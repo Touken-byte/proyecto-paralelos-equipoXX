@@ -1,6 +1,6 @@
 # Simulación paralela de incendios forestales del Gran Chaco con OpenMP, MPI y un modelo híbrido
 
-**Autora:** Touken-byte | **Equipo:** [EQUIPO: firnt (por confirmar)] | **Materia:** TEL-420 Sistemas Paralelos, UAJMS Yacuiba | **Docente:** Ing. Elias Cassal Baldiviezo
+**Autora:** Lizzy Leyla Baron Barrero | **Materia:** TEL-420 Sistemas Paralelos, UAJMS Yacuiba | **Docente:** Ing. Elias Cassal Baldiviezo
 
 ## I. Resumen y Abstract
 **Resumen.** [PENDIENTE: 150-200 palabras, al final. Estructura: problema (incendios forestales en el Gran Chaco), método (autómata celular estocástico con versiones secuencial, OpenMP, MPI e híbrida, y predictor Monte Carlo sobre un clúster Docker de 3 nodos), resultados ([DELL] speedup y eficiencia máximos) y conclusión.]
@@ -34,7 +34,7 @@ E. Estado del arte: los autómatas celulares se usan para modelar la propagació
 ## IV. Diseño de la arquitectura e infraestructura
 A. Clúster: 3 contenedores Docker (master, worker1, worker2), red bridge, SSH sin contraseña, Ubuntu 22.04, 8 GB de RAM y hasta 4 CPUs por nodo.
 
-B. Hardware de medición: [DELL] lscpu (modelo, núcleos físicos, hilos lógicos), RAM.
+B. Hardware de medición: Dell OptiPlex Tower Plus 7010 con Intel Core i7-13700 de 13.ª generación (16 núcleos, 24 hilos lógicos, hasta 5,2 GHz, 30 MiB de caché L3) y 31 GiB de RAM; Docker 29.7.0 en el host y, dentro de los contenedores, Ubuntu 22.04 con gcc 11.4.0 y Open MPI 4.1.2. [verificar en la ficha de Intel: 8 núcleos de rendimiento y 8 de eficiencia.]
 
 C. Asignación de recursos: cada contenedor recibe hasta 4 CPUs y 8 GB de RAM (parámetros cpus y mem_limit de docker-compose.yml). Los tres nodos comparten la CPU física del host, de modo que el clúster reproduce la lógica de un sistema distribuido pero no el costo de una red real. El archivo hostfile lista los tres nodos y los procesos MPI se reparten con --map-by node (un proceso por nodo).
 
@@ -55,7 +55,7 @@ B. OpenMP (memoria compartida): las filas de la malla se reparten entre los hilo
 
 C. MPI (memoria distribuida): la malla se descompone por bloques de filas, uno por proceso. Las primeras (n mod p) filas-bloque llevan una fila extra, de modo que la diferencia de carga entre procesos es de una fila. En cada paso, cada proceso aplica primero las acciones del jugador sobre sus filas y luego intercambia la fila frontera con sus vecinos superior e inferior mediante MPI_Isend y MPI_Irecv no bloqueantes seguidos de MPI_Waitall, lo que evita interbloqueos. Después calcula solo sus filas. Al final, las métricas globales se obtienen con MPI_Reduce (suma de tres contadores globales) y el estado final se reúne en el proceso 0 con MPI_Gatherv. Limitación actual: cada proceso reserva la malla completa y solo calcula su bloque; la comunicación es la mínima necesaria, pero la memoria por proceso no se reduce (mejora prevista: bloque local más dos filas halo).
 
-D. Híbrido y Vigía: el Vigía ejecuta simulaciones Monte Carlo independientes con distintas semillas. Las simulaciones se reparten entre procesos MPI y, dentro de cada proceso, los hilos OpenMP procesan su parte. Los resultados se acumulan en un mapa de probabilidad de riesgo de quema por celda. Al ser simulaciones independientes, casi no requieren comunicación: la única es una reducción final. La simulación s se asigna al proceso (s mod p), los hilos de cada proceso toman simulaciones con schedule(dynamic,1) y cada hilo usa un mapa acumulador y un doble buffer privados, por lo que no hay sincronización dentro de una simulación. Los acumuladores de los hilos se fusionan en una sección crítica y los de los procesos con MPI_Reduce. La semilla de cada simulación se deriva con SplitMix64 solo de la semilla base y del índice s, no del proceso ni del hilo, por lo que el mapa de riesgo no debería depender de cómo se reparta el trabajo [verificar con la Dell variando procesos e hilos]. El Vigía acepta además un archivo de acciones (--acciones), con el mismo formato que el motor secuencial, para comparar el riesgo con y sin cortafuegos; sin ese archivo el resultado es idéntico al anterior (checksum de referencia verificado con n=128, 8 simulaciones y 50 pasos: 3fcc85cb0166e9e5).
+D. Híbrido y Vigía: el Vigía ejecuta simulaciones Monte Carlo independientes con distintas semillas. Las simulaciones se reparten entre procesos MPI y, dentro de cada proceso, los hilos OpenMP procesan su parte. Los resultados se acumulan en un mapa de probabilidad de riesgo de quema por celda. Al ser simulaciones independientes, casi no requieren comunicación: la única es una reducción final. La simulación s se asigna al proceso (s mod p), los hilos de cada proceso toman simulaciones con schedule(dynamic,1) y cada hilo usa un mapa acumulador y un doble buffer privados, por lo que no hay sincronización dentro de una simulación. Los acumuladores de los hilos se fusionan en una sección crítica y los de los procesos con MPI_Reduce. La semilla de cada simulación se deriva con SplitMix64 solo de la semilla base y del índice s, no del proceso ni del hilo, por lo que el mapa de riesgo no debería depender de cómo se reparta el trabajo (verificado en la Dell con n=512, 48 simulaciones y 100 pasos: el mismo checksum eddb391a611603aa con 1 y 3 procesos y con 1 y 4 hilos). El Vigía acepta además un archivo de acciones (--acciones), con el mismo formato que el motor secuencial, para comparar el riesgo con y sin cortafuegos; sin ese archivo el resultado es idéntico al anterior (checksum de referencia verificado con n=128, 8 simulaciones y 50 pasos: 3fcc85cb0166e9e5).
 
 E. Balanceo de carga: en OpenMP, schedule(runtime) permite comparar static, dynamic y guided sin recompilar [DELL: resultado]. En MPI, el reparto por bloques de filas deja una diferencia máxima de una fila entre procesos, aunque el costo real por fila puede variar con la cantidad de fuego. En el Vigía, el reparto cíclico de simulaciones entre procesos y la planificación dinámica entre hilos compensan simulaciones de duración desigual.
 
@@ -68,7 +68,7 @@ A. Protocolo: tamaños n=512, 1024 y 2048 con 100 pasos, hilos OpenMP 1, 2, 4, 8
 
 B. Reproducibilidad: `scripts/dell_medicion.sh`, semilla fija, repositorio con un comando.
 
-C. Huella de memoria: RSS máximo de la versión secuencial: 4,21 MB (n=512), 7,76 MB (n=1024) y 22,93 MB (n=2048).
+C. Huella de memoria: RSS máximo de la versión secuencial (medido con /usr/bin/time): 4,07 MiB (n=512), 7,96 MiB (n=1024) y 22,61 MiB (n=2048).
 
 D. Escalabilidad fuerte: T_seq = 0,1452 s (n=512), 0,5588 s (n=1024) y 2,2543 s (n=2048). Speedup S y eficiencia E de OpenMP (media de 5 repeticiones, 100 pasos, checksum idéntico):
 
@@ -80,11 +80,29 @@ D. Escalabilidad fuerte: T_seq = 0,1452 s (n=512), 0,5588 s (n=1024) y 2,2543 s 
 | 8 | 6,748 / 0,843 | 7,242 / 0,905 | 7,870 / 0,984 |
 | 16 | 9,187 / 0,574 | 11,871 / 0,742 | 12,070 / 0,754 |
 
-El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) a 12,07 (n=2048). Las eficiencias ligeramente mayores que 1 (hasta 1,038) se atribuyen a variación de medición y a efectos de caché, no a un comportamiento superlineal. La caída de eficiencia con 16 hilos se discute en G. [PENDIENTE: ajuste de Amdahl y fracción secuencial f, desde analisis.txt.]
+El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) a 12,07 (n=2048). Las eficiencias ligeramente mayores que 1 (hasta 1,038) se atribuyen a variación de medición y a efectos de caché, no a un comportamiento superlineal. La caída de eficiencia con 16 hilos se discute en G. Ajuste de Amdahl: la fracción serial efectiva es f=0,046 (n=512), 0,022 (n=1024) y 0,020 (n=2048), con speedup máximo teórico de 21,7, 45,5 y 50,0. Con 16 hilos Amdahl predice 9,47, 12,03 y 12,31 frente a 9,19, 11,87 y 12,07 medidos. f incluye el efecto del ancho de banda de memoria, no solo el código secuencial.
 
 E. Escalabilidad débil: con la carga por hilo constante (n=512, 724, 1024, 1448 y 2048 para 1, 2, 4, 8 y 16 hilos) el tiempo se mantiene entre 0,147 s y 0,151 s hasta 8 hilos y sube a 0,185 s con 16. La eficiencia débil es 0,993, 0,997, 0,972 y 0,792 para 2, 4, 8 y 16 hilos, y el speedup escalado con 16 hilos es 12,67. La fracción serial escalada media es α=0,068, con la que Gustafson predice unos 14,98 con 16 hilos; lo medido queda por debajo porque α no es solo código secuencial: incluye ancho de banda de memoria y efectos de hyperthreading, y con 16 hilos sube a 0,222.
 
-F. MPI e híbrido: [DELL: tiempos con 1, 2, 3, 6 procesos; Vigía].
+F. MPI e híbrido: MPI sobre los 3 contenedores (n=2048, 100 pasos, una medición por configuración, checksum 82545e9347fe1d2b en todas):
+
+| Procesos | T (s) | S frente a T_seq | E |
+|---|---|---|---|
+| 1 | 2,166 | 1,04 | 1,04 |
+| 2 | 2,138 | 1,05 | 0,53 |
+| 3 | 0,765 | 2,95 | 0,98 |
+| 6 | 0,399 | 5,64 | 0,94 |
+
+Con 2 procesos casi no hay mejora y con 3 el tiempo cae a menos de la mitad. [PENDIENTE: explicar esta irregularidad; hay que repetir la medición y revisar cómo se reparten los procesos entre nodos.] Vigía híbrido (n=512, 48 simulaciones, 100 pasos, mismo checksum eddb391a611603aa en todas):
+
+| Procesos | Hilos | T (s) | S frente a 1x1 |
+|---|---|---|---|
+| 1 | 1 | 6,541 | 1,00 |
+| 1 | 4 | 6,603 | 0,99 |
+| 3 | 1 | 2,298 | 2,85 |
+| 3 | 4 | 0,722 | 9,06 |
+
+Con 3 procesos y 4 hilos (12 unidades de trabajo) la eficiencia es 0,75. Que 4 hilos no mejoren nada con 1 proceso es inesperado. [PENDIENTE: verificar si OpenMP usó realmente los 4 hilos en ese caso.]
 
 G. Cuellos de botella: ancho de banda de memoria, hyperthreading, los 3 nodos comparten la misma CPU física, red virtual sin latencia real.
 
