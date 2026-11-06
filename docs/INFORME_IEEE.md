@@ -19,6 +19,8 @@ C. Híbrido y Vigía: simulaciones Monte Carlo independientes entre procesos, hi
 D. Clasificación: MIMD, SPMD; memoria compartida (OpenMP) y distribuida (MPI).
 E. Corrección: checksum idéntico en todas las versiones (n=512, semilla 42, 100 pasos: c5dad814f7cbeaff).
 
+F. Integración con el videojuego: el motor secuencial (`fire_seq`) se ejecuta dentro del contenedor `master` y el videojuego en Python (pygame) lo invoca una vez por ronda de cinco pasos. Las acciones de los jugadores (cortafuegos y agua) se escriben en un archivo de acciones que el motor lee en el paso indicado, y el estado del mapa se guarda y se recupera entre rondas, de modo que la simulación continúa sin recalcularse desde cero. El cálculo corre en un hilo aparte para que la interfaz no se bloquee. Cada nivel de la campaña (Bosques de Yacuiba, Serranía del Aguaragüe, Región de Tarija y El gran incendio) define su propio tamaño de mapa (96, 112, 128 y 128 celdas de lado), su semilla y la dirección e intensidad del viento. El Vigía recibe los mismos parámetros de viento que el fuego real, para que su mapa de riesgo Monte Carlo sea coherente con la partida. Los recursos del bombero (tanque de seis cargas con recarga junto al río y tiempo de recuperación del cortafuegos) y el compañero controlado por reglas se implementan en el cliente y no modifican el motor, por lo que el checksum de referencia no cambia.
+
 ## V. Infraestructura y metodología experimental
 A. Clúster: 3 contenedores Docker (master, worker1, worker2), red bridge, SSH sin contraseña, Ubuntu 22.04, 8 GB de RAM y hasta 4 CPUs por nodo.
 B. Hardware de medición: [DELL] lscpu (modelo, núcleos físicos, hilos lógicos), RAM.
