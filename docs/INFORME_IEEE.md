@@ -10,12 +10,18 @@ Palabras clave: autómata celular, incendios forestales, OpenMP, MPI, speedup, A
 Problema regional (ver docs/PERFIL_TECNICO.md). Motivación para paralelizar: muchos escenarios y muchas celdas. Objetivos y contribuciones: motor secuencial, OpenMP, MPI, híbrido con Vigía Monte Carlo, infraestructura reproducible en Docker. [Agregar fuente oficial sobre incendios en la región si se consigue.]
 
 ## III. Modelo y algoritmo
-Autómata celular estocástico, malla n x n, vecindad de Moore, doble buffer. Regla de transición, probabilidad de ignición P = 1 - Π(1 - p_k) y RNG determinista por celda (semilla, paso, índice). Acciones del jugador. Ver docs/PERFIL_TECNICO.md, sección 2.
+El incendio se modela como un autómata celular estocástico sobre una malla de n x n celdas con vecindad de Moore (8 vecinas) y doble buffer: el paso t+1 se calcula leyendo únicamente el paso t, lo que elimina dependencias dentro de un mismo paso.
+
+Cada celda puede estar vacía, con vegetación, quemando, quemada, con cortafuegos o con agua, y solo la vegetación puede encenderse. Una celda en llamas pasa a quemada con probabilidad p_apagado = 0,25 por paso. Para una celda de vegetación, cada vecina k en llamas aporta una probabilidad de contagio p_k = min(0,95; p_base · f_c · f_h · f_v,k), con p_base = 0,30. El factor de combustible es f_c = combustible/255, el de humedad f_h = 1 − 0,8 · humedad/255, y el de viento f_v,k = d_k · exp(1,5 · w · cos θ_k), donde w es la fuerza del viento, θ_k el ángulo entre la dirección del viento y la dirección vecina → celda, y d_k vale 1 para vecinas ortogonales y 0,7071 para diagonales.
+
+La probabilidad total de ignición combina a todas las vecinas en llamas, P = 1 − Π(1 − p_k), y la celda se enciende si u < P. El número aleatorio u se obtiene de SplitMix64 aplicado a la terna (semilla, paso, índice de celda), de modo que depende solo de esos tres valores y nunca del hilo o proceso que calcula la celda. Esta decisión de diseño hace que todas las versiones produzcan exactamente el mismo resultado y permite verificarlas con un checksum del estado final.
+
+Las acciones del jugador son APAGAR (quemando → quemada) y CORTAFUEGO (vegetación → cortafuegos), y se aplican antes de calcular cada paso.
 
 ## IV. Implementación paralela
-A. OpenMP: reparto de filas, schedule(runtime), doble buffer.
-B. MPI: descomposición por filas, halo de una fila, reducción de métricas.
-C. Híbrido y Vigía: simulaciones Monte Carlo independientes entre procesos, hilos dentro de cada proceso.
+A. OpenMP (memoria compartida): las filas de la malla se reparten entre los hilos con la cláusula schedule(runtime), lo que permite comparar las políticas static, dynamic y guided sin recompilar. Gracias al doble buffer, los hilos escriben en el buffer de destino sin sincronización dentro del paso.
+B. MPI (memoria distribuida): la malla se descompone por bloques de filas, uno por proceso. En cada paso los procesos intercambian una fila de halo con sus vecinos para poder evaluar las celdas del borde, y las métricas globales se obtienen con una reducción.
+C. Híbrido y Vigía: el Vigía ejecuta simulaciones Monte Carlo independientes con distintas semillas. Las simulaciones se reparten entre procesos MPI y, dentro de cada proceso, los hilos OpenMP procesan su parte. Los resultados se acumulan en un mapa de probabilidad de riesgo de quema por celda. Al ser simulaciones independientes, casi no requieren comunicación.
 D. Clasificación: MIMD, SPMD; memoria compartida (OpenMP) y distribuida (MPI).
 E. Corrección: checksum idéntico en todas las versiones (n=512, semilla 42, 100 pasos: c5dad814f7cbeaff).
 
