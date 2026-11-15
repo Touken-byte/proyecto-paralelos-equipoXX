@@ -1060,13 +1060,90 @@ def pantalla_maqueta(pantalla, titulo, lineas, etiqueta_txt="MAQUETA - EN CONSTR
         pygame.display.flip()
         reloj.tick(30)
 
+def tienda(pantalla, fuente):
+    # Tienda de skins: devuelve None al volver, o 'salir' si se cierra la ventana.
+    w, h = pantalla.get_size()
+    f_tit = pygame.font.Font(None, 46)
+    f_s = pygame.font.Font(None, 34)
+    f_n = pygame.font.Font(None, 28)
+    f_p = pygame.font.Font(None, 22)
+    fondo = pygame.Surface((w, h))
+    for y in range(h):
+        t = y / h
+        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    pers = ("bombero", "vet")
+    nombres = {"bombero": "Bombero", "vet": "Veterinaria"}
+    col, sel, msg, msg_ok = 0, [0, 0], "", True
+    d = cargar_eco()
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    return None
+                elif e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                    col = 1 - col
+                elif e.key == pygame.K_UP:
+                    sel[col] = (sel[col] - 1) % len(SKINS[pers[col]])
+                elif e.key == pygame.K_DOWN:
+                    sel[col] = (sel[col] + 1) % len(SKINS[pers[col]])
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    p, i = pers[col], sel[col]
+                    if skin_comprada(p, i, d):
+                        msg_ok, msg = equipar_skin(p, i)
+                    else:
+                        msg_ok, msg = comprar_skin(p, i)
+                    d = cargar_eco()
+        pantalla.blit(fondo, (0, 0))
+        t = f_tit.render("Tienda de personalización", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 50)))
+        s = f_s.render(f"EcoMonedas: {d.get('saldo', 0)}", True, (255, 220, 100))
+        pantalla.blit(s, s.get_rect(center=(w // 2, 92)))
+        ancho = (w - 90) // 2
+        for c, p in enumerate(pers):
+            caja = pygame.Rect(30 + c * (ancho + 30), 125, ancho, 310)
+            pygame.draw.rect(pantalla, (32, 44, 36), caja, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 170, 60) if c == col else (90, 90, 90), caja, 2, border_radius=8)
+            pantalla.blit(f_n.render(nombres[p], True, (255, 255, 255)), (caja.x + 12, caja.y + 10))
+            eq = skin_equipada(p, d)
+            for i, (nom, precio, _) in enumerate(SKINS[p]):
+                r = pygame.Rect(caja.x + 10, caja.y + 44 + i * 62, ancho - 130, 56)
+                if i == sel[c]:
+                    fcol = (255, 87, 34) if c == col else (110, 80, 60)
+                else:
+                    fcol = (50, 60, 52)
+                pygame.draw.rect(pantalla, fcol, r, border_radius=6)
+                pantalla.blit(f_n.render(nom, True, (255, 255, 255)), (r.x + 8, r.y + 6))
+                if i == eq:
+                    est_txt, est_col = "Equipada", (120, 230, 120)
+                elif skin_comprada(p, i, d):
+                    est_txt, est_col = "Comprada", (200, 200, 200)
+                else:
+                    est_txt = f"{precio} EcoMonedas"
+                    est_col = (255, 90, 90) if d.get("saldo", 0) < precio else (255, 255, 255)
+                pantalla.blit(f_p.render(est_txt, True, est_col), (r.x + 8, r.y + 33))
+            _, spr = sprite_personaje(p, sel[c])
+            big = pygame.transform.scale(spr, (spr.get_width() * 5, spr.get_height() * 5))
+            pantalla.blit(big, big.get_rect(center=(caja.right - 60, caja.y + 150)))
+            pantalla.blit(f_p.render("Vista previa", True, (190, 190, 190)),
+                          f_p.render("Vista previa", True, (0, 0, 0)).get_rect(center=(caja.right - 60, caja.y + 60)))
+        if msg:
+            m = f_n.render(msg, True, (120, 230, 120) if msg_ok else (255, 90, 90))
+            pantalla.blit(m, m.get_rect(center=(w // 2, 462)))
+        ayuda = f_p.render("Flechas: elegir  |  Enter: comprar o equipar  |  Esc: volver", True, (190, 190, 190))
+        pantalla.blit(ayuda, ayuda.get_rect(center=(w // 2, h - 30)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
     f_sub = pygame.font.Font(None, 30)
     f_op = pygame.font.Font(None, 32)
     opciones = ["Jugar", "Campaña", "Modos especiales", "Centro de Análisis", "Cuaderno de Guardianes",
-                "Salón de Guardianes", "Tienda (bloqueada)", "Próximamente", "Cómo jugar", "Salir"]
+                "Salón de Guardianes", "Tienda", "Próximamente", "Cómo jugar", "Salir"]
     ayuda_txt = [
         "Eres el bombero forestal de los Bosques de Yacuiba.",
         "Clic izquierdo: cortafuegos (frena el avance del fuego).",
@@ -1173,6 +1250,9 @@ def menu_principal(pantalla, fuente):
                     return False
             elif op == "Cuaderno de Guardianes":
                 if cuaderno(pantalla, fuente) == "salir":
+                    return False
+            elif op == "Tienda":
+                if tienda(pantalla, fuente) == "salir":
                     return False
             elif op in MAQUETAS:
                 titulo_m, lineas_m = MAQUETAS[op]
