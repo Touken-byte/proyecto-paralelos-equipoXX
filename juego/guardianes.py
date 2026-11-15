@@ -1210,6 +1210,21 @@ def dibujar_fx(pantalla, est):
                 bx, by = extra
                 pygame.draw.line(pantalla, col, (int(bx * CELDA + CELDA // 2), int(by * CELDA + CELDA // 2)),
                                  (cx, cy), 2)
+        elif tipo == "destello":
+            pygame.draw.circle(pantalla, col, (cx, cy), int(6 + 14 * f), 2)
+            pygame.draw.circle(pantalla, col, (cx, cy), int(3 + 8 * f), 1)
+        elif tipo == "estrellas":
+            for k in range(6):
+                ang = k * math.pi / 3 + f * 3
+                d = 4 + 18 * f
+                px = cx + int(math.cos(ang) * d)
+                py = cy - int(math.sin(ang) * d) - int(10 * f)
+                pygame.draw.rect(pantalla, col, (px - 1, py - 1, 3, 3))
+        elif tipo == "tierra":
+            for dx, dy in extra:
+                px = cx + int(dx * f * 9)
+                py = cy + int(dy * f * 9 + 10 * f * f)
+                pygame.draw.rect(pantalla, col, (px, py, 2, 2))
         elif tipo == "cura":
             py = cy - 8 - int(18 * f)
             pygame.draw.rect(pantalla, col, (cx - 1, py - 4, 3, 9))
@@ -1930,6 +1945,7 @@ def main():
                         for a in est["animales"]:
                             if a[2] == "libre" and (a[0] - est["vx"]) ** 2 + (a[1] - est["vy"]) ** 2 <= 4:
                                 a[2] = "cargado"; est["carga"] = a
+                                fx_nuevo(est, "destello", a[0], a[1], 700, (80, 255, 140))
                                 est["msg"] = "Animal en brazos: llévalo al refugio"
                                 break
                     else:
@@ -2016,6 +2032,9 @@ def main():
                         desbloquear(est, "manual:cortafuego" if tipo == "CORTAFUEGO" else "manual:mochila")
                         if tipo == "CORTAFUEGO":
                             desbloquear(est, "guia:cortafuegos")
+                            fx_nuevo(est, "tierra", cx, cy, 500, (150, 105, 80), AGUA_GOTAS)
+                        else:
+                            fx_nuevo(est, "agua", cx, cy, 600, (120, 200, 255), AGUA_GOTAS)
                         if tipo in sonidos:
                             sonidos[tipo].play()
 
@@ -2074,6 +2093,7 @@ def main():
             rx, ry, rw, rh = est["refugio"]
             if rx <= est["vx"] < rx + rw and ry <= est["vy"] < ry + rh:
                 est["carga"][2] = "salvo"
+                fx_nuevo(est, "estrellas", est["vx"], est["vy"], 1500, (255, 230, 60))
                 desbloquear(est, "fauna:" + est["carga"][3]); desbloquear(est, "manual:rescate")
                 if "rescate" in sonidos:
                     sonidos["rescate"].play()
