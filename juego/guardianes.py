@@ -2936,16 +2936,24 @@ def pos_suave(est, k, x, y, ahora):
     return p[0], p[1], mov
 
 
-def sprite_paso(spr, nombre):
-    """Cuadro de caminata: la fila de abajo (piernas) se desplaza 2 px."""
-    clave = (nombre, "paso")
+def sprite_paso(spr, nombre, lado=1):
+    """Cuadro de caminata: la fila de abajo (botas) se desplaza 2 px a la izquierda (-1) o derecha (1)."""
+    clave = (nombre, "paso", lado)
     if clave not in _SPRITES:
         w, h = spr.get_size()
         s = spr.copy()
         piernas = spr.subsurface((0, h - 2, w, 2)).copy()
         s.fill((0, 0, 0, 0), (0, h - 2, w, 2))
-        s.blit(piernas, (2, h - 2))
+        s.blit(piernas, (2 * lado, h - 2))
         _SPRITES[clave] = s
+    return _SPRITES[clave]
+
+
+def voltear_sprite(spr, nombre):
+    """Sprite espejado horizontalmente (cacheado)."""
+    clave = (nombre, "volteado")
+    if clave not in _SPRITES:
+        _SPRITES[clave] = pygame.transform.flip(spr, True, False)
     return _SPRITES[clave]
 
 
@@ -3333,6 +3341,14 @@ def main():
         for _i, ((ax, ay, ea, esp), sfa) in enumerate(zip(est["animales"], estados_fauna(est))):
             _cx, _cy = anim_animal(est, _i, esp, sfa, ax, ay, _t)
             sa = sprite_animal(esp)
+            _dd = est.setdefault("dir_an", {})
+            _ant = _dd.get(_i)
+            if _ant is None:
+                _dd[_i] = (ax, 1)
+            elif ax != _ant[0]:
+                _dd[_i] = (ax, 1 if ax > _ant[0] else -1)
+            if _dd[_i][1] < 0:
+                sa = voltear_sprite(sa, esp)
             dibujar_sombra(pantalla, _cx, _cy + CELDA // 2, int(sa.get_width() * 0.8))
             pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
             col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
@@ -3361,8 +3377,9 @@ def main():
                                ("v",) + sprite_personaje("vet")):
             _px, _py, _mov = pos_suave(est, _k, est[_k + "x"], est[_k + "y"], _t)
             _salto = 0
-            if _mov and (_t // 130) % 2 == 1:
-                _spr = sprite_paso(_spr, _nom)
+            _fase = (_t // 130) % 4
+            if _mov and _fase in (1, 3):
+                _spr = sprite_paso(_spr, _nom, -1 if _fase == 1 else 1)
                 _salto = 2
             _pcx = int(_px * CELDA + CELDA // 2)
             _pie = int(_py * CELDA + CELDA)
