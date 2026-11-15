@@ -1053,10 +1053,7 @@ def pantalla_maqueta(pantalla, titulo, lineas, etiqueta_txt="MAQUETA - EN CONSTR
     f_tit = pygame.font.Font(None, 46)
     f_t = pygame.font.Font(None, 28)
     f_p = pygame.font.Font(None, 22)
-    fondo = pygame.Surface((w, h))
-    for y in range(h):
-        t = y / h
-        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    fondo = fondo_marca(w, h)
     reloj = pygame.time.Clock()
     while True:
         for e in pygame.event.get():
@@ -1109,10 +1106,7 @@ def salon(pantalla, fuente):
     f_tit = pygame.font.Font(None, 46)
     f_t = pygame.font.Font(None, 28)
     f_p = pygame.font.Font(None, 22)
-    fondo = pygame.Surface((w, h))
-    for y in range(h):
-        t = y / h
-        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    fondo = fondo_marca(w, h)
     pag = 0
     reloj = pygame.time.Clock()
     while True:
@@ -1835,9 +1829,10 @@ def cuadro_grande(pantalla, paginas, fuente):
         quien, texto = paginas[i]
         pantalla.blit(fondo, (0, 0))
         caja = pygame.Rect(30, h - 220, w - 60, 175)
-        pygame.draw.rect(pantalla, (45, 25, 70), caja, border_radius=8)
-        pygame.draw.rect(pantalla, (200, 180, 240), caja, 3, border_radius=8)
-        pygame.draw.rect(pantalla, (120, 95, 170), caja.inflate(-14, -14), 1, border_radius=6)
+        pygame.draw.rect(pantalla, (0, 0, 0), caja.move(4, 5), border_radius=8)
+        pygame.draw.rect(pantalla, (22, 36, 28), caja, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 170, 60), caja, 3, border_radius=8)
+        pygame.draw.rect(pantalla, (90, 120, 95), caja.inflate(-14, -14), 1, border_radius=6)
         tx = caja.x + 24
         if quien:
             es_b = quien == "b"
@@ -1856,7 +1851,7 @@ def cuadro_grande(pantalla, paginas, fuente):
             ty = caja.y + 26
         for k, l in enumerate(_ajustar(texto, f_t, caja.right - tx - 24)):
             pantalla.blit(f_t.render(l, True, (240, 240, 240)), (tx, ty + 28 * k))
-        pie = f_p.render(f"Enter: continuar  ({i + 1}/{len(paginas)})", True, (190, 170, 220))
+        pie = f_p.render(f"Enter: continuar  ({i + 1}/{len(paginas)})", True, (200, 190, 150))
         pantalla.blit(pie, (caja.right - pie.get_width() - 22, caja.bottom - 30))
         pygame.display.flip()
         reloj.tick(30)
@@ -2310,11 +2305,14 @@ def seleccionar_dificultad(pantalla, fuente):
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
                         return claves[i]
-        pantalla.fill((22, 34, 26))
+        pantalla.blit(fondo_marca(w, h), (0, 0))
         t = f_tit.render("Dificultad del compañero", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 150)))
         for i, r in enumerate(rects):
-            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
+            rr = r.inflate(14, 0) if i == sel else r
+            pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
             s = f_op.render(IA_NIVELES[claves[i]]["nombre"], True, (255, 255, 255))
             pantalla.blit(s, s.get_rect(center=r.center))
         d = fuente.render(IA_NIVELES[claves[sel]]["desc"], True, (230, 230, 230))
