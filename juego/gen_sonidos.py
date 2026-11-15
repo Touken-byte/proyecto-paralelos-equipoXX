@@ -34,8 +34,71 @@ def cortafuegos():
         out.append((0.7 * s + 0.3 * r) * (1 - t) ** 1.2)
     return out
 
+def _nota(f0, f1, dur, amp=0.6, atk=0.01, decay=4.0, arm=0.0):
+    # Tono con barrido f0->f1, ataque corto y caida exponencial
+    n = int(TASA * dur); out = []; fase = 0.0
+    for i in range(n):
+        t = i / n
+        fase += 2 * math.pi * (f0 + (f1 - f0) * t) / TASA
+        env = min(1.0, i / (atk * TASA)) * math.exp(-decay * t) * (1 - t ** 8)
+        out.append(amp * env * (math.sin(fase) + arm * math.sin(2 * fase)))
+    return out
+
+def rescate():
+    # Arpegio ascendente corto: animal a salvo
+    s = []
+    for f in (523.25, 659.25, 783.99):
+        s += _nota(f, f, 0.12, 0.5, decay=2.5, arm=0.3)
+    return s + _nota(1046.5, 1046.5, 0.4, 0.5, decay=3.0, arm=0.3)
+
+def recompensa():
+    # Dos notas brillantes: estrella / objetivo cumplido
+    return _nota(880.0, 880.0, 0.12, 0.5, decay=2.0, arm=0.4) + _nota(1318.5, 1318.5, 0.45, 0.5, decay=3.0, arm=0.4)
+
+def derrota():
+    # Cuatro notas descendentes y lentas
+    s = []
+    for f in (392.0, 329.63, 261.63, 196.0):
+        s += _nota(f, f, 0.28, 0.5, decay=2.0, arm=0.2)
+    return s
+
+def proteccion():
+    # Zumbido ascendente con vibrato: proteccion termica
+    base = _nota(180.0, 520.0, 0.4, 0.5, decay=1.5, arm=0.5)
+    return [v * (0.7 + 0.3 * math.sin(2 * math.pi * 18 * i / TASA)) for i, v in enumerate(base)]
+
+def conocimiento():
+    # Ping claro: ficha identificada / cuaderno
+    a = _nota(1046.5, 1046.5, 0.35, 0.45, decay=4.0, arm=0.3)
+    b = _nota(1568.0, 1568.0, 0.35, 0.25, decay=5.0)
+    return [x + y for x, y in zip(a, b)]
+
+def fuego():
+    # Loop de 4 s: rumor grave muy tenue + chasquidos agudos y cortos; el final se mezcla con el inicio
+    random.seed(7)
+    n = int(TASA * 4.0); out = []; grave = 0.0; pop = 0.0; prev_r = 0.0
+    for i in range(n):
+        r = random.uniform(-1, 1)
+        grave += 0.03 * (r - grave)
+        brillo = r - prev_r; prev_r = r
+        pop *= 0.985
+        if random.random() < 0.0009:
+            pop = random.random() ** 2 + 0.1
+        out.append(grave * 0.5 + brillo * 0.03 + pop * brillo * 0.5)
+    f = int(TASA * 0.25)
+    for i in range(f):
+        a = i / f
+        out[i] = out[i] * a + out[n - f + i] * (1 - a)
+    out = out[:n - f]
+    rms = (sum(v * v for v in out) / len(out)) ** 0.5
+    k = 0.025 / rms   # nivel RMS fijo y bajo (ajustable)
+    return [max(-1.0, min(1.0, v * k)) for v in out]
+
 if __name__ == "__main__":
     os.makedirs("juego/sonidos", exist_ok=True)
     guardar("juego/sonidos/agua.wav", agua())
     guardar("juego/sonidos/cortafuegos.wav", cortafuegos())
+    for nom, fn in (("rescate", rescate), ("recompensa", recompensa), ("derrota", derrota),
+                    ("proteccion", proteccion), ("conocimiento", conocimiento), ("fuego", fuego)):
+        guardar("juego/sonidos/" + nom + ".wav", fn())
     print("OK: sonidos generados en juego/sonidos/")
