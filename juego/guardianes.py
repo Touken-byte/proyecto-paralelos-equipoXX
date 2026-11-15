@@ -1387,6 +1387,20 @@ def centro_analisis(pantalla, fuente):
         pygame.display.flip()
         reloj.tick(30)
 
+def dibujar_fondo_panel(pantalla, x, ancho, alto):
+    """Fondo del panel lateral: degradado verde oscuro y borde de acento naranja (cacheado)."""
+    cache = _SPRITES.setdefault("fondo_panel", {})
+    s = cache.get((ancho, alto))
+    if s is None:
+        s = pygame.Surface((ancho, alto))
+        for y in range(alto):
+            t = y / max(1, alto)
+            pygame.draw.line(s, (int(28 - 8 * t), int(40 - 12 * t), int(36 - 10 * t)), (0, y), (ancho, y))
+        pygame.draw.rect(s, (255, 140, 40), (0, 0, 3, alto))
+        cache[(ancho, alto)] = s
+    pantalla.blit(s, (x, 0))
+
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
@@ -1418,6 +1432,8 @@ def menu_principal(pantalla, fuente):
     reloj = pygame.time.Clock()
     sel = 0
     ayuda = False
+    luci = [[random.uniform(0, w), random.uniform(0, h), random.uniform(0, 6.28), random.uniform(0.2, 0.8)]
+            for _ in range(40)]
 
     def centrado(texto, fnt, col, y):
         s = fnt.render(texto, True, col)
@@ -1513,6 +1529,17 @@ def menu_principal(pantalla, fuente):
                     return False
 
         pantalla.blit(fondo, (0, 0))
+        import math
+        _tm = pygame.time.get_ticks() / 1000.0
+        for _l in luci:
+            _l[1] -= _l[3]
+            if _l[1] < -5:
+                _l[1] = h + 5
+                _l[0] = random.uniform(0, w)
+            _a = 0.5 + 0.5 * math.sin(_tm * 2 + _l[2])
+            pygame.draw.circle(pantalla, (255, int(150 + 80 * _a), int(40 + 40 * _a)),
+                               (int(_l[0] + math.sin(_tm * 0.8 + _l[2]) * 14), int(_l[1])), 2)
+        centrado("GUARDIANES DEL CHACO", f_tit, (90, 30, 10), 63)
         centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 60)
         centrado("Gran Chaco boliviano - Tarija", f_sub, (230, 230, 230), 105)
         if ayuda:
@@ -1520,7 +1547,10 @@ def menu_principal(pantalla, fuente):
                 centrado(linea, fuente, (240, 240, 240), 160 + k * 34)
         else:
             for i, r in enumerate(rects):
-                pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
+                rr = r.inflate(14, 0) if i == sel else r
+                pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
+                pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
+                pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
                 centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery)
             centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
         dibujar_barra_volumen(pantalla, 20, h - 46)
@@ -3206,9 +3236,9 @@ def main():
             linea2 = "Izq: cortafuegos | Der: agua | P: pausa | O: audio | Retroceso: deshacer | R: reiniciar"
         pantalla.blit(fuente.render(linea1, True, (255, 255, 255)), (10, n * CELDA + 6))
         pantalla.blit(fuente.render(linea2, True, (200, 200, 200)), (10, n * CELDA + 30))
-        pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
+        dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA + 56)
         px = n * CELDA + 10
-        pantalla.blit(fuente.render("EL VIGIA", True, (255, 255, 255)), (px, 10))
+        pantalla.blit(fuente.render("EL VIGIA", True, (255, 170, 60)), (px, 10))
         dibujar_icono_cuaderno(pantalla, n * CELDA + PANEL_W - 50, 8, fuente_p)
         if pygame.time.get_ticks() - AJ["t"] < 2500:
             dibujar_barra_volumen(pantalla, n * CELDA - 170, 6)
@@ -3250,12 +3280,16 @@ def main():
                              ("Conocimiento silvestre (K) " + estado_hab(est, "t_conoc", CD_CONOC_MS), True)]),
         ]
         for titulo, habs in bloques:
-            pantalla.blit(fuente_p.render(titulo, True, (255, 255, 255)), (px, py)); py += 20
+            pantalla.blit(fuente_p.render(titulo, True, (255, 235, 190)), (px, py))
+            pygame.draw.line(pantalla, (255, 140, 40), (px, py + 17), (px + PANEL_W - 24, py + 17))
+            py += 22
             for nombre, activa in habs:
                 c = (230, 230, 230) if activa else (110, 110, 110)
                 pantalla.blit(fuente_p.render(("[x] " if activa else "[ ] ") + nombre, True, c), (px, py)); py += 18
             py += 10
-        pantalla.blit(fuente_p.render("FAUNA", True, (255, 255, 255)), (px, py)); py += 20
+        pantalla.blit(fuente_p.render("FAUNA", True, (255, 235, 190)), (px, py))
+        pygame.draw.line(pantalla, (255, 140, 40), (px, py + 17), (px + PANEL_W - 24, py + 17))
+        py += 22
         for i_a, (a, st) in enumerate(zip(est["animales"], estados_fauna(est))):
             if i_a in est.get("tratados", ()) and st in ("herido", "aislado", "asustado"):
                 st = "atendido"
