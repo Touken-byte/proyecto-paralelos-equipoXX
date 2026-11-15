@@ -553,13 +553,16 @@ def seleccionar_modo_especial(pantalla, fuente):
                         elegido = i
         if elegido is not None and MODOS_ESP[elegido][2]:
             return MODOS_ESP[elegido][0]
-        pantalla.fill((22, 34, 26))
+        pantalla.blit(fondo_marca(w, h), (0, 0))
         t = f_tit.render("Modos especiales", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 120)))
         for i, r in enumerate(rects):
             ok = MODOS_ESP[i][2]
-            col = (255, 87, 34) if i == sel and ok else (90, 90, 90) if i == sel else (60, 60, 60)
-            pygame.draw.rect(pantalla, col, r, border_radius=8)
+            col = (255, 87, 34) if i == sel and ok else (90, 90, 90) if i == sel else (38, 56, 44)
+            rr = r.inflate(14, 0) if i == sel else r
+            pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
+            pygame.draw.rect(pantalla, col, rr, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel and ok else (90, 120, 95), rr, 2, border_radius=8)
             s = f_op.render(MODOS_ESP[i][1] + ("" if ok else " (próximamente)"), True,
                             (255, 255, 255) if ok else (150, 150, 150))
             pantalla.blit(s, s.get_rect(center=r.center))
@@ -1942,6 +1945,8 @@ def dibujar_fx(pantalla, est):
             r = int(extra * CELDA * f)
             if r > 1:
                 pygame.draw.circle(pantalla, col, (cx, cy), r, 2)
+                if r > 8:
+                    pygame.draw.circle(pantalla, col, (cx, cy), r - 5, 1)
         elif tipo == "agua":
             pygame.draw.circle(pantalla, col, (cx, cy), int(CELDA * (0.5 + f * 1.5)), 1)
             for dx, dy in extra:
@@ -1953,6 +1958,7 @@ def dibujar_fx(pantalla, est):
                 bx, by = extra
                 pygame.draw.line(pantalla, col, (int(bx * CELDA + CELDA // 2), int(by * CELDA + CELDA // 2)),
                                  (cx, cy), 2)
+                pygame.draw.circle(pantalla, col, (cx, cy), 3 + int(3 * f))
         elif tipo == "destello":
             pygame.draw.circle(pantalla, col, (cx, cy), int(6 + 14 * f), 2)
             pygame.draw.circle(pantalla, col, (cx, cy), int(3 + 8 * f), 1)
@@ -1972,6 +1978,7 @@ def dibujar_fx(pantalla, est):
             py = cy - 8 - int(18 * f)
             pygame.draw.rect(pantalla, col, (cx - 1, py - 4, 3, 9))
             pygame.draw.rect(pantalla, col, (cx - 4, py - 1, 9, 3))
+            pygame.draw.circle(pantalla, col, (cx, py), 8 + int(4 * f), 1)
     if ahora < est.get("t_prot_fin", 0):
         p = est.get("vis", {}).get("b")
         if p:
