@@ -447,15 +447,30 @@ def nivel_bloqueado(i):
     hechos = cargar_campana()
     return any(nv["id"] not in hechos for nv in NIVELES if nv["zona"] == z - 1)
 
+def _degradado_tramado(w, h, f, banda=8):
+    """Degradado vertical en bandas con transicion en damero (dithering). f(t) -> color."""
+    s = pygame.Surface((w, h))
+    n = (h + banda - 1) // banda
+    cols = [f(min(1.0, (k * banda) / max(1, h))) for k in range(n + 1)]
+    for k in range(n):
+        y0 = k * banda
+        s.fill(cols[k], (0, y0, w, min(banda, h - y0)))
+    for k in range(n - 1):
+        y0 = k * banda
+        for dy, paso in ((banda - 2, 4), (banda - 1, 2)):
+            y = y0 + dy
+            if y < h:
+                for x in range(0, w, paso):
+                    s.set_at((x, y), cols[k + 1])
+    return s
+
+
 def fondo_marca(w, h):
     """Degradado verde del menu, cacheado, para las pantallas internas."""
     cache = _SPRITES.setdefault("fondo_marca", {})
     s = cache.get((w, h))
     if s is None:
-        s = pygame.Surface((w, h))
-        for y in range(h):
-            t = y / max(1, h)
-            pygame.draw.line(s, (int(15 + 90 * t), int(40 - 10 * t), int(25 - 10 * t)), (0, y), (w, y))
+        s = _degradado_tramado(w, h, lambda t: (int(15 + 90 * t), int(40 - 10 * t), int(25 - 10 * t)))
         cache[(w, h)] = s
     return s
 
@@ -1503,11 +1518,10 @@ def dibujar_fondo_panel(pantalla, x, ancho, alto):
     cache = _SPRITES.setdefault("fondo_panel", {})
     s = cache.get((ancho, alto))
     if s is None:
-        s = pygame.Surface((ancho, alto))
-        for y in range(alto):
-            t = y / max(1, alto)
-            pygame.draw.line(s, (int(28 - 8 * t), int(40 - 12 * t), int(36 - 10 * t)), (0, y), (ancho, y))
+        s = _degradado_tramado(ancho, alto, lambda t: (int(28 - 8 * t), int(40 - 12 * t), int(36 - 10 * t)))
         pygame.draw.rect(s, (255, 140, 40), (0, 0, 3, alto))
+        pygame.draw.rect(s, (255, 205, 130), (0, 0, 1, alto))
+        pygame.draw.rect(s, (150, 70, 20), (2, 0, 1, alto))
         cache[(ancho, alto)] = s
     pantalla.blit(s, (x, 0))
 
@@ -1931,6 +1945,10 @@ def cuadro_grande(pantalla, paginas, fuente):
         pygame.draw.rect(pantalla, (22, 36, 28), caja, border_radius=8)
         pygame.draw.rect(pantalla, (255, 170, 60), caja, 3, border_radius=8)
         pygame.draw.rect(pantalla, (90, 120, 95), caja.inflate(-14, -14), 1, border_radius=6)
+        pygame.draw.line(pantalla, (255, 215, 150), (caja.x + 5, caja.y + 3), (caja.right - 6, caja.y + 3))
+        pygame.draw.line(pantalla, (255, 215, 150), (caja.x + 3, caja.y + 5), (caja.x + 3, caja.bottom - 6))
+        pygame.draw.line(pantalla, (120, 70, 20), (caja.x + 5, caja.bottom - 4), (caja.right - 6, caja.bottom - 4))
+        pygame.draw.line(pantalla, (120, 70, 20), (caja.right - 4, caja.y + 5), (caja.right - 4, caja.bottom - 6))
         tx = caja.x + 24
         if quien:
             es_b = quien == "b"
