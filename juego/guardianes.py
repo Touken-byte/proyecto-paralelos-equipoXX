@@ -1662,6 +1662,58 @@ def frames_fuego():
     return _SPRITES["fuego_frames"]
 
 
+MAX_PART = 260
+
+def actualizar_particulas(est, n, niv):
+    """Brasas, humo y cenizas. Cada particula: [x, y, vx, vy, edad, vida, tipo, tam]."""
+    import math
+    P = est.setdefault("part", [])
+    ang = math.radians(niv["viento_ang"])
+    wx, wy = math.cos(ang) * niv["viento_fuerza"], math.sin(ang) * niv["viento_fuerza"]
+    fuego = est["fuego"] if isinstance(est["fuego"], (list, tuple)) else list(est["fuego"])
+    if fuego and len(P) < MAX_PART:
+        for x, y in random.sample(fuego, min(len(fuego), 3)):
+            cx, cy = x * CELDA + CELDA // 2, y * CELDA + CELDA // 2
+            if random.random() < 0.55:      # humo
+                P.append([cx + random.uniform(-3, 3), cy, wx * 0.5, -0.5 + wy * 0.3,
+                          0, random.randint(50, 80), "humo", random.randint(3, 5)])
+            if random.random() < 0.30:      # brasa
+                P.append([cx, cy, wx * 0.9 + random.uniform(-0.5, 0.5), random.uniform(-2.0, -0.9),
+                          0, random.randint(14, 30), "brasa", 2])
+    est_c = est["estado"]
+    if len(P) < MAX_PART:
+        for _ in range(3):                  # ceniza sobre celdas ya quemadas
+            r = random.randrange(n * n)
+            if est_c[r] == 3 and random.random() < 0.15:
+                P.append([(r % n) * CELDA + random.randint(0, CELDA - 1), (r // n) * CELDA - 8,
+                          wx * 0.1, 0.3, 0, random.randint(25, 45), "ceniza", 1])
+    for p in P:
+        p[0] += p[2]; p[1] += p[3]; p[4] += 1
+        if p[6] == "humo":
+            p[7] = min(9, p[7] + 0.05)
+    est["part"] = [p for p in P if p[4] < p[5]]
+
+
+def dibujar_particulas(pantalla, est):
+    cache = _SPRITES.setdefault("humo_surf", {})
+    for x, y, vx, vy, edad, vida, tipo, tam in est.get("part", []):
+        f = 1.0 - edad / vida
+        if tipo == "humo":
+            r = int(tam)
+            s = cache.get(r)
+            if s is None:
+                s = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(s, (150, 150, 150, 255), (r, r), r)
+                cache[r] = s
+            s.set_alpha(int(90 * f))
+            pantalla.blit(s, (int(x) - r, int(y) - r))
+        elif tipo == "brasa":
+            col = (255, int(60 + 150 * f), 20)
+            pygame.draw.rect(pantalla, col, (int(x), int(y), 2, 2))
+        else:
+            pygame.draw.rect(pantalla, (175, 175, 175), (int(x), int(y), 2, 2))
+
+
 def pos_suave(est, k, x, y, ahora):
     """Posicion dibujada (en celdas, decimal): se desliza hacia la celda real."""
     v = est.setdefault("vis", {})
@@ -1990,6 +2042,8 @@ def main():
                 pantalla.blit(brillos[(cuadro // 3 + x) % 2], (x * CELDA - CELDA, y * CELDA - CELDA))
         for x, y in est["fuego"]:
             pantalla.blit(llamas[(cuadro + x * 7 + y * 13) % 6], (x * CELDA, y * CELDA))
+        actualizar_particulas(est, n, nivel_actual())
+        dibujar_particulas(pantalla, est)
         if est.get("ver_riesgo") and est.get("riesgo") is not None:
             pantalla.blit(est["riesgo"], (0, 0))
         rx, ry, rw, rh = est["refugio"]
