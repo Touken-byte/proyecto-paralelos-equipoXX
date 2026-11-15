@@ -461,7 +461,8 @@ MODOS_ESP = [("record", "Modo récord", True,
               "Mismo mapa y misma semilla siempre: consigue la mejor puntuación en un nivel."),
              ("supervivencia", "Supervivencia", True,
               "Más animales y el bosque no cuenta: salva a todos los que puedas."),
-             ("desafio", "Desafío", False, "Próximamente."),
+             ("desafio", "Desafío", True,
+              "Tanque de agua reducido y un máximo de rondas: hazlo con menos recursos."),
              ("corazon", "El corazón del incendio", False, "Próximamente.")]
 
 def cargar_records():
@@ -477,12 +478,12 @@ def registrar_record(est, ev):
     """Modo récord: guarda la mejor puntuación por nivel (solo si la misión se cumple)."""
     import json
     est["record_msg"] = ""
-    if MODO_ESP["id"] not in ("record", "supervivencia") or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
+    if MODO_ESP["id"] not in ("record", "supervivencia", "desafio") or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
         return
     r = cargar_records()
     idn = nivel_actual()["id"]
-    if MODO_ESP["id"] == "supervivencia":
-        idn = "supervivencia:" + idn
+    if MODO_ESP["id"] in ("supervivencia", "desafio"):
+        idn = MODO_ESP["id"] + ":" + idn
     ant = r.get(idn)
     p = ev.get("puntos", 0)
     if ant is None or p > ant.get("puntos", 0):
@@ -1130,7 +1131,12 @@ META_SALVOS, META_BOSQUE = 3, 40
 CUENTA_RONDAS = 15                           # ticks de la cuenta regresiva (~30 s en critico)
 TICK_MS = {"inicial": 3000, "avanzada": 2500, "critica": 2000}   # ritmo del fuego en tiempo real
 
-TANQUE = 6                  # cargas de agua del bombero
+TANQUE_BASE = 6              # cargas de agua del bombero
+TANQUE_DESAFIO = 3           # Desafío: tanque reducido
+LIMITE_DESAFIO = 40          # Desafío: rondas máximas para cumplir la misión
+
+def tanque_max():
+    return TANQUE_DESAFIO if MODO_ESP["id"] == "desafio" else TANQUE_BASE
 CD_CORTAFUEGO_MS = 4000     # recuperacion entre cortafuegos
 RECARGA_MS = 1000           # 1 carga por segundo junto al rio
 RIO_DIST = 2                # celdas de distancia al agua para recargar
@@ -1151,7 +1157,7 @@ def apoyo(est, ahora, avisar=True):
         if avisar:
             est["msg"] = "Acércate al bombero para apoyarlo"
         return False
-    est["agua"] = min(TANQUE, est["agua"] + 2)
+    est["agua"] = min(tanque_max(), est["agua"] + 2)
     est["vida"]["b"] = min(VIDA_MAX, est["vida"]["b"] + 15)
     est["t_apoyo"] = ahora
     est["msg"] = "Apoyo: +2 agua y +15 vida al bombero"; decir(est, "v", "Toma agua. De nada, por cierto.", "importante")
@@ -1633,7 +1639,7 @@ def evaluar(est):
         puntos = salvos * 100 + max(0, 40 - est["ronda"]) * 5
     return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
                 puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2),
-                titulo=("MISION CUMPLIDA" if salvos >= META_SALVOS and (bosque >= META_BOSQUE or MODO_ESP["id"] == "supervivencia")
+                titulo=("MISION CUMPLIDA" if salvos >= META_SALVOS and (bosque >= META_BOSQUE or MODO_ESP["id"] == "supervivencia") and (MODO_ESP["id"] != "desafio" or est["ronda"] <= LIMITE_DESAFIO)
                         else "MISION FALLIDA: meta no alcanzada"))
 
 def ia_veterinaria(est, ahora):
@@ -1696,7 +1702,7 @@ def ia_bombero(est, ahora):
     fuegos.sort(key=lambda f: (f[0] - bx) ** 2 + (f[1] - by) ** 2)
     if est["agua"] <= 0:
         est["ia_rec"] = True
-    elif est["agua"] >= TANQUE:
+    elif est["agua"] >= tanque_max():
         est["ia_rec"] = False
     en_rio = est.get("ia_rec", False)
     if not en_rio:
@@ -2152,7 +2158,7 @@ def main():
         est["tick"] = dict(hilo=None, res=None, t_fin=pygame.time.get_ticks(), pausa=False)
         est["vida"] = {"b": VIDA_MAX, "v": VIDA_MAX}
         est["derrota"] = False; est["t_dano"] = 0
-        est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
+        est["agua"] = tanque_max(); est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
         est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set(); est["t_prot"] = -99999; est["t_prot_fin"] = 0; est["t_conoc"] = -99999; est["ficha_act"] = None
         dialogos_inicio(est)
@@ -2250,7 +2256,7 @@ def main():
                 elif e.key == pygame.K_BACKSPACE and est["pend"]:
                     t_, _, _ = est["pend"].pop()
                     if t_ == "APAGAR":
-                        est["agua"] = min(TANQUE, est["agua"] + 1)
+                        est["agua"] = min(tanque_max(), est["agua"] + 1)
                 elif e.key == pygame.K_f:
                     apoyo(est, pygame.time.get_ticks())
                 elif e.key == pygame.K_F9:
@@ -2373,7 +2379,7 @@ def main():
                 est["msg"] = "Animal a salvo" if nsalvos < len(est["animales"]) else "¡Todos los animales a salvo!"
                 decir(est, "v", "Uno menos en peligro. Lástima que el resto no lea instrucciones." if nsalvos < len(est["animales"]) else "Todos a salvo. Esta vez no hizo falta el sarcasmo.", "importante", "salvo")
 
-        if not est["ver_eval"] and not est["tick"]["pausa"] and est["agua"] < TANQUE and ahora - est["t_rec"] >= RECARGA_MS:
+        if not est["ver_eval"] and not est["tick"]["pausa"] and est["agua"] < tanque_max() and ahora - est["t_rec"] >= RECARGA_MS:
             bx2, by2 = est["bx"], est["by"]
             if any(0 <= bx2 + dx < n and 0 <= by2 + dy < n and est["estado"][(by2 + dy) * n + bx2 + dx] == 5
                    for dy in range(-RIO_DIST, RIO_DIST + 1) for dx in range(-RIO_DIST, RIO_DIST + 1)):
@@ -2459,7 +2465,7 @@ def main():
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
         pantalla.fill((0, 0, 0), txt_v.get_rect(topleft=(6, 24)))
         pantalla.blit(txt_v, (6, 24))
-        txt_m = fuente.render((f"Meta: {META_SALVOS} animales y {META_BOSQUE}% bosque" if MODO_ESP["id"] != "supervivencia" else f"Supervivencia: meta {META_SALVOS} animales"), True, (255, 230, 120))
+        txt_m = fuente.render((f"Meta: {META_SALVOS} animales y {META_BOSQUE}% bosque" if MODO_ESP["id"] not in ("supervivencia", "desafio") else (f"Supervivencia: meta {META_SALVOS} animales" if MODO_ESP["id"] == "supervivencia" else f"Desafío: {META_SALVOS} animales y {META_BOSQUE}% bosque en {LIMITE_DESAFIO} rondas")), True, (255, 230, 120))
         pantalla.fill((0, 0, 0), txt_m.get_rect(topleft=(6, 44)))
         pantalla.blit(txt_m, (6, 44))
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
@@ -2470,7 +2476,7 @@ def main():
             pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
         quemando, veg = est["estado"].count(2), est["estado"].count(1)
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
-                  f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{TANQUE}  "
+                  f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{tanque_max()}  "
                   f"Cortafuego {estado_cortafuego(est)}")
         eventos_periodicos(est, pantalla, fuente)
         try:   # fuego ambiente: suena en bucle mientras haya focos
@@ -2527,7 +2533,7 @@ def main():
         ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
         uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
         bloques = [
-            ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(est["agua"]) + "/" + str(TANQUE), True),
+            ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(est["agua"]) + "/" + str(tanque_max()), True),
                          ("Cortafuegos (clic izq.) " + estado_cortafuego(est), True),
                          ("Manguera de presion (G) " + estado_hab(est, "t_mang", CD_MANGUERA_MS), True),
                          ("Proteccion termica (H) " + estado_hab(est, "t_prot", CD_PROT_MS), True),
@@ -2575,9 +2581,9 @@ def main():
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]),
                       "C = continuar   R = reiniciar"]
-            if MODO_ESP["id"] in ("record", "supervivencia"):
+            if MODO_ESP["id"] in ("record", "supervivencia", "desafio"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
-                lineas[1:1] = ["Modo récord" if MODO_ESP["id"] == "record" else "Supervivencia"]
+                lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío"}[MODO_ESP["id"]]]
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
