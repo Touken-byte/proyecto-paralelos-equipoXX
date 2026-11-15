@@ -95,18 +95,23 @@ def obtener_tiles():
 
 
 SPRITE_BOMBERO = [
-    "..RRRR..",
-    ".RRRRRR.",
-    "RRRRRRRR",
-    ".SSSSSS.",
-    ".SKSSKS.",
-    "..SSSS..",
-    ".UUUUUU.",
-    "BUUYYUUB",
-    ".UUUUUU.",
-    ".KK..KK.",
+    "..rRRRRr..",
+    ".RRRRRRRR.",
+    ".RRRYYRRR.",
+    "rrrrrrrrrr",
+    ".SSSSSSSS.",
+    ".SKSSSSKS.",
+    "..SSSSSS..",
+    ".uUUUUUUu.",
+    "BUUYYYYUUB",
+    "BUUUUUUUUB",
+    ".uUYYYYUu.",
+    "..UUUUUU..",
+    "..KK..KK..",
+    ".KKK..KKK.",
 ]
-PALETA_BOMBERO = {"R": (200, 30, 30), "S": (240, 190, 150), "K": (30, 30, 30),
+PALETA_BOMBERO = {"R": (200, 30, 30), "r": (140, 21, 21), "u": (161, 140, 28),
+                  "S": (240, 190, 150), "K": (30, 30, 30),
                   "U": (230, 200, 40), "Y": (255, 255, 255), "B": (40, 110, 200)}
 _SPRITES = {}
 
@@ -135,18 +140,23 @@ def posicion_inicial(n, estado):
 
 
 SPRITE_VET = [
-    "..GGGG..",
-    ".GGGGGG.",
-    "GGGGGGGG",
-    ".SSSSSS.",
-    ".SKSSKS.",
-    "..SSSS..",
-    ".WWWWWW.",
-    "SWWGGWWS",
-    ".WWWWWW.",
-    ".PP..PP.",
+    "..gGGGGg..",
+    ".GGGGGGGG.",
+    ".GGSSSSGG.",
+    ".GSSSSSSG.",
+    ".GSKSSKSG.",
+    "..SSSSSS..",
+    "..wWWWWw..",
+    ".wWWGGWWw.",
+    "SWWWWWWWWS",
+    "SWWWGGWWWS",
+    ".wWWWWWWw.",
+    "..PPPPPP..",
+    "..PP..PP..",
+    ".KKK..KKK.",
 ]
-PALETA_VET = {"G": (30, 140, 80), "S": (240, 190, 150), "K": (30, 30, 30),
+PALETA_VET = {"G": (30, 140, 80), "g": (21, 98, 56), "w": (168, 168, 168),
+              "S": (240, 190, 150), "K": (30, 30, 30),
               "W": (240, 240, 240), "P": (60, 60, 120)}
 SPRITE_ANIMAL = [
     ".DDDD..",
@@ -155,6 +165,63 @@ SPRITE_ANIMAL = [
     "TT.TT..",
 ]
 PALETA_ANIMAL = {"D": (110, 70, 40), "T": (170, 120, 70), "K": (20, 20, 20)}
+
+def con_sombras(pal):
+    """Deriva los tonos de sombra (r, u, g, w) de los colores base de la skin."""
+    for k, padre in (("r", "R"), ("u", "U"), ("g", "G"), ("w", "W")):
+        if padre in pal and k in pal:
+            pal[k] = tuple(int(c * 0.7) for c in pal[padre])
+    return pal
+
+
+ANIMALES_SPR = {
+    "jaguar": ([
+        "......B.B...",
+        "..BBBBBBBBB.",
+        ".BBDBBDBBKBB",
+        "BBBBDBBBBBBB",
+        "BLLLLLLLLLB.",
+        ".BBBBBBBBBB.",
+        ".B.B....B.B.",
+        ".D.D....D.D.",
+    ], {"B": (225, 170, 40), "D": (40, 25, 10), "L": (245, 225, 170), "K": (20, 20, 20)}),
+    "tapir": ([
+        "....BBBB....",
+        "..BBBBBBBBB.",
+        ".BBBWWWBBBKB",
+        "BBBBWWWBBBBB",
+        "BBBBBBBBBBDD",
+        ".BBBBBBBBBBD",
+        ".B.B....B.B.",
+        ".D.D....D.D.",
+    ], {"B": (110, 90, 80), "W": (235, 235, 235), "D": (60, 45, 40), "K": (20, 20, 20)}),
+    "taitetu": ([
+        "...DDDDDD...",
+        "..DBDBDBDB..",
+        ".BBBBWWBBBBB",
+        "BBBBBWWBBBBK",
+        "BBBBBBBBBBBB",
+        ".BBBBBBBBBB.",
+        "..B.B..B.B..",
+        "..D.D..D.D..",
+    ], {"B": (80, 70, 60), "W": (220, 210, 180), "D": (45, 38, 32), "K": (20, 20, 20)}),
+    "loro": ([
+        "....RRRR....",
+        "...RRRRRR...",
+        "...RRKRROO..",
+        ".GGGRRRRO...",
+        "GGGGGGGYY...",
+        "GGGGGGGGY...",
+        ".GGGGGGG....",
+        "..YY..KK....",
+    ], {"G": (60, 170, 70), "R": (220, 40, 40), "Y": (250, 210, 40),
+        "O": (240, 150, 30), "K": (20, 20, 20)}),
+}
+
+def sprite_animal(esp):
+    matriz, pal = ANIMALES_SPR.get(esp, ANIMALES_SPR["jaguar"])
+    return sprite_generico("animal:" + esp, matriz, pal)
+
 
 def sprite_generico(nombre, matriz, paleta, escala=2):
     """Sprite pixel art a partir de una matriz de texto (se construye una sola vez)."""
@@ -784,6 +851,7 @@ def sprite_personaje(pers, i=None):
     base, matriz = (PALETA_BOMBERO, SPRITE_BOMBERO) if pers == "bombero" else (PALETA_VET, SPRITE_VET)
     pal = dict(base)
     pal.update(SKINS[pers][i][2])
+    pal = con_sombras(pal)
     nombre = f"{pers}:{i}"
     return nombre, sprite_generico(nombre, matriz, pal)
 
@@ -3166,6 +3234,7 @@ def main():
         _pend = est.get("pendientes", ())
         for _i, ((ax, ay, ea, esp), sfa) in enumerate(zip(est["animales"], estados_fauna(est))):
             _cx, _cy = anim_animal(est, _i, esp, sfa, ax, ay, _t)
+            sa = sprite_animal(esp)
             dibujar_sombra(pantalla, _cx, _cy + CELDA // 2, int(sa.get_width() * 0.8))
             pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
             col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
