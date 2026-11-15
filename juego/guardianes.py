@@ -1529,14 +1529,15 @@ def actualizar_emergencia(est):
         est["ver_eval"] = True
 
 AJUSTES_RUTA = os.path.join("output", "ajustes.json")
-AJ = {"vol": 0.5, "mute": False, "t": -10000, "snd": {}, "f": None}
+AJ = {"mus": 0.5, "amb": 0.5, "efx": 0.5, "mute": False, "t": -10000, "snd": {}, "f": None}
+CAT_SND = {"musica": "mus", "fuego": "amb"}   # canal de cada sonido; el resto es "efx"
 BASE_VOL = {"musica": 0.35}   # volumen base de cada sonido; los efectos usan 1.0
 
 
 def aplicar_volumen():
     for k, s in AJ["snd"].items():
         try:
-            s.set_volume(0.0 if AJ["mute"] else AJ["vol"] * BASE_VOL.get(k, 1.0))
+            s.set_volume(0.0 if AJ["mute"] else AJ[CAT_SND.get(k, "efx")] * BASE_VOL.get(k, 1.0))
         except Exception:
             pass
 
@@ -1546,7 +1547,9 @@ def cargar_ajustes():
     try:
         with open(AJUSTES_RUTA, encoding="utf-8") as f:
             d = _j.load(f)
-        AJ["vol"] = max(0.0, min(1.0, float(d.get("vol", 0.5))))
+        base = float(d.get("vol", 0.5))   # compatible con ajustes antiguos
+        for c in ("mus", "amb", "efx"):
+            AJ[c] = max(0.0, min(1.0, float(d.get(c, base))))
         AJ["mute"] = bool(d.get("mute", False))
     except Exception:
         pass
@@ -1557,13 +1560,13 @@ def guardar_ajustes():
     try:
         os.makedirs("output", exist_ok=True)
         with open(AJUSTES_RUTA, "w", encoding="utf-8") as f:
-            _j.dump({"vol": AJ["vol"], "mute": AJ["mute"]}, f)
+            _j.dump({"mus": AJ["mus"], "amb": AJ["amb"], "efx": AJ["efx"], "mute": AJ["mute"]}, f)
     except Exception:
         pass
 
 
-def cambiar_volumen(delta):
-    AJ["vol"] = round(max(0.0, min(1.0, AJ["vol"] + delta)), 2)
+def cambiar_volumen(delta, canal="mus"):
+    AJ[canal] = round(max(0.0, min(1.0, AJ[canal] + delta)), 2)
     AJ["mute"] = False
     AJ["t"] = pygame.time.get_ticks()
     aplicar_volumen()
@@ -1574,11 +1577,11 @@ def dibujar_barra_volumen(pantalla, x, y, ancho=150):
     if AJ["f"] is None:
         AJ["f"] = pygame.font.Font(None, 20)
     pygame.draw.rect(pantalla, (20, 24, 28), (x - 6, y - 4, ancho + 12, 40), border_radius=6)
-    txt = "Silenciado" if AJ["mute"] else "Volumen " + str(int(round(AJ["vol"] * 100))) + "%"
+    txt = "Silenciado" if AJ["mute"] else "Musica " + str(int(round(AJ["mus"] * 100))) + "%"
     pantalla.blit(AJ["f"].render(txt, True, (235, 235, 235)), (x, y))
     pygame.draw.rect(pantalla, (70, 70, 70), (x, y + 20, ancho, 8), border_radius=4)
     if not AJ["mute"]:
-        pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * AJ["vol"]), 8), border_radius=4)
+        pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * AJ["mus"]), 8), border_radius=4)
 
 
 def main():
@@ -1599,6 +1602,11 @@ def main():
         cargar_ajustes()
         musica.play(loops=-1)
         sonidos["musica"] = musica
+        for _n in ("rescate", "recompensa", "derrota", "proteccion", "conocimiento", "fuego"):
+            try:
+                sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
+            except Exception:
+                pass
         AJ["snd"] = sonidos
         aplicar_volumen()
     except Exception as ex:
@@ -1829,6 +1837,8 @@ def main():
             if rx <= est["vx"] < rx + rw and ry <= est["vy"] < ry + rh:
                 est["carga"][2] = "salvo"
                 desbloquear(est, "fauna:" + est["carga"][3]); desbloquear(est, "manual:rescate")
+                if "rescate" in sonidos:
+                    sonidos["rescate"].play()
                 nsalvos = sum(1 for a in est["animales"] if a[2] == "salvo")
                 est["carga"][0] = rx + 1 + ((nsalvos - 1) % 5) * 2
                 est["carga"][1] = ry + 2 + ((nsalvos - 1) // 5) * 2
@@ -1855,6 +1865,8 @@ def main():
                 ev["titulo"] = "MISION FALLIDA: " + quien + " cayo"
                 ev["estrellas"] = 0
                 est["evaluacion"] = ev; est["ver_eval"] = True; est["derrota"] = True; est["final_pend"] = True
+                if "derrota" in sonidos:
+                    sonidos["derrota"].play()
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 140
