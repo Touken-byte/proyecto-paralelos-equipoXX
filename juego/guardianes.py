@@ -258,6 +258,7 @@ def correr_ronda(paso, pendientes):
 
 MODO = {"ia": "veterinaria"}   # quien controla la IA: "veterinaria", "bombero" o None (dos jugadores)
 
+MODO_ESP = {"id": None}         # modo especial activo: None (campaña), "record", ...
 ALTO_PANT = {"h": 768}          # alto del escritorio, para calcular CELDA por nivel
 _MINIATURAS = {}
 _MAPAS_LISTOS = {"ok": False}
@@ -455,6 +456,96 @@ def seleccionar_nivel(pantalla, fuente):
         pygame.display.flip()
         reloj.tick(30)
 
+RECORDS_RUTA = "output/records.json"
+MODOS_ESP = [("record", "Modo récord", True,
+              "Mismo mapa y misma semilla siempre: consigue la mejor puntuación en un nivel."),
+             ("supervivencia", "Supervivencia", False, "Próximamente."),
+             ("desafio", "Desafío", False, "Próximamente."),
+             ("corazon", "El corazón del incendio", False, "Próximamente.")]
+
+def cargar_records():
+    import json
+    try:
+        with open(RECORDS_RUTA, encoding="utf-8") as f:
+            d = json.load(f)
+            return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+def registrar_record(est, ev):
+    """Modo récord: guarda la mejor puntuación por nivel (solo si la misión se cumple)."""
+    import json
+    est["record_msg"] = ""
+    if MODO_ESP["id"] != "record" or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
+        return
+    r = cargar_records()
+    idn = nivel_actual()["id"]
+    ant = r.get(idn)
+    p = ev.get("puntos", 0)
+    if ant is None or p > ant.get("puntos", 0):
+        r[idn] = dict(puntos=p, estrellas=ev.get("estrellas", 0), ronda=ev.get("ronda", 0))
+        est["record_msg"] = "¡Nuevo récord!" if ant is None else f"¡Nuevo récord! Superaste tus {ant.get('puntos', 0)} puntos."
+    elif p == ant.get("puntos", 0):
+        est["record_msg"] = "Igualaste tu récord."
+    else:
+        est["record_msg"] = f"Tu récord es {ant.get('puntos', 0)}: te faltaron {ant.get('puntos', 0) - p} puntos."
+    try:
+        os.makedirs(os.path.dirname(RECORDS_RUTA) or ".", exist_ok=True)
+        with open(RECORDS_RUTA, "w", encoding="utf-8") as f:
+            json.dump(r, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def seleccionar_modo_especial(pantalla, fuente):
+    """Devuelve el id del modo especial, None si vuelve, 'salir' si cierra."""
+    f_tit = pygame.font.Font(None, 56)
+    f_op = pygame.font.Font(None, 36)
+    w, h = pantalla.get_size()
+    rects = [pygame.Rect(w // 2 - 260, 200 + i * 80, 520, 56) for i in range(len(MODOS_ESP))]
+    reloj = pygame.time.Clock()
+    sel = 0
+    while True:
+        elegido = None
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    return None
+                elif e.key == pygame.K_UP:
+                    sel = (sel - 1) % len(MODOS_ESP)
+                elif e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % len(MODOS_ESP)
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    elegido = sel
+            elif e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+                        elegido = i
+        if elegido is not None and MODOS_ESP[elegido][2]:
+            return MODOS_ESP[elegido][0]
+        pantalla.fill((22, 34, 26))
+        t = f_tit.render("Modos especiales", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 120)))
+        for i, r in enumerate(rects):
+            ok = MODOS_ESP[i][2]
+            col = (255, 87, 34) if i == sel and ok else (90, 90, 90) if i == sel else (60, 60, 60)
+            pygame.draw.rect(pantalla, col, r, border_radius=8)
+            s = f_op.render(MODOS_ESP[i][1] + ("" if ok else " (próximamente)"), True,
+                            (255, 255, 255) if ok else (150, 150, 150))
+            pantalla.blit(s, s.get_rect(center=r.center))
+        d = fuente.render(MODOS_ESP[sel][3], True, (230, 230, 230))
+        pantalla.blit(d, d.get_rect(center=(w // 2, 200 + len(MODOS_ESP) * 80 + 20)))
+        v = fuente.render("Arriba/Abajo: elegir   Enter: continuar   Esc: volver", True, (170, 170, 170))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h - 40)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def seleccionar_modo(pantalla, fuente):
     """Devuelve 'dos', 'veterinaria' o 'bombero' (rol que controla la IA), None si vuelve, 'salir' si cierra."""
     f_tit = pygame.font.Font(None, 56)
@@ -573,6 +664,9 @@ def registrar_salon(est):
     if not ev:
         return
     desbloquear(est, "guia:causas"); desbloquear(est, "atlas:motor")
+    if MODO_ESP["id"]:
+        registrar_record(est, ev)   # los modos especiales no tocan el Salón ni la campaña
+        return
     s = cargar_salon()
     s["partidas"] += 1
     if ev.get("puntos", 0) > s["puntos"]:
@@ -846,7 +940,7 @@ def menu_principal(pantalla, fuente):
     f_tit = pygame.font.Font(None, 72)
     f_sub = pygame.font.Font(None, 30)
     f_op = pygame.font.Font(None, 32)
-    opciones = ["Jugar", "Campaña", "Centro de Análisis", "Cuaderno de Guardianes",
+    opciones = ["Jugar", "Campaña", "Modos especiales", "Centro de Análisis", "Cuaderno de Guardianes",
                 "Salón de Guardianes", "Tienda (bloqueada)", "Próximamente", "Cómo jugar", "Salir"]
     ayuda_txt = [
         "Eres el bombero forestal de los Bosques de Yacuiba.",
@@ -919,6 +1013,7 @@ def menu_principal(pantalla, fuente):
                 if k is not None:
                     NIVEL_SEL["i"] = k
                     MODO["ia"] = None if m == "dos" else m
+                    MODO_ESP["id"] = None
                     return True
         if accion is not None:
             op = opciones[accion]
@@ -926,6 +1021,23 @@ def menu_principal(pantalla, fuente):
                 ayuda = True
             elif op == "Salir":
                 return False
+            elif op == "Modos especiales":
+                me = seleccionar_modo_especial(pantalla, fuente)
+                if me == "salir":
+                    return False
+                if me is not None:
+                    m = seleccionar_modo(pantalla, fuente)
+                    if m == "salir":
+                        return False
+                    if m is not None:
+                        k = seleccionar_nivel(pantalla, fuente)
+                        if k == "salir":
+                            return False
+                        if k is not None:
+                            NIVEL_SEL["i"] = k
+                            MODO["ia"] = None if m == "dos" else m
+                            MODO_ESP["id"] = me
+                            return True
             elif op == "Salón de Guardianes":
                 if pantalla_maqueta(pantalla, "Salón de Guardianes", lineas_salon(), "TUS MEJORES RESULTADOS") == "salir":
                     return False
