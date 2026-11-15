@@ -2652,12 +2652,15 @@ def dibujar_particulas(pantalla, est):
         f = 1.0 - edad / vida
         if tipo == "humo":
             r = int(tam)
-            s = cache.get(r)
+            tono = 0 if f > 0.75 else (1 if f > 0.5 else 2)
+            s = cache.get((r, tono))
             if s is None:
+                col = ((200, 145, 105), (165, 152, 145), (140, 140, 140))[tono]
                 s = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(s, (150, 150, 150, 255), (r, r), r)
-                cache[r] = s
-            s.set_alpha(int(90 * f))
+                pygame.draw.circle(s, col + (110,), (r, r), r)
+                pygame.draw.circle(s, col + (255,), (r, r), max(1, int(r * 0.6)))
+                cache[(r, tono)] = s
+            s.set_alpha(int(100 * f))
             pantalla.blit(s, (int(x) - r, int(y) - r))
         elif tipo == "brasa":
             col = (255, int(60 + 150 * f), 20)
@@ -2685,6 +2688,18 @@ def anim_animal(est, i, esp, sfa, ax, ay, t):
     elif esp == "loro" and sfa == "asustado":
         dy = -int(2 * abs(math.sin(t / 80)))
     return int(px * CELDA + CELDA // 2) + dx, int(py * CELDA + CELDA // 2) + dy
+
+
+def dibujar_sombra(pantalla, cx, pies_y, ancho):
+    """Elipse oscura translucida bajo los pies (cacheada por ancho)."""
+    ancho = max(6, ancho)
+    cache = _SPRITES.setdefault("sombras", {})
+    s = cache.get(ancho)
+    if s is None:
+        s = pygame.Surface((ancho, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(s, (0, 0, 0, 90), (0, 0, ancho, 6))
+        cache[ancho] = s
+    pantalla.blit(s, (cx - ancho // 2, pies_y - 3))
 
 
 def dibujar_ignis(pantalla, cx, base, nivel, t):
@@ -3092,6 +3107,7 @@ def main():
         _pend = est.get("pendientes", ())
         for _i, ((ax, ay, ea, esp), sfa) in enumerate(zip(est["animales"], estados_fauna(est))):
             _cx, _cy = anim_animal(est, _i, esp, sfa, ax, ay, _t)
+            dibujar_sombra(pantalla, _cx, _cy + CELDA // 2, int(sa.get_width() * 0.8))
             pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
             col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
             if col_anillo:
