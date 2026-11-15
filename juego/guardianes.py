@@ -1891,18 +1891,33 @@ def _hilo_tick(paso, pend, res):
         res["err"] = str(ex)
     res["listo"] = True
 
+# Estrellas: 0 si falla, 1 si cumple, 2 con frac >= ESTR2, 3 con frac >= ESTR3 y ronda <= ESTR_RONDAS
+ESTR2, ESTR3, ESTR_RONDAS = 0.55, 0.75, 30
+BONO_RONDAS_TOPE, BONO_RONDA_PTS = 40, 3
+
 def evaluar(est):
     salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
     total = len(est["animales"])
     bosque = est["estado"].count(1) * 100 // est["veg0"]
-    frac = 0.5 * salvos / max(1, total) + 0.5 * bosque / 100
-    estrellas = 3 if frac >= 0.75 else 2 if frac >= 0.5 else 1
-    puntos = salvos * 100 + bosque * 5 + estrellas * 50
+    sup = MODO_ESP["id"] == "supervivencia"
+    cumplida = (salvos >= META_SALVOS and (bosque >= META_BOSQUE or sup)
+                and (MODO_ESP["id"] != "desafio" or est["ronda"] <= LIMITE_DESAFIO))
+    frac = salvos / max(1, total) if sup else 0.5 * salvos / max(1, total) + 0.5 * bosque / 100
+    if not cumplida:
+        estrellas = 0
+    elif frac >= ESTR3 and (sup or est["ronda"] <= ESTR_RONDAS):
+        estrellas = 3
+    elif frac >= ESTR2:
+        estrellas = 2
+    else:
+        estrellas = 1
+    puntos = (salvos * 100 + bosque * 5 + estrellas * 50
+              + max(0, BONO_RONDAS_TOPE - est["ronda"]) * BONO_RONDA_PTS)
     if MODO_ESP["id"] == "supervivencia":
         puntos = salvos * 100 + max(0, 40 - est["ronda"]) * 5
     return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
                 puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2),
-                titulo=("MISION CUMPLIDA" if salvos >= META_SALVOS and (bosque >= META_BOSQUE or MODO_ESP["id"] == "supervivencia") and (MODO_ESP["id"] != "desafio" or est["ronda"] <= LIMITE_DESAFIO)
+                titulo=("MISION CUMPLIDA" if cumplida
                         else "MISION FALLIDA: meta no alcanzada"))
 
 def ia_veterinaria(est, ahora):
