@@ -634,18 +634,9 @@ MAQUETAS = {
         "Menor cantidad de rondas utilizadas.",
         "",
         "Estado: maqueta. Se actualizará al cerrar la evaluación de cada misión."]),
-    "Tienda (bloqueada)": ("Tienda de personalización (bloqueada)", [
-        "Se desbloqueará con las EcoMonedas que ganes rescatando animales",
-        "y protegiendo el bosque.",
-        "",
-        "Sombreros, accesorios, vestimentas y uniformes alternativos.",
-        "Los elementos cosméticos no dan ventajas durante las partidas.",
-        "",
-        "Estado: bloqueada. Llegará en una etapa posterior."]),
     "Próximamente": ("Próximamente", [
         "Lo que viene después de esta versión:",
         "",
-        "Tienda de personalización y EcoMonedas.",
         "Compartir resultados como imagen.",
         "Cámara inteligente y pantalla dividida.",
         "Arte pixel definitivo, animaciones y audio avanzado."]),
