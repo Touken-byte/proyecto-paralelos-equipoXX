@@ -1801,6 +1801,44 @@ def anim_animal(est, i, esp, sfa, ax, ay, t):
     return int(px * CELDA + CELDA // 2) + dx, int(py * CELDA + CELDA // 2) + dy
 
 
+def dibujar_ignis(pantalla, cx, base, nivel, t):
+    """Ignis, la llama con cara: representa el incendio. Crece y se enoja con la emergencia."""
+    import math
+    s = {"inicial": 0.6, "avanzada": 0.85, "critica": 1.1}[nivel]
+    dx = (1 if (t // 50) % 2 else -1) if nivel == "critica" else 0
+
+    def P(x, y):
+        return (int(cx + x * s + dx), int(base + y * s))
+
+    w1, w2 = 4 * math.sin(t / 90), 4 * math.sin(t / 110 + 1)
+    ext = [(-18, 0), (-22, -20), (-13, -36), (-8, -58 + w1), (-2, -40),
+           (6, -52 + w2), (12, -34), (22, -20), (18, 0)]
+    pygame.draw.polygon(pantalla, (255, 110, 20), [P(x, y) for x, y in ext])
+    pygame.draw.polygon(pantalla, (255, 210, 70), [P(x * 0.6, y * 0.6) for x, y in ext])
+    parpadeo = nivel == "inicial" and (t % 2600) < 130
+    rojo = nivel == "critica"
+    for ex in (-7, 7):
+        if parpadeo:
+            pygame.draw.line(pantalla, (60, 20, 10), P(ex - 3, -22), P(ex + 3, -22), 2)
+        else:
+            pygame.draw.circle(pantalla, (255, 255, 255), P(ex, -22), max(2, int(4 * s)))
+            pygame.draw.circle(pantalla, (220, 20, 20) if rojo else (40, 20, 10),
+                               P(ex * 0.8, -22), max(1, int(2 * s)))
+    if nivel != "inicial":
+        gr = 2 if rojo else 1
+        pygame.draw.line(pantalla, (90, 20, 10), P(-12, -31), P(-4, -26), gr + 1)
+        pygame.draw.line(pantalla, (90, 20, 10), P(12, -31), P(4, -26), gr + 1)
+    if nivel == "inicial":
+        r = pygame.Rect(0, 0, max(6, int(10 * s)), max(4, int(8 * s)))
+        r.center = P(0, -14)
+        pygame.draw.arc(pantalla, (90, 30, 10), r, math.pi, 2 * math.pi, 2)
+    elif nivel == "avanzada":
+        pygame.draw.line(pantalla, (90, 30, 10), P(-5, -13), P(5, -13), 2)
+    else:
+        pts = [P(-6, -14), P(-3, -9), P(0, -14), P(3, -9), P(6, -14)]
+        pygame.draw.lines(pantalla, (90, 20, 10), False, pts, 2)
+
+
 def pos_suave(est, k, x, y, ahora):
     """Posicion dibujada (en celdas, decimal): se desliza hacia la celda real."""
     v = est.setdefault("vis", {})
@@ -2253,6 +2291,7 @@ def main():
         if est["cuenta"] is not None:
             pantalla.blit(fuente_p.render("Cuenta regresiva: " + str(max(0, est["cuenta"]) * TICK_MS["critica"] // 1000) + " s",
                                           True, (255, 120, 120)), (px, py + 20))
+        dibujar_ignis(pantalla, n * CELDA + PANEL_W - 45, py + 52, est["nivel"], pygame.time.get_ticks())
         py += 50
         ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
         uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
