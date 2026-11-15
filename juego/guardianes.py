@@ -1262,6 +1262,9 @@ def habilidad(est, tecla):
         est["t_prot_fin"] = ahora + DUR_PROT_MS
         est["msg"] = "Protección térmica activa: cruza las llamas sin daño"
         decir(est, "b", "Traje térmico listo. Ahora sí puedo meterme al fuego.", "importante", "prot")
+        _s = AJ["snd"].get("proteccion")
+        if _s:
+            _s.play()
     elif tecla == pygame.K_k:
         if estado_hab(est, "t_conoc", CD_CONOC_MS) != "listo":
             est["msg"] = "Conocimiento silvestre en recuperación"; return
@@ -1280,6 +1283,9 @@ def habilidad(est, tecla):
         desbloquear(est, "fauna:" + a[3])
         est["ficha_act"] = (ficha[0], ficha[1], ahora + DUR_FICHA_MS)
         est["msg"] = "Conocimiento silvestre: " + ficha[0] + " identificado"
+        _s = AJ["snd"].get("conocimiento")
+        if _s:
+            _s.play()
 
 def dibujar_habilidades(pantalla, est, fnt):
     """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
@@ -1938,6 +1944,18 @@ def main():
                   f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{TANQUE}  "
                   f"Cortafuego {estado_cortafuego(est)}")
         eventos_periodicos(est, pantalla, fuente)
+        try:   # fuego ambiente: suena en bucle mientras haya focos
+            _fs = AJ["snd"].get("fuego")
+            if _fs:
+                _hay = quemando > 0 and not est["ver_eval"]
+                if _hay and not AJ.get("fuego_on"):
+                    _fs.play(loops=-1); AJ["fuego_on"] = True
+                elif not _hay and AJ.get("fuego_on"):
+                    _fs.fadeout(600); AJ["fuego_on"] = False
+        except NameError:
+            raise
+        except Exception:
+            pass
         dibujar_habilidades(pantalla, est, fuente_p)
         dibujar_globo(pantalla, est, fuente_p)
         dibujar_notif(pantalla, est, fuente_p, n * CELDA)
