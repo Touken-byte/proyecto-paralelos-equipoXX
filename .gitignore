@@ -29,3 +29,6 @@ __pycache__/
 data/maps/
 data/acc_barrera_fila64.txt
 evidencias_hito2.zip
+
+# Archivos de bloqueo de LibreOffice
+docs/.~lock.*#
