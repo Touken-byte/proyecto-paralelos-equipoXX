@@ -1316,6 +1316,57 @@ def estados_fauna(est):
                 res.append("tranquilo")
     return res
 
+# Reaccion por especie: radio de alarma, pasos de huida por tick y distancia
+# a la que se paraliza de miedo (0 = nunca). Nadie muere: si no puede huir, queda pendiente.
+FAUNA_REACCION = {
+    "tapir":   dict(radio=6,  pasos=1, para=2),
+    "jaguar":  dict(radio=8,  pasos=3, para=0),
+    "taitetu": dict(radio=7,  pasos=2, para=1),
+    "loro":    dict(radio=10, pasos=4, para=0),
+}
+
+def mover_fauna(est):
+    n, estado = est["n"], est["estado"]
+    pend = est.setdefault("pendientes", set())
+    fuegos = [(i % n, i // n) for i, v in enumerate(estado) if v == 2]
+    if not fuegos:
+        pend.clear()
+        return
+    def dist(x, y):
+        return min(abs(fx - x) + abs(fy - y) for fx, fy in fuegos)
+    for i, a in enumerate(est["animales"]):
+        if a[2] != "libre":
+            pend.discard(i)
+            continue
+        r = FAUNA_REACCION[a[3]]
+        d = dist(a[0], a[1])
+        if d > r["radio"]:
+            pend.discard(i)
+            continue
+        movido = 0
+        if not (0 < d <= r["para"]):
+            for _ in range(r["pasos"]):
+                mejor = None
+                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    nx, ny = a[0] + dx, a[1] + dy
+                    if 0 <= nx < n and 0 <= ny < n and estado[ny * n + nx] not in (2, 5):
+                        dn = dist(nx, ny)
+                        if dn > d and (mejor is None or dn > mejor[0]):
+                            mejor = (dn, nx, ny)
+                if mejor is None:
+                    break
+                d, a[0], a[1] = mejor
+                movido += 1
+                if d > r["radio"]:
+                    break
+        if d <= 3 and movido == 0:
+            if i not in pend:
+                pend.add(i)
+                est["msg"] = "¡" + a[3].capitalize() + " pendiente de rescate!"
+                decir(est, "v", "El " + a[3] + " no puede salir solo. Hay que sacarlo antes de que llegue el fuego.", "importante", "pend" + str(i))
+        else:
+            pend.discard(i)
+
 def actualizar_emergencia(est):
     veg = est["estado"].count(1)
     quem = est["estado"].count(2)
@@ -1438,7 +1489,7 @@ def main():
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
-        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999
+        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set()
         dialogos_inicio(est)
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
@@ -1591,6 +1642,7 @@ def main():
                 est["paso"] += PASOS_RONDA; est["ronda"] += 1
                 actualizar_emergencia(est)
                 est["msg"] = ""
+                mover_fauna(est)
                 redibujar()
             tk["res"] = None; tk["t_fin"] = ahora
         if est.get("ia_rol", "veterinaria") == "bombero":
