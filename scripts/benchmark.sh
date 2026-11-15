@@ -3,6 +3,12 @@
 # Variables opcionales: SIZES="512 1024 2048" HILOS="1 2 4 8" PASOS=100 REPS=5 SEMILLA=42
 SIZES=${SIZES:-"512 1024 2048"}; HILOS=${HILOS:-"1 2 4 8"}
 PASOS=${PASOS:-100}; REPS=${REPS:-5}; SEMILLA=${SEMILLA:-42}
+cd "$(dirname "$0")/.." || exit 1
+if ! docker ps --format '{{.Names}}' | grep -qx master; then
+  echo "Levantando el cluster (docker compose up --build)..."
+  docker compose -f infrastructure/docker-compose.yml up -d --build || exit 1
+  sleep 5
+fi
 
 docker exec -i -u mpiuser -e SIZES="$SIZES" -e HILOS="$HILOS" -e PASOS=$PASOS -e REPS=$REPS -e SEMILLA=$SEMILLA master bash -s << 'EOS'
 cd /home/mpiuser/proyecto || exit 1
