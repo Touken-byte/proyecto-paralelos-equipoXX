@@ -663,6 +663,46 @@ def cargar_salon():
         pass
     return base
 
+ECO_RUTA = "output/ecomonedas.json"
+ECO_POR_ANIMAL, ECO_MISION, ECO_POR_ESTRELLA = 10, 20, 5
+
+def cargar_eco():
+    import json
+    base = dict(saldo=0, comprados=[], equipado={})
+    try:
+        with open(ECO_RUTA, encoding="utf-8") as f:
+            d = json.load(f)
+            if isinstance(d, dict):
+                base.update(d)
+    except Exception:
+        pass
+    return base
+
+def guardar_eco(d):
+    import json
+    try:
+        os.makedirs(os.path.dirname(ECO_RUTA) or ".", exist_ok=True)
+        with open(ECO_RUTA, "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def monedas_partida(ev):
+    cumplida = str(ev.get("titulo", "")).startswith("MISION CUMPLIDA")
+    if MODO_ESP["id"] and not cumplida:
+        return 0
+    g = ev.get("salvos", 0) * ECO_POR_ANIMAL
+    if cumplida:
+        g += ECO_MISION + ev.get("estrellas", 0) * ECO_POR_ESTRELLA
+    return g
+
+def pagar_monedas(est, ev):
+    d = cargar_eco()
+    g = monedas_partida(ev)
+    d["saldo"] = d.get("saldo", 0) + g
+    guardar_eco(d)
+    est["monedas_txt"] = f"   EcoMonedas: +{g} (saldo {d['saldo']})"
+
 def registrar_salon(est):
     """Actualiza los records con la evaluacion de la partida (una vez por partida)."""
     import json
@@ -673,6 +713,7 @@ def registrar_salon(est):
     if not ev:
         return
     desbloquear(est, "guia:causas"); desbloquear(est, "atlas:motor")
+    pagar_monedas(est, ev)
     if MODO_ESP["id"]:
         registrar_record(est, ev)   # los modos especiales no tocan el Salón ni la campaña
         return
@@ -2591,7 +2632,7 @@ def main():
                       "Bosque conservado: " + str(ev["bosque"]) + "%",
                       "Focos activos: " + str(ev["focos"]),
                       "Rondas usadas: " + str(ev["ronda"]),
-                      "Puntuacion: " + str(ev["puntos"]),
+                      "Puntuacion: " + str(ev["puntos"]) + est.get("monedas_txt", ""),
                       "C = continuar   R = reiniciar"]
             if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
