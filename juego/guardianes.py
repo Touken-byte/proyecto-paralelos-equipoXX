@@ -3033,7 +3033,7 @@ def main():
                                      (x0 + rr[0], y0 + rr[1], rr[2], rr[3]))
         est["sup"] = sup
         est["fuego"] = fuego
-        est["agua"] = agua
+        est["agua_celdas"] = agua
 
     reiniciar()
     n = est["n"]
@@ -3257,7 +3257,7 @@ def main():
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 110
         agua_t = obtener_tiles()[5]
-        for x, y in est.get("agua", ()):
+        for x, y in est.get("agua_celdas", ()):
             pantalla.blit(agua_t[(cuadro // 2 + x * 3 + y * 5) % 4], (x * CELDA, y * CELDA))
         llamas, brillos = frames_fuego()
         for x, y in est["fuego"]:
