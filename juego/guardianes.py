@@ -1648,6 +1648,20 @@ def ajustes_audio(pantalla):
         reloj.tick(30)
 
 
+def frames_fuego():
+    """6 formas de llama (3 y sus espejos) y 2 resplandores. Se construyen una vez."""
+    if "fuego_frames" not in _SPRITES:
+        base = obtener_tiles()["fuego"]
+        fr = list(base) + [pygame.transform.flip(s, True, False) for s in base]
+        glow = []
+        for a in (30, 52):
+            g = pygame.Surface((CELDA * 3, CELDA * 3), pygame.SRCALPHA)
+            pygame.draw.circle(g, (255, 120, 30, a), (CELDA * 3 // 2, CELDA * 3 // 2), CELDA * 3 // 2)
+            glow.append(g)
+        _SPRITES["fuego_frames"] = (fr, glow)
+    return _SPRITES["fuego_frames"]
+
+
 def pos_suave(est, k, x, y, ahora):
     """Posicion dibujada (en celdas, decimal): se desliza hacia la celda real."""
     v = est.setdefault("vis", {})
@@ -1969,10 +1983,13 @@ def main():
                     sonidos["derrota"].play()
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
-        cuadro = pygame.time.get_ticks() // 140
-        llamas = obtener_tiles()["fuego"]
+        cuadro = pygame.time.get_ticks() // 110
+        llamas, brillos = frames_fuego()
         for x, y in est["fuego"]:
-            pantalla.blit(llamas[(cuadro + x + y) % 3], (x * CELDA, y * CELDA))
+            if (x + y) % 2 == 0:
+                pantalla.blit(brillos[(cuadro // 3 + x) % 2], (x * CELDA - CELDA, y * CELDA - CELDA))
+        for x, y in est["fuego"]:
+            pantalla.blit(llamas[(cuadro + x * 7 + y * 13) % 6], (x * CELDA, y * CELDA))
         if est.get("ver_riesgo") and est.get("riesgo") is not None:
             pantalla.blit(est["riesgo"], (0, 0))
         rx, ry, rw, rh = est["refugio"]
