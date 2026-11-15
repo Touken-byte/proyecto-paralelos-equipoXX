@@ -639,11 +639,9 @@ MAQUETAS = {
         "Lo que viene después de esta versión:",
         "",
         "Tienda de personalización y EcoMonedas.",
-        "Modos especiales: Supervivencia, Desafío, El corazón del incendio y Modo récord.",
         "Compartir resultados como imagen.",
         "Cámara inteligente y pantalla dividida.",
-        "Arte pixel definitivo, animaciones y audio avanzado.",
-        "Habilidades extra: protección térmica."]),
+        "Arte pixel definitivo, animaciones y audio avanzado."]),
 }
 
 SALON_RUTA = "output/salon.json"
