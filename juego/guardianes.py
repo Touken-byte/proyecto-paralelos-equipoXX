@@ -302,6 +302,13 @@ def dibujar_estrellas(pantalla, cx, cy, llenas, total=4, r=7):
         else:
             pygame.draw.polygon(pantalla, (110, 110, 110), pts, 1)
 
+ZONAS = {1: ("Yacuiba", "Bosques de Yacuiba"), 2: ("Aguaragüe", "Serranía del Aguaragüe"),
+         3: ("Tarija", "Región de Tarija"), 4: ("Gran incendio", "El gran incendio")}
+
+def nivel_bloqueado(i):
+    """El candado de campaña (F3) reemplaza esta función."""
+    return False
+
 def seleccionar_nivel(pantalla, fuente):
     """Devuelve el indice del nivel elegido, None si vuelve, 'salir' si cierra."""
     w, h = pantalla.get_size()
@@ -316,40 +323,67 @@ def seleccionar_nivel(pantalla, fuente):
         for niv in NIVELES:
             asegurar_motor(niv)
         _MAPAS_LISTOS["ok"] = True
-    k = len(NIVELES)
     mg = 16
-    cw = (w - mg * (k + 1)) // k
-    lado = min(cw - 20, 170)
-    ch = lado + 86
-    y0 = 90
-    rects = [pygame.Rect(mg + i * (cw + mg), y0, cw, ch) for i in range(k)]
+    zonas = sorted(set(nv["zona"] for nv in NIVELES))
+    tw = (w - 2 * mg - 8 * (len(zonas) - 1)) // len(zonas)
+    tab_rects = {z: pygame.Rect(mg + j * (tw + 8), 78, tw, 34) for j, z in enumerate(zonas)}
     sel = NIVEL_SEL["i"]
+    aviso = ""
     reloj = pygame.time.Clock()
     while True:
+        zona = NIVELES[sel]["zona"]
+        idxs = [i for i, nv in enumerate(NIVELES) if nv["zona"] == zona]
+        k = len(idxs)
+        cw = min(300, (w - mg * (k + 1)) // k)
+        x0 = (w - (k * cw + (k - 1) * mg)) // 2
+        lado = min(cw - 20, 170)
+        ch = lado + 86
+        y0 = 126
+        rects = {i: pygame.Rect(x0 + j * (cw + mg), y0, cw, ch) for j, i in enumerate(idxs)}
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 return "salir"
             if e.type == pygame.KEYDOWN:
+                aviso = ""
                 if e.key == pygame.K_ESCAPE:
                     return None
                 elif e.key == pygame.K_LEFT:
-                    sel = (sel - 1) % k
+                    sel = idxs[(idxs.index(sel) - 1) % k]
                 elif e.key == pygame.K_RIGHT:
-                    sel = (sel + 1) % k
+                    sel = idxs[(idxs.index(sel) + 1) % k]
+                elif e.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_TAB):
+                    paso = -1 if e.key == pygame.K_UP else 1
+                    z = zonas[(zonas.index(zona) + paso) % len(zonas)]
+                    sel = next(i for i, nv in enumerate(NIVELES) if nv["zona"] == z)
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                    return sel
+                    if nivel_bloqueado(sel):
+                        aviso = "Nivel bloqueado: completa antes la zona anterior."
+                    else:
+                        return sel
             elif e.type == pygame.MOUSEMOTION:
-                for i, r in enumerate(rects):
+                for i, r in rects.items():
                     if r.collidepoint(e.pos):
                         sel = i
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                for i, r in enumerate(rects):
+                for z, r in tab_rects.items():
                     if r.collidepoint(e.pos):
-                        return i
+                        sel = next(i for i, nv in enumerate(NIVELES) if nv["zona"] == z)
+                for i, r in rects.items():
+                    if r.collidepoint(e.pos):
+                        if nivel_bloqueado(i):
+                            aviso = "Nivel bloqueado: completa antes la zona anterior."
+                        else:
+                            return i
+        zona = NIVELES[sel]["zona"]
         pantalla.fill((22, 34, 26))
         t = f_tit.render("Elige el nivel", True, (255, 170, 60))
-        pantalla.blit(t, t.get_rect(center=(w // 2, 45)))
-        for i, r in enumerate(rects):
+        pantalla.blit(t, t.get_rect(center=(w // 2, 40)))
+        for z, r in tab_rects.items():
+            act = (z == zona)
+            pygame.draw.rect(pantalla, (255, 87, 34) if act else (50, 62, 54), r, border_radius=6)
+            s = f_nom.render(f"{z}. {ZONAS[z][0]}", True, (255, 255, 255) if act else (190, 190, 190))
+            pantalla.blit(s, s.get_rect(center=r.center))
+        for i, r in rects.items():
             niv = NIVELES[i]
             pygame.draw.rect(pantalla, (40, 52, 44), r, border_radius=8)
             pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (90, 90, 90), r, 3, border_radius=8)
@@ -359,6 +393,12 @@ def seleccionar_nivel(pantalla, fuente):
                 nom = f_p.render(niv["nombre"], True, (255, 255, 255))
             pantalla.blit(nom, nom.get_rect(center=(r.centerx, r.y + lado + 30)))
             dibujar_estrellas(pantalla, r.centerx - 33, r.y + lado + 56, niv["dificultad"])
+            if nivel_bloqueado(i):
+                vel = pygame.Surface(r.size, pygame.SRCALPHA)
+                vel.fill((10, 14, 12, 190))
+                pantalla.blit(vel, r.topleft)
+                c = f_nom.render("BLOQUEADO", True, (255, 200, 90))
+                pantalla.blit(c, c.get_rect(center=(r.centerx, r.y + lado // 2 + 10)))
         niv = NIVELES[sel]
         py = y0 + ch + 14
         ficha = pygame.Rect(mg, py, w - 2 * mg, h - py - 44)
@@ -369,13 +409,13 @@ def seleccionar_nivel(pantalla, fuente):
             (f"Mapa de {niv['n']}x{niv['n']} celdas, {texto_viento(niv)}.", fuente, (230, 230, 230)),
             (f"Objetivo: apagar el incendio, llevar los {niv['animales']} animales al refugio y conservar el bosque.", fuente, (230, 230, 230)),
             ("Comentarios de los personajes: " + DIALOGO_TXT[niv["dialogos"]] + ".", fuente, (230, 230, 230)),
-            ("Mapa ilustrativo, no a escala real.", f_p, (170, 170, 170)),
+            ((aviso or "Mapa ilustrativo, no a escala real."), f_p, (255, 150, 90) if aviso else (170, 170, 170)),
         ]
         yy = ficha.y + 14
         for txt, fnt, col in lineas:
             pantalla.blit(fnt.render(txt, True, col), (ficha.x + 16, yy))
             yy += 30
-        v = fuente.render("Izq/Der: elegir   Enter: jugar   Esc: volver", True, (170, 170, 170))
+        v = fuente.render("Izq/Der: nivel   Arriba/Abajo: zona   Enter: jugar   Esc: volver", True, (170, 170, 170))
         pantalla.blit(v, v.get_rect(center=(w // 2, h - 22)))
         pygame.display.flip()
         reloj.tick(30)
