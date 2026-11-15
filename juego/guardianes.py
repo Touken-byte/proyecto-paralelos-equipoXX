@@ -34,6 +34,40 @@ def color(s, fuel):
 
 _TILES = {}
 
+_DR_ORIG = pygame.draw.rect
+
+
+def _rect_pixel(surf, color, rect, width=0, border_radius=0, *args, **kw):
+    """V12: con border_radius dibuja esquinas escalonadas (pixel art) en vez de redondeadas."""
+    if not border_radius or border_radius < 0:
+        return _DR_ORIG(surf, color, rect, width)
+    r = pygame.Rect(rect)
+    x, y, w, h = r.x, r.y, r.w, r.h
+    c = 2 if border_radius < 6 else 3
+    if w < 2 * c + 2 or h < 2 * c + 2:
+        return _DR_ORIG(surf, color, r, width)
+    if width <= 0:
+        _DR_ORIG(surf, color, (x + c, y, w - 2 * c, h))
+        _DR_ORIG(surf, color, (x, y + c, w, h - 2 * c))
+        if c == 3:
+            _DR_ORIG(surf, color, (x + 1, y + 1, w - 2, h - 2))
+        return r
+    t = width
+    _DR_ORIG(surf, color, (x + c, y, w - 2 * c, t))
+    _DR_ORIG(surf, color, (x + c, y + h - t, w - 2 * c, t))
+    _DR_ORIG(surf, color, (x, y + c, t, h - 2 * c))
+    _DR_ORIG(surf, color, (x + w - t, y + c, t, h - 2 * c))
+    for k in range(1, c):
+        _DR_ORIG(surf, color, (x + c - k, y + k, t, t))
+        _DR_ORIG(surf, color, (x + w - (c - k) - t, y + k, t, t))
+        _DR_ORIG(surf, color, (x + c - k, y + h - k - t, t, t))
+        _DR_ORIG(surf, color, (x + w - (c - k) - t, y + h - k - t, t, t))
+    return r
+
+
+pygame.draw.rect = _rect_pixel
+
+
 def obtener_tiles():
     """Tiles pixel art dibujados por codigo (se construyen una sola vez)."""
     if _TILES:
