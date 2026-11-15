@@ -2822,6 +2822,7 @@ def main():
         T = obtener_tiles()
         sup = pygame.Surface((n * CELDA, n * CELDA))
         fuego = []
+        agua = []
         estado, fuel = est["estado"], est["fuel"]
         for i in range(n):
             for j in range(n):
@@ -2833,9 +2834,18 @@ def main():
                     t = T[s][var]
                     if s == 2:
                         fuego.append((j, i))
+                    elif s == 5:
+                        agua.append((j, i))
                 sup.blit(t, (j * CELDA, i * CELDA))
+                if s == 1:
+                    h = (((i * 73856093) ^ (j * 19349663)) >> 4) & 7
+                    if h < 2:
+                        sup.fill((9, 12, 6), (j * CELDA, i * CELDA, CELDA, CELDA), special_flags=pygame.BLEND_RGB_ADD)
+                    elif h == 7:
+                        sup.fill((9, 12, 6), (j * CELDA, i * CELDA, CELDA, CELDA), special_flags=pygame.BLEND_RGB_SUB)
         est["sup"] = sup
         est["fuego"] = fuego
+        est["agua"] = agua
 
     reiniciar()
     n = est["n"]
@@ -3058,6 +3068,9 @@ def main():
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 110
+        agua_t = obtener_tiles()[5]
+        for x, y in est.get("agua", ()):
+            pantalla.blit(agua_t[(cuadro // 2 + x * 3 + y * 5) % 4], (x * CELDA, y * CELDA))
         llamas, brillos = frames_fuego()
         for x, y in est["fuego"]:
             if (x + y) % 2 == 0:
