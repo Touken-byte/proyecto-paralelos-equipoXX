@@ -2702,6 +2702,18 @@ def dibujar_sombra(pantalla, cx, pies_y, ancho):
     pantalla.blit(s, (cx - ancho // 2, pies_y - 3))
 
 
+def dibujar_halo(pantalla, cx, pies_y, col):
+    """Resplandor suave en el suelo bajo un personaje (cacheado por color)."""
+    cache = _SPRITES.setdefault("halos", {})
+    s = cache.get(col)
+    if s is None:
+        s = pygame.Surface((30, 14), pygame.SRCALPHA)
+        for k, a in enumerate((18, 28, 40)):
+            pygame.draw.ellipse(s, col + (a,), (k * 3, k * 1, 30 - k * 6, 14 - k * 2))
+        cache[col] = s
+    pantalla.blit(s, (cx - 15, pies_y - 8))
+
+
 def dibujar_ignis(pantalla, cx, base, nivel, t):
     """Ignis, la llama con cara: representa el incendio. Crece y se enoja con la emergencia."""
     import math
@@ -3138,14 +3150,22 @@ def main():
             if _mov and (_t // 130) % 2 == 1:
                 _spr = sprite_paso(_spr, _nom)
                 _salto = 2
+            _pcx = int(_px * CELDA + CELDA // 2)
+            _pie = int(_py * CELDA + CELDA)
+            dibujar_halo(pantalla, _pcx, _pie, (255, 140, 40) if _k == "b" else (90, 220, 130))
+            dibujar_sombra(pantalla, _pcx, _pie, int(_spr.get_width() * 0.9))
             pantalla.blit(_spr, (int(_px * CELDA + CELDA // 2 - _spr.get_width() // 2),
                                  int(_py * CELDA + CELDA - _spr.get_height() - _salto)))
         salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
         for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
             frac_ = est["vida"][k_] / VIDA_MAX
             bx_, by_ = cx_ * CELDA + CELDA // 2 - 14, cy_ * CELDA - 22
-            pygame.draw.rect(pantalla, (40, 0, 0), (bx_, by_, 28, 4))
-            pygame.draw.rect(pantalla, (255, 60, 60) if frac_ < 0.35 else (80, 220, 90), (bx_, by_, int(28 * frac_), 4))
+            pygame.draw.rect(pantalla, (0, 0, 0), (bx_ - 1, by_ - 1, 30, 6), border_radius=2)
+            pygame.draw.rect(pantalla, (50, 12, 12), (bx_, by_, 28, 4))
+            _cb = (255, 60, 60) if frac_ < 0.35 else (80, 220, 90)
+            pygame.draw.rect(pantalla, _cb, (bx_, by_, int(28 * frac_), 4))
+            if frac_ > 0:
+                pygame.draw.line(pantalla, tuple(min(255, c + 70) for c in _cb), (bx_, by_), (bx_ + max(0, int(28 * frac_) - 1), by_))
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
         pantalla.fill((0, 0, 0), txt_v.get_rect(topleft=(6, 24)))
         pantalla.blit(txt_v, (6, 24))
