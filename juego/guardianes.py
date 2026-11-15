@@ -346,6 +346,19 @@ def nivel_bloqueado(i):
     hechos = cargar_campana()
     return any(nv["id"] not in hechos for nv in NIVELES if nv["zona"] == z - 1)
 
+def fondo_marca(w, h):
+    """Degradado verde del menu, cacheado, para las pantallas internas."""
+    cache = _SPRITES.setdefault("fondo_marca", {})
+    s = cache.get((w, h))
+    if s is None:
+        s = pygame.Surface((w, h))
+        for y in range(h):
+            t = y / max(1, h)
+            pygame.draw.line(s, (int(15 + 90 * t), int(40 - 10 * t), int(25 - 10 * t)), (0, y), (w, y))
+        cache[(w, h)] = s
+    return s
+
+
 def seleccionar_nivel(pantalla, fuente):
     """Devuelve el indice del nivel elegido, None si vuelve, 'salir' si cierra."""
     w, h = pantalla.get_size()
@@ -412,7 +425,7 @@ def seleccionar_nivel(pantalla, fuente):
                         else:
                             return i
         zona = NIVELES[sel]["zona"]
-        pantalla.fill((22, 34, 26))
+        pantalla.blit(fondo_marca(w, h), (0, 0))
         t = f_tit.render("Elige el nivel", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 40)))
         for z, r in tab_rects.items():
@@ -600,11 +613,14 @@ def seleccionar_modo(pantalla, fuente):
                             return "salir"
                         if r_ is not None:
                             return r_
-        pantalla.fill((22, 34, 26))
+        pantalla.blit(fondo_marca(w, h), (0, 0))
         t = f_tit.render("Elige el modo de juego", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 170)))
         for i, r in enumerate(rects):
-            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
+            rr = r.inflate(14, 0) if i == sel else r
+            pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
             s = f_op.render(opciones[i][0], True, (255, 255, 255))
             pantalla.blit(s, s.get_rect(center=r.center))
         d = fuente.render(opciones[sel][2], True, (230, 230, 230))
@@ -3309,8 +3325,6 @@ def main():
                 pantalla.blit(fuente_p.render(t_f, True, c_f), (52, 88 + 20 * k_f))
         if est.get("ver_eval") and est.get("evaluacion"):
             ev = est["evaluacion"]
-            pygame.draw.rect(pantalla, (15, 20, 25), (60, 120, 440, 250))
-            pygame.draw.rect(pantalla, (255, 220, 100), (60, 120, 440, 250), 2)
             lineas = [ev.get("titulo", "EVALUACION DE LA MISION"),
                       "Estrellas: " + "*" * ev["estrellas"] + "-" * (3 - ev["estrellas"]),
                       "Animales rescatados: " + str(ev["salvos"]) + "/" + str(ev["total"]),
@@ -3322,14 +3336,20 @@ def main():
             if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
                 lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío", "corazon": "El corazón del incendio"}[MODO_ESP["id"]]]
+            _alto = 30 + 28 * len(lineas)
+            _caja = pygame.Rect(60, 120, 440, _alto)
+            pygame.draw.rect(pantalla, (0, 0, 0), _caja.move(4, 5), border_radius=8)
+            pygame.draw.rect(pantalla, (18, 28, 22), _caja, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 170, 60), _caja, 3, border_radius=8)
+            pygame.draw.line(pantalla, (255, 140, 40), (80, 135 + 24), (480, 135 + 24))
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
             _im = est.get("img_msg")
             if _im and _im[0] == id(ev):
                 _ti = fuente.render(_im[1], True, (120, 230, 120))
-                pantalla.fill((0, 0, 0), _ti.get_rect(topleft=(60, 420)))
-                pantalla.blit(_ti, (60, 420))
+                pantalla.fill((0, 0, 0), _ti.get_rect(topleft=(60, 120 + _alto + 12)))
+                pantalla.blit(_ti, (60, 120 + _alto + 12))
         pygame.display.flip()
         reloj.tick(30)
     pygame.quit()
