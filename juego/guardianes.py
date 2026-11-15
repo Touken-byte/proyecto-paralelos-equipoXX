@@ -2019,7 +2019,7 @@ def main():
         elif quemando == 0:
             linea2 = f"Incendio controlado. Bosque conservado: {veg * 100 // est['veg0']}%  (R = reiniciar)"
         else:
-            linea2 = "Izq: cortafuegos | Der: agua | P: pausa | Retroceso: deshacer | R: reiniciar"
+            linea2 = "Izq: cortafuegos | Der: agua | P: pausa | O: audio | Retroceso: deshacer | R: reiniciar"
         pantalla.blit(fuente.render(linea1, True, (255, 255, 255)), (10, n * CELDA + 6))
         pantalla.blit(fuente.render(linea2, True, (200, 200, 200)), (10, n * CELDA + 30))
         pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
