@@ -1207,6 +1207,186 @@ def tienda(pantalla, fuente):
         pygame.display.flip()
         reloj.tick(30)
 
+CENTRO_PARAMS = [
+    ("Ángulo del viento", [0, 45, 90, 135, 180, 225, 270, 315], 0, lambda v: f"{v} grados"),
+    ("Fuerza del viento", [0.0, 0.3, 0.6, 0.9, 1.2], 2, lambda v: f"{v:.1f}"),
+    ("Humedad ambiental", [0.0, 0.2, 0.4, 0.6, 0.8, 1.0], 0,
+     lambda v: f"{v:.1f}" + (" (neutra)" if v == 0 else "")),
+    ("Simulaciones", [8, 16, 32, 64], 1, lambda v: str(v)),
+    ("Tamaño del mapa", [96, 112, 128], 0, lambda v: f"{v} x {v}"),
+    ("Fila de la barrera", [25, 50, 75], 1, lambda v: f"{v} % del alto"),
+]
+CENTRO_PASOS, CENTRO_SEMILLA = 50, 42
+
+def centro_asegurar_vigia():
+    """Recompila bin/vigia_hibrido en el contenedor si falta o es mas viejo que el motor."""
+    b = "bin/vigia_hibrido"
+    fuentes = ["src/common/fire_common.h", "src/common/fire_core.h", "src/parallel/vigia_hibrido.cpp"]
+    if os.path.exists(b) and os.path.getmtime(b) >= max(os.path.getmtime(s) for s in fuentes):
+        return
+    r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c",
+        "cd /home/mpiuser/proyecto && mpicxx -std=c++17 -O2 -fopenmp -I src/common "
+        "-o bin/vigia_hibrido src/parallel/vigia_hibrido.cpp < /dev/null"],
+        capture_output=True, text=True, timeout=180)
+    if r.returncode != 0:
+        raise RuntimeError("no compila vigia_hibrido")
+
+def centro_vigia(par, salida, acciones):
+    """Una corrida del Vigia (MPI+OpenMP). Devuelve porcentajes y los pixeles del mapa de riesgo."""
+    n = par["n"]
+    cmd = (f"cd /home/mpiuser/proyecto && mpirun -np {VIGIA_PROCS} --hostfile infrastructure/hostfile "
+           f"--map-by node ./bin/vigia_hibrido --mapa data/maps/map_{n}.bin --sims {par['sims']} "
+           f"--viento-ang {par['ang']} --viento-fuerza {par['fuerza']} --humedad {par['hum']} "
+           f"--pasos {CENTRO_PASOS} --semilla {CENTRO_SEMILLA} --hilos {VIGIA_HILOS} --salida {salida}")
+    if acciones:
+        cmd += f" --acciones {acciones}"
+    cmd += " < /dev/null"
+    r = subprocess.run(["docker", "exec", "-u", "mpiuser", "master", "bash", "-c", cmd],
+                       capture_output=True, text=True, timeout=150)
+    if r.returncode != 0:
+        raise RuntimeError("vigia fallo: " + (r.stderr.strip().splitlines() or ["?"])[-1])
+    m_alto = re.search(r"riesgo > 50%\s*:\s*(\d+) \(([\d.]+)%\)", r.stdout)
+    m_afec = re.search(r"afectadas\s*:\s*(\d+) \(([\d.]+)%\)", r.stdout)
+    m_med = re.search(r"quema\s*:\s*([\d.]+)", r.stdout)
+    m_t = re.search(r" t=([0-9.]+)", r.stdout)
+    if not (m_alto and m_afec and m_med and m_t):
+        raise RuntimeError("no pude leer la salida del Vigia")
+    datos = open(salida, "rb").read()
+    if not datos.startswith(b"P5") or len(datos) < n * n:
+        raise RuntimeError("PGM del Vigia inesperado")
+    return {"alto": float(m_alto.group(2)), "afect": float(m_afec.group(2)),
+            "media": float(m_med.group(1)), "t": float(m_t.group(1)), "pix": datos[-(n * n):]}
+
+def centro_calcular(par):
+    """Vigia sin y con cortafuegos (misma semilla). Devuelve (sin, con, fila_barrera)."""
+    centro_asegurar_vigia()
+    n = par["n"]
+    os.makedirs("output/vigia", exist_ok=True)
+    fila = n * par["fila"] // 100
+    with open("output/vigia/centro_barrera.txt", "w") as f:
+        for k in range(n):
+            f.write(f"0 CORTAFUEGO {k} {fila}\n")
+    sin = centro_vigia(par, "output/vigia/centro_sin.pgm", None)
+    con = centro_vigia(par, "output/vigia/centro_con.pgm", "output/vigia/centro_barrera.txt")
+    return sin, con, fila
+
+def centro_superficie(pix, n, esc):
+    sup = pygame.Surface((n, n))
+    sup.fill((25, 40, 30))
+    for i in range(n * n):
+        v = pix[i]
+        if v:
+            sup.set_at((i % n, i // n), color_riesgo(v))
+    return pygame.transform.scale(sup, (n * esc, n * esc))
+
+def centro_analisis(pantalla, fuente):
+    # Centro de Analisis y Prediccion: devuelve None al volver, o 'salir' si se cierra la ventana.
+    w, h = pantalla.get_size()
+    f_tit = pygame.font.Font(None, 46)
+    f_n = pygame.font.Font(None, 30)
+    f_p = pygame.font.Font(None, 22)
+    fondo = pygame.Surface((w, h))
+    for y in range(h):
+        t = y / h
+        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    idx = [p[2] for p in CENTRO_PARAMS]
+    sel, msg, res = 0, "", None
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type != pygame.KEYDOWN:
+                continue
+            if res is not None:
+                if e.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
+                    res = None
+                continue
+            if e.key == pygame.K_ESCAPE:
+                return None
+            elif e.key == pygame.K_UP:
+                sel = (sel - 1) % len(CENTRO_PARAMS)
+            elif e.key == pygame.K_DOWN:
+                sel = (sel + 1) % len(CENTRO_PARAMS)
+            elif e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                d = 1 if e.key == pygame.K_RIGHT else -1
+                idx[sel] = (idx[sel] + d) % len(CENTRO_PARAMS[sel][1])
+                msg = ""
+            elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                v = [CENTRO_PARAMS[k][1][idx[k]] for k in range(len(CENTRO_PARAMS))]
+                par = {"ang": v[0], "fuerza": v[1], "hum": v[2], "sims": v[3], "n": v[4], "fila": v[5]}
+                pantalla.blit(fondo, (0, 0))
+                c = f_tit.render("El Vigía está calculando...", True, (255, 220, 100))
+                pantalla.blit(c, c.get_rect(center=(w // 2, h // 2)))
+                pygame.display.flip()
+                try:
+                    sin, con, fila = centro_calcular(par)
+                    n = par["n"]
+                    esc = max(1, min((w - 90) // 2 // n, (h - 290) // n))
+                    res = {"sin": sin, "con": con, "fila": fila, "n": n, "esc": esc, "par": par,
+                           "s_sin": centro_superficie(sin["pix"], n, esc),
+                           "s_con": centro_superficie(con["pix"], n, esc)}
+                    msg = ""
+                except Exception as ex:
+                    msg = "Error: " + str(ex)
+        pantalla.blit(fondo, (0, 0))
+        if res is None:
+            t = f_tit.render("Centro de Análisis y Predicción", True, (255, 170, 60))
+            pantalla.blit(t, t.get_rect(center=(w // 2, 46)))
+            sub = f_p.render("Laboratorio del Vigía: Monte Carlo sin y con cortafuegos", True, (200, 200, 200))
+            pantalla.blit(sub, sub.get_rect(center=(w // 2, 78)))
+            ancho = min(560, w - 60)
+            x0 = (w - ancho) // 2
+            for k, (nom, vals, _, fmt) in enumerate(CENTRO_PARAMS):
+                r = pygame.Rect(x0, 104 + k * 44, ancho, 38)
+                pygame.draw.rect(pantalla, (255, 87, 34) if k == sel else (50, 60, 52), r, border_radius=6)
+                pantalla.blit(f_n.render(nom, True, (255, 255, 255)), (r.x + 12, r.y + 8))
+                tv = f_n.render("<  " + fmt(vals[idx[k]]) + "  >", True, (255, 255, 255))
+                pantalla.blit(tv, (r.right - tv.get_width() - 12, r.y + 8))
+            nota = f_p.render("La cantidad de vegetación depende del mapa elegido.", True, (190, 190, 190))
+            pantalla.blit(nota, nota.get_rect(center=(w // 2, 104 + len(CENTRO_PARAMS) * 44 + 14)))
+            if msg:
+                m = f_n.render(msg, True, (255, 90, 90))
+                pantalla.blit(m, m.get_rect(center=(w // 2, 104 + len(CENTRO_PARAMS) * 44 + 42)))
+            av = f_p.render("Resultados experimentales y educativos, no son predicciones oficiales.", True, (255, 220, 100))
+            pantalla.blit(av, av.get_rect(center=(w // 2, h - 54)))
+            ay = f_p.render("Flechas: elegir y cambiar  |  Enter: calcular  |  Esc: volver", True, (190, 190, 190))
+            pantalla.blit(ay, ay.get_rect(center=(w // 2, h - 30)))
+        else:
+            n, esc = res["n"], res["esc"]
+            lado = n * esc
+            xs = (w - (2 * lado + 30)) // 2
+            t = f_tit.render("Resultados del Vigía", True, (255, 170, 60))
+            pantalla.blit(t, t.get_rect(center=(w // 2, 36)))
+            for k, (clave, nom) in enumerate((("sin", "Sin cortafuegos"), ("con", "Con cortafuegos"))):
+                x = xs + k * (lado + 30)
+                lb = f_n.render(nom, True, (255, 255, 255))
+                pantalla.blit(lb, lb.get_rect(center=(x + lado // 2, 78)))
+                pantalla.blit(res["s_" + clave], (x, 96))
+                if clave == "con":
+                    yb = 96 + res["fila"] * esc
+                    pygame.draw.line(pantalla, (255, 255, 255), (x, yb), (x + lado, yb), 2)
+                d = res[clave]
+                tx = f_p.render(f"Riesgo alto (>50 %): {d['alto']:.1f} %   media: {d['media']:.3f}",
+                                True, (255, 255, 255))
+                pantalla.blit(tx, tx.get_rect(center=(x + lado // 2, 96 + lado + 14)))
+            dif = res["con"]["alto"] - res["sin"]["alto"]
+            tx = f_n.render(f"Con la barrera, el riesgo alto cambia {dif:+.1f} puntos porcentuales",
+                            True, (120, 230, 120) if dif < 0 else (255, 200, 100))
+            pantalla.blit(tx, tx.get_rect(center=(w // 2, 96 + lado + 42)))
+            p = res["par"]
+            info = (f"Viento {p['ang']} grados, fuerza {p['fuerza']:.1f}  |  humedad {p['hum']:.1f}  |  "
+                    f"{p['sims']} sims, {CENTRO_PASOS} pasos  |  motor {res['sin']['t'] + res['con']['t']:.1f} s")
+            pantalla.blit(f_p.render(info, True, (190, 190, 190)),
+                          f_p.render(info, True, (0, 0, 0)).get_rect(center=(w // 2, 96 + lado + 66)))
+            lg = f_p.render("Azul = riesgo bajo, rojo = riesgo alto. Experimental y educativo, no es una predicción oficial.",
+                            True, (255, 220, 100))
+            pantalla.blit(lg, lg.get_rect(center=(w // 2, h - 54)))
+            ay = f_p.render("Enter o Esc: volver a los parámetros", True, (190, 190, 190))
+            pantalla.blit(ay, ay.get_rect(center=(w // 2, h - 30)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
@@ -1323,6 +1503,9 @@ def menu_principal(pantalla, fuente):
                     return False
             elif op == "Tienda":
                 if tienda(pantalla, fuente) == "salir":
+                    return False
+            elif op == "Centro de Análisis":
+                if centro_analisis(pantalla, fuente) == "salir":
                     return False
             elif op in MAQUETAS:
                 titulo_m, lineas_m = MAQUETAS[op]
