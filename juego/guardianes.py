@@ -1152,10 +1152,7 @@ def tienda(pantalla, fuente):
     f_s = pygame.font.Font(None, 34)
     f_n = pygame.font.Font(None, 28)
     f_p = pygame.font.Font(None, 22)
-    fondo = pygame.Surface((w, h))
-    for y in range(h):
-        t = y / h
-        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    fondo = fondo_marca(w, h)
     pers = ("bombero", "vet")
     nombres = {"bombero": "Bombero", "vet": "Veterinaria"}
     col, sel, msg, msg_ok = 0, [0, 0], "", True
@@ -1300,10 +1297,7 @@ def centro_analisis(pantalla, fuente):
     f_tit = pygame.font.Font(None, 46)
     f_n = pygame.font.Font(None, 30)
     f_p = pygame.font.Font(None, 22)
-    fondo = pygame.Surface((w, h))
-    for y in range(h):
-        t = y / h
-        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    fondo = fondo_marca(w, h)
     idx = [p[2] for p in CENTRO_PARAMS]
     sel, msg, res = 0, "", None
     reloj = pygame.time.Clock()
