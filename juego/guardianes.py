@@ -1765,6 +1765,27 @@ def dibujar_particulas(pantalla, est):
             pygame.draw.rect(pantalla, (175, 175, 175), (int(x), int(y), 2, 2))
 
 
+def anim_animal(est, i, esp, sfa, ax, ay, t):
+    """Centro en pixeles (x, y) de un animal: posicion suave + temblor + rebote por especie."""
+    import math
+    px, py, mov = pos_suave(est, "a%d" % i, ax, ay, t)
+    dx = dy = 0
+    if sfa in ("asustado", "aislado", "herido"):
+        dx = 1 if (t // 60) % 2 else -1
+    if mov:
+        if esp == "loro":
+            dy = -int(4 * abs(math.sin(t / 70)))
+        elif esp == "jaguar":
+            dy = -int(3 * abs(math.sin(t / 90)))
+        elif esp == "taitetu":
+            dy = -int(2 * abs(math.sin(t / 110)))
+        else:
+            dy = -1 if (t // 200) % 2 else 0
+    elif esp == "loro" and sfa == "asustado":
+        dy = -int(2 * abs(math.sin(t / 80)))
+    return int(px * CELDA + CELDA // 2) + dx, int(py * CELDA + CELDA // 2) + dy
+
+
 def pos_suave(est, k, x, y, ahora):
     """Posicion dibujada (en celdas, decimal): se desliza hacia la celda real."""
     v = est.setdefault("vis", {})
@@ -2104,18 +2125,26 @@ def main():
         pygame.draw.rect(pantalla, (120, 255, 160), (rx * CELDA, ry * CELDA, rw * CELDA, rh * CELDA), 2)
         pantalla.blit(fuente.render("Refugio", True, (255, 255, 255)), (rx * CELDA, ry * CELDA - 18))
         sa = sprite_generico("animal", SPRITE_ANIMAL, PALETA_ANIMAL)
-        for (ax, ay, ea, esp), sfa in zip(est["animales"], estados_fauna(est)):
-            pantalla.blit(sa, (ax * CELDA + CELDA // 2 - sa.get_width() // 2, ay * CELDA + CELDA - sa.get_height()))
+        _t = pygame.time.get_ticks()
+        _pend = est.get("pendientes", ())
+        for _i, ((ax, ay, ea, esp), sfa) in enumerate(zip(est["animales"], estados_fauna(est))):
+            _cx, _cy = anim_animal(est, _i, esp, sfa, ax, ay, _t)
+            pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
             col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
             if col_anillo:
-                pygame.draw.circle(pantalla, col_anillo, (ax * CELDA + CELDA // 2, ay * CELDA + CELDA // 2), 16, 3)
+                pygame.draw.circle(pantalla, col_anillo, (_cx, _cy), 16, 3)
             ini, col_e = ESP_INFO[esp]
             t_e = fuente.render(ini, True, col_e)
-            pos_e = (ax * CELDA + CELDA // 2 - t_e.get_width() // 2, ay * CELDA + CELDA - sa.get_height() - t_e.get_height())
+            pos_e = (_cx - t_e.get_width() // 2, _cy + CELDA // 2 - sa.get_height() - t_e.get_height())
             pantalla.fill((0, 0, 0), t_e.get_rect(topleft=pos_e))
             pantalla.blit(t_e, pos_e)
+            if _i in _pend and (_t // 250) % 2 == 0:
+                t_x = fuente.render("!", True, (255, 60, 60))
+                pos_x = (_cx - t_x.get_width() // 2, pos_e[1] - t_x.get_height() - 2)
+                pantalla.fill((0, 0, 0), t_x.get_rect(topleft=pos_x))
+                pantalla.blit(t_x, pos_x)
             if ea == "libre" and est["estado"][ay * n + ax] == 2:
-                pygame.draw.circle(pantalla, (255, 40, 40), (ax * CELDA + CELDA // 2, ay * CELDA + CELDA // 2), 12, 2)
+                pygame.draw.circle(pantalla, (255, 40, 40), (_cx, _cy), 12, 2)
         pygame.draw.circle(pantalla, (255, 255, 255),
                            (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2),
                            ALCANCE * CELDA, 1)
