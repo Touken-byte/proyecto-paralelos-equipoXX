@@ -1920,6 +1920,47 @@ def evaluar(est):
                 titulo=("MISION CUMPLIDA" if cumplida
                         else "MISION FALLIDA: meta no alcanzada"))
 
+COMPARTIR_DIR = "output/compartir"
+NOMBRES_MODO = {"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío",
+                "corazon": "El corazón del incendio"}
+
+def imagen_resultados(est, ev):
+    # Genera un PNG fijo de 640x400 con los resultados de la misión. Devuelve la ruta.
+    import time
+    W, H = 640, 400
+    s = pygame.Surface((W, H))
+    for y in range(H):
+        t = y / H
+        pygame.draw.line(s, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (W, y))
+    pygame.draw.rect(s, (255, 170, 60), (8, 8, W - 16, H - 16), 3, border_radius=10)
+    f_tit, f_g, f_m, f_p = (pygame.font.Font(None, n) for n in (44, 34, 28, 22))
+
+    def centrado(txt, fnt, col, y):
+        r = fnt.render(txt, True, col)
+        s.blit(r, r.get_rect(center=(W // 2, y)))
+
+    niv = nivel_actual()
+    modo = NOMBRES_MODO.get(MODO_ESP["id"])
+    centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 42)
+    centrado(niv["nombre"] + (f"  -  {modo}" if modo else ""), f_m, (235, 235, 235), 82)
+    centrado(str(ev.get("titulo", "")), f_m, (255, 220, 100), 114)
+    r = 22
+    dibujar_estrellas(s, W // 2 - (2 * r + 4), 160, ev.get("estrellas", 0), total=3, r=r)
+    centrado(f"Puntuación: {ev.get('puntos', 0)}", f_g, (255, 255, 255), 215)
+    centrado(f"Animales rescatados: {ev.get('salvos', 0)}/{ev.get('total', 0)}", f_m, (235, 235, 235), 255)
+    centrado(f"Bosque conservado: {ev.get('bosque', 0)}%", f_m, (235, 235, 235), 285)
+    centrado(f"Rondas usadas: {ev.get('ronda', 0)}", f_m, (235, 235, 235), 315)
+    for x, pers in ((70, "bombero"), (W - 70, "vet")):
+        _, spr = sprite_personaje(pers)
+        big = pygame.transform.scale(spr, (spr.get_width() * 4, spr.get_height() * 4))
+        s.blit(big, big.get_rect(center=(x, 255)))
+    centrado("Simulación de incendios forestales - Chaco boliviano y Tarija", f_p, (190, 190, 190), 372)
+    os.makedirs(COMPARTIR_DIR, exist_ok=True)
+    nombre = niv["id"] + ("_" + MODO_ESP["id"] if MODO_ESP["id"] else "") + "_" + time.strftime("%Y%m%d-%H%M%S") + ".png"
+    ruta = os.path.join(COMPARTIR_DIR, nombre)
+    pygame.image.save(s, ruta)
+    return ruta
+
 def ia_veterinaria(est, ahora):
     """IA basica de la veterinaria: camino mas corto (BFS) al animal libre mas cercano,
     lo recoge y lo lleva al refugio. Esquiva agua y celdas en llamas."""
@@ -2523,6 +2564,12 @@ def main():
                 elif e.key == pygame.K_c:
                     if not est["derrota"]:
                         est["ver_eval"] = False
+                elif e.key == pygame.K_i and est.get("ver_eval") and est.get("evaluacion"):
+                    try:
+                        _ruta = imagen_resultados(est, est["evaluacion"])
+                        est["img_msg"] = (id(est["evaluacion"]), "Imagen guardada: " + os.path.basename(_ruta))
+                    except Exception as ex:
+                        est["img_msg"] = (id(est["evaluacion"]), "No se pudo guardar la imagen: " + str(ex))
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_m and "musica" in sonidos:
@@ -2858,13 +2905,18 @@ def main():
                       "Focos activos: " + str(ev["focos"]),
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]) + est.get("monedas_txt", ""),
-                      "C = continuar   R = reiniciar"]
+                      "C = continuar   R = reiniciar   I = imagen"]
             if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
                 lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío", "corazon": "El corazón del incendio"}[MODO_ESP["id"]]]
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
+            _im = est.get("img_msg")
+            if _im and _im[0] == id(ev):
+                _ti = fuente.render(_im[1], True, (120, 230, 120))
+                pantalla.fill((0, 0, 0), _ti.get_rect(topleft=(60, 420)))
+                pantalla.blit(_ti, (60, 420))
         pygame.display.flip()
         reloj.tick(30)
     pygame.quit()
