@@ -583,7 +583,11 @@ def seleccionar_modo(pantalla, fuente):
                 elif e.key == pygame.K_DOWN:
                     sel = (sel + 1) % len(opciones)
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                    return opciones[sel][1]
+                    r_ = elegir_dificultad_modo(pantalla, fuente, opciones[sel][1])
+                    if r_ == "salir":
+                        return "salir"
+                    if r_ is not None:
+                        return r_
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
@@ -591,7 +595,11 @@ def seleccionar_modo(pantalla, fuente):
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
-                        return opciones[i][1]
+                        r_ = elegir_dificultad_modo(pantalla, fuente, opciones[i][1])
+                        if r_ == "salir":
+                            return "salir"
+                        if r_ is not None:
+                            return r_
         pantalla.fill((22, 34, 26))
         t = f_tit.render("Elige el modo de juego", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 170)))
@@ -1744,7 +1752,7 @@ def _marcar(est, celdas, color, dur):
     fin = pygame.time.get_ticks() + dur
     est.setdefault("marcas", []).extend((x, y, color, fin) for x, y in celdas)
 
-def habilidad(est, tecla):
+def habilidad(est, tecla, desde_ia=False):
     """G manguera, T torre (bombero); Z botiquin, X rastreo, Q senal de auxilio (veterinaria)."""
     if est.get("ver_eval") or est.get("derrota"):
         return
@@ -1752,7 +1760,7 @@ def habilidad(est, tecla):
     n, estado = est["n"], est["estado"]
     ia = est.get("ia_rol")
     es_b = tecla in (pygame.K_g, pygame.K_t, pygame.K_h)
-    if (es_b and ia == "bombero") or (not es_b and ia == "veterinaria"):
+    if not desde_ia and ((es_b and ia == "bombero") or (not es_b and ia == "veterinaria")):
         est["msg"] = "Esa habilidad la controla la IA"
         return
     bx, by, vx, vy = est["bx"], est["by"], est["vx"], est["vy"]
@@ -1961,6 +1969,129 @@ def imagen_resultados(est, ev):
     pygame.image.save(s, ruta)
     return ruta
 
+# IA del compañero: tres niveles (spec 9.3). Valores ajustables.
+IA_PESO_REFUGIO = 1.0      # Experto: peso de la cercania al refugio al elegir foco
+IA_NIVELES = {
+    "asistente": dict(nombre="Asistente", apoyo_agua=4, apoyo_vida=80, mang_min=None, hab_vet=(),
+                      desc="Te apoya a ti: ataca los focos cercanos a ti y te cuida más seguido."),
+    "equilibrado": dict(nombre="Equilibrado", apoyo_agua=2, apoyo_vida=60, mang_min=3, hab_vet=(pygame.K_z,),
+                        desc="Combina ayuda y decisiones propias. Usa manguera y botiquín."),
+    "experto": dict(nombre="Experto", apoyo_agua=2, apoyo_vida=60, mang_min=2, hab_vet=(pygame.K_z, pygame.K_q),
+                    desc="Prioriza lo que amenaza el refugio y a los animales en peligro."),
+}
+MODO.setdefault("dif", "equilibrado")
+
+def ia_param(k):
+    return IA_NIVELES.get(MODO.get("dif"), IA_NIVELES["equilibrado"])[k]
+
+def ia_ordenar_focos(est, fuegos):
+    bx, by = est["bx"], est["by"]
+    dif = MODO.get("dif")
+    if dif == "asistente":
+        px, py = est["vx"], est["vy"]
+        fuegos.sort(key=lambda f: (f[0] - px) ** 2 + (f[1] - py) ** 2)
+    elif dif == "experto":
+        rx, ry, rw, rh = est["refugio"]
+        cx, cy = rx + rw / 2, ry + rh / 2
+        fuegos.sort(key=lambda f: (f[0] - bx) ** 2 + (f[1] - by) ** 2
+                    + IA_PESO_REFUGIO * ((f[0] - cx) ** 2 + (f[1] - cy) ** 2))
+    else:
+        fuegos.sort(key=lambda f: (f[0] - bx) ** 2 + (f[1] - by) ** 2)
+
+def ia_hab_bombero(est, fuegos):
+    """Manguera de la IA: solo si esta lista y hay suficientes focos a su alcance."""
+    minimo = ia_param("mang_min")
+    if minimo is None or estado_hab(est, "t_mang", CD_MANGUERA_MS) != "listo" or est["agua"] < minimo:
+        return False
+    bx, by = est["bx"], est["by"]
+    cerca = [f for f in fuegos if (f[0] - bx) ** 2 + (f[1] - by) ** 2 <= MANGUERA_R ** 2]
+    if len(cerca) < minimo:
+        return False
+    t0 = est["t_mang"]
+    habilidad(est, pygame.K_g, desde_ia=True)
+    return est["t_mang"] != t0
+
+def ia_hab_vet(est):
+    """Botiquin y senal de auxilio de la IA, segun el nivel."""
+    usa = ia_param("hab_vet")
+    if not usa:
+        return
+    vx, vy = est["vx"], est["vy"]
+    if pygame.K_z in usa and estado_hab(est, "t_boti", CD_BOTIQUIN_MS) == "listo":
+        sts = estados_fauna(est)
+        if any(a[2] == "libre" and st in ("herido", "aislado", "asustado")
+               and (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= BOTIQUIN_R ** 2
+               for a, st in zip(est["animales"], sts)):
+            habilidad(est, pygame.K_z, desde_ia=True)
+    if pygame.K_q in usa and estado_hab(est, "t_senal", CD_SENAL_MS) == "listo":
+        if "aislado" in estados_fauna(est):
+            habilidad(est, pygame.K_q, desde_ia=True)
+
+def ia_prioridad_animales(est, libres):
+    """Experto: atiende primero a los animales en peligro (si hay); el resto, todos los libres."""
+    if MODO.get("dif") != "experto":
+        return libres
+    sts = estados_fauna(est)
+    riesgo = [a for a, st in zip(est["animales"], sts)
+              if a[2] == "libre" and st in ("herido", "aislado", "asustado")]
+    return riesgo or libres
+
+def seleccionar_dificultad(pantalla, fuente):
+    """Devuelve la clave de dificultad, None si vuelve, 'salir' si cierra."""
+    f_tit = pygame.font.Font(None, 56)
+    f_op = pygame.font.Font(None, 36)
+    w, h = pantalla.get_size()
+    claves = list(IA_NIVELES)
+    rects = [pygame.Rect(w // 2 - 260, 220 + i * 80, 520, 56) for i in range(len(claves))]
+    sel = claves.index(MODO.get("dif")) if MODO.get("dif") in claves else 1
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_ESCAPE:
+                    return None
+                elif e.key == pygame.K_UP:
+                    sel = (sel - 1) % len(claves)
+                elif e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % len(claves)
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    return claves[sel]
+            elif e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        return claves[i]
+        pantalla.fill((22, 34, 26))
+        t = f_tit.render("Dificultad del compañero", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 150)))
+        for i, r in enumerate(rects):
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (60, 60, 60), r, border_radius=8)
+            s = f_op.render(IA_NIVELES[claves[i]]["nombre"], True, (255, 255, 255))
+            pantalla.blit(s, s.get_rect(center=r.center))
+        d = fuente.render(IA_NIVELES[claves[sel]]["desc"], True, (230, 230, 230))
+        pantalla.blit(d, d.get_rect(center=(w // 2, 220 + len(claves) * 80 + 20)))
+        v = fuente.render("Arriba/Abajo: elegir   Enter: continuar   Esc: volver", True, (170, 170, 170))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h - 40)))
+        pygame.display.flip()
+        reloj.tick(30)
+
+def elegir_dificultad_modo(pantalla, fuente, m):
+    """Tras elegir el modo: en solitario pide la dificultad. Devuelve m, None (volver) o 'salir'."""
+    if m == "dos":
+        return "dos"
+    d = seleccionar_dificultad(pantalla, fuente)
+    if d == "salir":
+        return "salir"
+    if d is None:
+        return None
+    MODO["dif"] = d
+    return m
+
 def ia_veterinaria(est, ahora):
     """IA basica de la veterinaria: camino mas corto (BFS) al animal libre mas cercano,
     lo recoge y lo lleva al refugio. Esquiva agua y celdas en llamas."""
@@ -1968,8 +2099,9 @@ def ia_veterinaria(est, ahora):
     if est["ver_eval"] or est["tick"]["pausa"] or ahora - est.get("t_movv", 0) < 160:
         return
     est["t_movv"] = ahora
-    if est["agua"] <= 2 or est["vida"]["b"] < 60:
+    if est["agua"] <= ia_param("apoyo_agua") or est["vida"]["b"] < ia_param("apoyo_vida"):
         apoyo(est, ahora, avisar=False)
+    ia_hab_vet(est)
     n, estado = est["n"], est["estado"]
     vx, vy = est["vx"], est["vy"]
     if est["carga"] is None:
@@ -1979,10 +2111,15 @@ def ia_veterinaria(est, ahora):
                 a[2] = "cargado"; est["carga"] = a
                 est["msg"] = "La IA recogio un animal"
                 return
+        libres = ia_prioridad_animales(est, libres)
         metas = {(a[0] + dx, a[1] + dy) for a in libres for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
     else:
         rx, ry, rw, rh = est["refugio"]
         metas = {(x, y) for x in range(rx, rx + rw) for y in range(ry, ry + rh)}
+    if (MODO.get("dif") == "asistente" and est["carga"] is None
+            and ahora - est["t_apoyo"] >= CD_APOYO_MS
+            and (est["agua"] <= ia_param("apoyo_agua") or est["vida"]["b"] < ia_param("apoyo_vida"))):
+        metas = {(est["bx"] + dx, est["by"] + dy) for dy in (-1, 0, 1) for dx in (-1, 0, 1)}
     if not metas:
         return
     prev = {(vx, vy): None}
@@ -2018,7 +2155,9 @@ def ia_bombero(est, ahora):
     fuegos = [(i % n, i // n) for i, v in enumerate(estado) if v == 2 and (i % n, i // n) not in pend_apagar]
     if not fuegos:
         return
-    fuegos.sort(key=lambda f: (f[0] - bx) ** 2 + (f[1] - by) ** 2)
+    ia_ordenar_focos(est, fuegos)
+    if ia_hab_bombero(est, fuegos):
+        return
     if est["agua"] <= 0:
         est["ia_rec"] = True
     elif est["agua"] >= tanque_max():
