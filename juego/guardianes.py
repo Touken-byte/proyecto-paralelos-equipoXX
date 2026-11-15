@@ -1051,6 +1051,70 @@ def pantalla_maqueta(pantalla, titulo, lineas, etiqueta_txt="MAQUETA - EN CONSTR
         pygame.display.flip()
         reloj.tick(30)
 
+SALON_PAGINAS = [("Campaña", "campana"), ("Modo récord", "record"), ("Supervivencia", "supervivencia"),
+                 ("Desafío", "desafio"), ("El corazón del incendio", "corazon")]
+
+def lineas_records(modo):
+    r = cargar_records()
+    if modo == "corazon":
+        claves = [("corazon", NIVEL_CORAZON["nombre"])]
+    else:
+        pref = "" if modo == "record" else modo + ":"
+        claves = [(pref + n["id"], n["nombre"]) for n in NIVELES]
+    out = []
+    for k, nom in claves:
+        v = r.get(k)
+        if isinstance(v, dict):
+            e = v.get("estrellas", 0)
+            out.append(f"{nom}: {v.get('puntos', 0)} puntos, {e} estrella{'s' if e != 1 else ''}, ronda {v.get('ronda', 0)}")
+    return out or ["Sin récords todavía.", "", "Cumple una misión en este modo y aparecerá aquí."]
+
+def salon(pantalla, fuente):
+    # Salón de Guardianes con una página por modo. None al volver, 'salir' si se cierra la ventana.
+    w, h = pantalla.get_size()
+    f_tit = pygame.font.Font(None, 46)
+    f_t = pygame.font.Font(None, 28)
+    f_p = pygame.font.Font(None, 22)
+    fondo = pygame.Surface((w, h))
+    for y in range(h):
+        t = y / h
+        pygame.draw.line(fondo, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (w, y))
+    pag = 0
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER):
+                    return None
+                elif e.key == pygame.K_LEFT:
+                    pag = (pag - 1) % len(SALON_PAGINAS)
+                elif e.key == pygame.K_RIGHT:
+                    pag = (pag + 1) % len(SALON_PAGINAS)
+        nombre, modo = SALON_PAGINAS[pag]
+        lineas = lineas_salon() if modo == "campana" else lineas_records(modo)
+        pantalla.blit(fondo, (0, 0))
+        t = f_tit.render("Salón de Guardianes", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 60)))
+        sub = f_t.render(f"<  {nombre}  ({pag + 1}/{len(SALON_PAGINAS)})  >", True, (255, 220, 100))
+        pantalla.blit(sub, sub.get_rect(center=(w // 2, 105)))
+        caja = pygame.Rect(40, 135, w - 80, h - 135 - 70)
+        pygame.draw.rect(pantalla, (32, 44, 36), caja, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 170, 60), caja, 2, border_radius=8)
+        yy = caja.y + 18
+        for linea in lineas:
+            if linea == "":
+                yy += 14
+                continue
+            for parte in _ajustar(linea, f_t, caja.w - 40):
+                pantalla.blit(f_t.render(parte, True, (235, 235, 235)), (caja.x + 20, yy))
+                yy += 30
+        v = f_p.render("Izquierda/Derecha: cambiar de modo  |  Esc: volver", True, (190, 190, 190))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h - 30)))
+        pygame.display.flip()
+        reloj.tick(30)
+
 def tienda(pantalla, fuente):
     # Tienda de skins: devuelve None al volver, o 'salir' si se cierra la ventana.
     w, h = pantalla.get_size()
@@ -1237,7 +1301,7 @@ def menu_principal(pantalla, fuente):
                             MODO_ESP["id"] = me
                             return True
             elif op == "Salón de Guardianes":
-                if pantalla_maqueta(pantalla, "Salón de Guardianes", lineas_salon(), "TUS MEJORES RESULTADOS") == "salir":
+                if salon(pantalla, fuente) == "salir":
                     return False
             elif op == "Cuaderno de Guardianes":
                 if cuaderno(pantalla, fuente) == "salir":
