@@ -1008,13 +1008,14 @@ def cuaderno(pantalla, fuente):
                     ent = (ent - 1) % len(CUADERNO[sec][1])
         pantalla.blit(fondo, (0, 0))
         marco = pygame.Rect(30, 30, w - 60, h - 60)
-        pygame.draw.rect(pantalla, (45, 25, 70), marco, border_radius=8)
-        pygame.draw.rect(pantalla, (200, 180, 240), marco, 3, border_radius=8)
+        pygame.draw.rect(pantalla, (0, 0, 0), marco.move(4, 5), border_radius=8)
+        pygame.draw.rect(pantalla, (22, 36, 28), marco, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 170, 60), marco, 3, border_radius=8)
         t = f_tit.render("CUADERNO DE GUARDIANES", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 68)))
         x = marco.x + 20
         for i, (nom, _) in enumerate(CUADERNO):
-            s = f_s.render(nom, True, (255, 255, 255) if i == sec else (150, 140, 175))
+            s = f_s.render(nom, True, (255, 255, 255) if i == sec else (150, 170, 150))
             pantalla.blit(s, (x, 100))
             if i == sec:
                 pygame.draw.line(pantalla, (255, 170, 60), (x, 122), (x + s.get_width(), 122), 2)
@@ -1023,14 +1024,15 @@ def cuaderno(pantalla, fuente):
         lista = pygame.Rect(marco.x + 20, 140, 190, marco.h - 140 - 60)
         for i, (nom, _) in enumerate(fichas):
             r = pygame.Rect(lista.x, lista.y + i * 36, lista.w, 30)
-            pygame.draw.rect(pantalla, (255, 87, 34) if i == ent else (70, 50, 100), r, border_radius=6)
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == ent else (45, 66, 52), r, border_radius=6)
             _cl = CUAD_CLAVES[sec][i]
             _ab = _cl in CUAD["abiertas"]
-            pantalla.blit(f_s.render(nom if _ab else "??? bloqueada", True, (255, 255, 255) if _ab else (170, 160, 190)), (r.x + 10, r.y + 6))
+            pantalla.blit(f_s.render(nom if _ab else "??? bloqueada", True, (255, 255, 255) if _ab else (150, 165, 150)), (r.x + 10, r.y + 6))
             if _cl in CUAD["nuevas"]:
                 pygame.draw.circle(pantalla, (255, 60, 60), (r.right - 12, r.centery), 5)
         det = pygame.Rect(lista.right + 20, 140, marco.right - lista.right - 40, lista.h)
-        pygame.draw.rect(pantalla, (32, 20, 52), det, border_radius=6)
+        pygame.draw.rect(pantalla, (14, 24, 18), det, border_radius=6)
+        pygame.draw.rect(pantalla, (90, 120, 95), det, 1, border_radius=6)
         yy = det.y + 14
         _cl = CUAD_CLAVES[sec][ent]
         _ab = _cl in CUAD["abiertas"]
@@ -1041,7 +1043,7 @@ def cuaderno(pantalla, fuente):
             for parte in _ajustar(linea, f_t, det.w - 28):
                 pantalla.blit(f_t.render(parte, True, (230, 230, 230)), (det.x + 14, yy)); yy += 28
             yy += 8
-        pie = f_p.render("Izq/Der: sección   Arriba/Abajo: ficha   Esc o N: cerrar", True, (190, 170, 220))
+        pie = f_p.render("Izq/Der: sección   Arriba/Abajo: ficha   Esc o N: cerrar", True, (200, 190, 150))
         pantalla.blit(pie, pie.get_rect(center=(w // 2, marco.bottom - 24)))
         pygame.display.flip()
         reloj.tick(30)
