@@ -1525,8 +1525,17 @@ def actualizar_emergencia(est):
         else:
             est["cuenta"] -= 1
     if quem == 0 or (est["cuenta"] is not None and est["cuenta"] <= 0 and est["evaluacion"] is None):
+        _primera = est["evaluacion"] is None
         est["evaluacion"] = evaluar(est); est["final_pend"] = True
         est["ver_eval"] = True
+        if _primera:
+            try:
+                _tit = str(est["evaluacion"].get("titulo", ""))
+                _snd = AJ["snd"].get("derrota" if _tit.startswith("MISION FALLIDA") else "recompensa")
+                if _snd:
+                    _snd.play()
+            except Exception:
+                pass
 
 AJUSTES_RUTA = os.path.join("output", "ajustes.json")
 AJ = {"mus": 0.5, "amb": 0.5, "efx": 0.5, "mute": False, "t": -10000, "snd": {}, "f": None}
