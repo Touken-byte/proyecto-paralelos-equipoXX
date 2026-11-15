@@ -1064,6 +1064,7 @@ BOTIQUIN_R = 3                        # distancia para atender a un animal
 ZONA_ALERTA = 10                      # celdas de fuego al refugio que disparan la alerta
 CD_MANGUERA_MS = 8000; CD_TORRE_MS = 15000; CD_BOTIQUIN_MS = 8000
 CD_RASTREO_MS = 10000; CD_SENAL_MS = 12000
+CD_PROT_MS = 20000; DUR_PROT_MS = 6000   # proteccion termica: recuperacion y duracion
 
 def estado_hab(est, clave, cd):
     resto = cd - (pygame.time.get_ticks() - est.get(clave, -99999))
@@ -1080,7 +1081,7 @@ def habilidad(est, tecla):
     ahora = pygame.time.get_ticks()
     n, estado = est["n"], est["estado"]
     ia = est.get("ia_rol")
-    es_b = tecla in (pygame.K_g, pygame.K_t)
+    es_b = tecla in (pygame.K_g, pygame.K_t, pygame.K_h)
     if (es_b and ia == "bombero") or (not es_b and ia == "veterinaria"):
         est["msg"] = "Esa habilidad la controla la IA"
         return
@@ -1139,6 +1140,13 @@ def habilidad(est, tecla):
         est["t_senal"] = ahora
         _marcar(est, pos, (255, 230, 60), 6000)
         est["msg"] = f"Señal de auxilio: {len(pos)} animales aislados marcados" if pos else "Señal de auxilio: sin animales aislados"
+    elif tecla == pygame.K_h:
+        if estado_hab(est, "t_prot", CD_PROT_MS) != "listo":
+            est["msg"] = "Protección térmica en recuperación"; return
+        est["t_prot"] = ahora
+        est["t_prot_fin"] = ahora + DUR_PROT_MS
+        est["msg"] = "Protección térmica activa: cruza las llamas sin daño"
+        decir(est, "b", "Traje térmico listo. Ahora sí puedo meterme al fuego.", "importante", "prot")
 
 def dibujar_habilidades(pantalla, est, fnt):
     """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
@@ -1489,7 +1497,7 @@ def main():
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
-        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set()
+        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set(); est["t_prot"] = -99999; est["t_prot_fin"] = 0
         dialogos_inicio(est)
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
@@ -1590,7 +1598,7 @@ def main():
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
-                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_z, pygame.K_x, pygame.K_q):
+                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_h, pygame.K_z, pygame.K_x, pygame.K_q):
                     habilidad(est, e.key)
                 elif e.key == pygame.K_n:
                     pausa_prev_ = est["tick"]["pausa"]
@@ -1693,7 +1701,7 @@ def main():
             est["t_dano"] = ahora
             rx0, ry0, rw0, rh0 = est["refugio"]
             for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
-                if est["estado"][cy_ * n + cx_] == 2:
+                if est["estado"][cy_ * n + cx_] == 2 and not (k_ == "b" and ahora < est.get("t_prot_fin", 0)):
                     est["vida"][k_] = max(0, est["vida"][k_] - DANO_LLAMAS); _aviso_vida(est, k_)
                 elif rx0 <= cx_ < rx0 + rw0 and ry0 <= cy_ < ry0 + rh0:
                     est["vida"][k_] = min(VIDA_MAX, est["vida"][k_] + CURA_REFUGIO)
@@ -1733,6 +1741,9 @@ def main():
         pygame.draw.circle(pantalla, (255, 255, 255),
                            (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2),
                            ALCANCE * CELDA, 1)
+        if pygame.time.get_ticks() < est.get("t_prot_fin", 0):
+            pygame.draw.circle(pantalla, (255, 150, 0),
+                               (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2), 14, 3)
         sb = sprite_bombero()
         pantalla.blit(sb, (est["bx"] * CELDA + CELDA // 2 - sb.get_width() // 2,
                            est["by"] * CELDA + CELDA - sb.get_height()))
@@ -1804,7 +1815,7 @@ def main():
             ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(est["agua"]) + "/" + str(TANQUE), True),
                          ("Cortafuegos (clic izq.) " + estado_cortafuego(est), True),
                          ("Manguera de presion (G) " + estado_hab(est, "t_mang", CD_MANGUERA_MS), True),
-                         ("Proteccion termica (proximamente)", False),
+                         ("Proteccion termica (H) " + estado_hab(est, "t_prot", CD_PROT_MS), True),
                          ("Torre de vigilancia (T) " + estado_hab(est, "t_torre", CD_TORRE_MS), True)]),
             ("VETERINARIA" + (" (IA)" if est.get("ia_rol", "veterinaria") == "veterinaria" else ""), [("Rescate (E)", True),
                              ("Apoyo al bombero (F) " + estado_apoyo(est), True),
