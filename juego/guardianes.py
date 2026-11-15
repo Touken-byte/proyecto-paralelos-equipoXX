@@ -1648,6 +1648,36 @@ def ajustes_audio(pantalla):
         reloj.tick(30)
 
 
+def pos_suave(est, k, x, y, ahora):
+    """Posicion dibujada (en celdas, decimal): se desliza hacia la celda real."""
+    v = est.setdefault("vis", {})
+    p = v.get(k)
+    if p is None or abs(p[0] - x) > 3 or abs(p[1] - y) > 3:
+        p = [float(x), float(y)]
+    dx, dy = x - p[0], y - p[1]
+    mov = abs(dx) > 0.05 or abs(dy) > 0.05
+    if mov:
+        p[0] += dx * 0.35
+        p[1] += dy * 0.35
+    else:
+        p[0], p[1] = float(x), float(y)
+    v[k] = p
+    return p[0], p[1], mov
+
+
+def sprite_paso(spr, nombre):
+    """Cuadro de caminata: la fila de abajo (piernas) se desplaza 2 px."""
+    clave = (nombre, "paso")
+    if clave not in _SPRITES:
+        w, h = spr.get_size()
+        s = spr.copy()
+        piernas = spr.subsurface((0, h - 2, w, 2)).copy()
+        s.fill((0, 0, 0, 0), (0, h - 2, w, 2))
+        s.blit(piernas, (2, h - 2))
+        _SPRITES[clave] = s
+    return _SPRITES[clave]
+
+
 def main():
     global CELDA
     os.makedirs("output", exist_ok=True)
@@ -1970,12 +2000,16 @@ def main():
         if pygame.time.get_ticks() < est.get("t_prot_fin", 0):
             pygame.draw.circle(pantalla, (255, 150, 0),
                                (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2), 14, 3)
-        sb = sprite_bombero()
-        pantalla.blit(sb, (est["bx"] * CELDA + CELDA // 2 - sb.get_width() // 2,
-                           est["by"] * CELDA + CELDA - sb.get_height()))
-        sv = sprite_generico("vet", SPRITE_VET, PALETA_VET)
-        pantalla.blit(sv, (est["vx"] * CELDA + CELDA // 2 - sv.get_width() // 2,
-                           est["vy"] * CELDA + CELDA - sv.get_height()))
+        _t = pygame.time.get_ticks()
+        for _k, _nom, _spr in (("b", "bombero", sprite_bombero()),
+                               ("v", "vet", sprite_generico("vet", SPRITE_VET, PALETA_VET))):
+            _px, _py, _mov = pos_suave(est, _k, est[_k + "x"], est[_k + "y"], _t)
+            _salto = 0
+            if _mov and (_t // 130) % 2 == 1:
+                _spr = sprite_paso(_spr, _nom)
+                _salto = 2
+            pantalla.blit(_spr, (int(_px * CELDA + CELDA // 2 - _spr.get_width() // 2),
+                                 int(_py * CELDA + CELDA - _spr.get_height() - _salto)))
         salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
         for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
             frac_ = est["vida"][k_] / VIDA_MAX
