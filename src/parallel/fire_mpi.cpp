@@ -25,6 +25,7 @@ int main(int argc, char** argv) {
         else if (k == "--semilla") p.semilla = strtoull(sig(), nullptr, 10);
         else if (k == "--viento-ang") p.viento_ang = atof(sig());
         else if (k == "--viento-fuerza") p.viento_fuerza = atof(sig());
+        else if (k == "--humedad") p.humedad_amb = atof(sig());
         else if (k == "--acciones") ruta_acc = sig();
         else { if (rank == 0) fprintf(stderr, "Argumento desconocido: %s\n", k.c_str()); MPI_Finalize(); return 1; }
     }

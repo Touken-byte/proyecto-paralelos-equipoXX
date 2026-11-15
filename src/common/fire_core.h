@@ -74,7 +74,9 @@ inline uint8_t nueva_celda(const uint8_t* cur, const uint8_t* fuel, const uint8_
     if (s != VEGETACION)
         return s;   // vacia, quemada, cortafuego y agua no cambian
 
-    const double fh = 1.0 - 0.8 * (hum[c] / 255.0);   // mas humedad, menos contagio
+    const double hb = hum[c] / 255.0;                        // humedad propia de la celda
+    const double hum_ef = hb + p.humedad_amb * (1.0 - hb);   // humedad ambiental global (0 = neutra)
+    const double fh = 1.0 - 0.8 * hum_ef;   // mas humedad, menos contagio
     const double ff = fuel[c] / 255.0;                // mas combustible, mas contagio
     double no_enciende = 1.0;
     for (int k = 0; k < 8; k++) {

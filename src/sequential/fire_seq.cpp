@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
         else if (k == "--semilla") p.semilla = strtoull(sig(), nullptr, 10);
         else if (k == "--viento-ang") p.viento_ang = atof(sig());
         else if (k == "--viento-fuerza") p.viento_fuerza = atof(sig());
+        else if (k == "--humedad") p.humedad_amb = atof(sig());
         else if (k == "--pgm-cada") pgm_cada = atoi(sig());
         else if (k == "--salida") salida = sig();
         else if (k == "--acciones") ruta_acc = sig();
@@ -89,6 +90,7 @@ int main(int argc, char** argv) {
     printf("Pasos        : %d\n", p.pasos);
     printf("Semilla      : %llu\n", (unsigned long long)p.semilla);
     printf("Viento       : angulo %.0f, fuerza %.2f\n", p.viento_ang, p.viento_fuerza);
+    printf("Humedad      : %.2f\n", p.humedad_amb);
     printf("Acciones     : %zu procesadas\n", pos_acc);
     printf("Huella teorica: %.2f MB (2 buffers de estado + combustible + humedad)\n",
            4.0 * total / 1e6);

@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
         else if (k == "--semilla") p.semilla = strtoull(sig(), nullptr, 10);
         else if (k == "--viento-ang") p.viento_ang = atof(sig());
         else if (k == "--viento-fuerza") p.viento_fuerza = atof(sig());
+        else if (k == "--humedad") p.humedad_amb = atof(sig());
         else if (k == "--pgm-cada") pgm_cada = atoi(sig());
         else if (k == "--salida") salida = sig();
         else if (k == "--hilos") hilos = atoi(sig());

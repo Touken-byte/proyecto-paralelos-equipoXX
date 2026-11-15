@@ -24,6 +24,7 @@ struct Params {
     double   viento_fuerza= 0.6;   // 0 = sin viento
     double   p_base       = 0.30;  // probabilidad base de contagio por vecina
     double   p_apagado    = 0.25;  // probabilidad por paso de que una celda deje de arder
+    double   humedad_amb  = 0.0;   // humedad ambiental global 0..1 (0 = neutra: manda la del mapa)
 };
 
 // Índice lineal de la celda (fila i, columna j)
