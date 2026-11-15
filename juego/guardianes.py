@@ -1181,6 +1181,48 @@ CD_RASTREO_MS = 10000; CD_SENAL_MS = 12000
 CD_PROT_MS = 20000; DUR_PROT_MS = 6000   # proteccion termica: recuperacion y duracion
 CD_CONOC_MS = 8000; CONOC_R = 4; DUR_FICHA_MS = 7000   # conocimiento silvestre: recuperacion, radio y tiempo de la ficha
 
+AGUA_GOTAS = [(-1, -1), (1, -1), (0, -1.4), (-0.6, -0.4), (0.6, -0.4)]
+
+def fx_nuevo(est, tipo, x, y, dur, col, extra=None):
+    """Efecto visual temporal. x, y en celdas. Formato: [tipo, x, y, t0, dur, col, extra]."""
+    est.setdefault("fx", []).append([tipo, x, y, pygame.time.get_ticks(), dur, col, extra])
+
+
+def dibujar_fx(pantalla, est):
+    import math
+    ahora = pygame.time.get_ticks()
+    est["fx"] = [f for f in est.get("fx", []) if ahora - f[3] < f[4]]
+    for tipo, x, y, t0, dur, col, extra in est["fx"]:
+        f = (ahora - t0) / dur
+        cx, cy = int(x * CELDA + CELDA // 2), int(y * CELDA + CELDA // 2)
+        if tipo == "onda":
+            r = int(extra * CELDA * f)
+            if r > 1:
+                pygame.draw.circle(pantalla, col, (cx, cy), r, 2)
+        elif tipo == "agua":
+            pygame.draw.circle(pantalla, col, (cx, cy), int(CELDA * (0.5 + f * 1.5)), 1)
+            for dx, dy in extra:
+                px = cx + int(dx * f * 10)
+                py = cy + int(dy * f * 10 + 14 * f * f)
+                pygame.draw.circle(pantalla, col, (px, py), 2)
+        elif tipo == "chorro":
+            if f < 0.8:
+                bx, by = extra
+                pygame.draw.line(pantalla, col, (int(bx * CELDA + CELDA // 2), int(by * CELDA + CELDA // 2)),
+                                 (cx, cy), 2)
+        elif tipo == "cura":
+            py = cy - 8 - int(18 * f)
+            pygame.draw.rect(pantalla, col, (cx - 1, py - 4, 3, 9))
+            pygame.draw.rect(pantalla, col, (cx - 4, py - 1, 9, 3))
+    if ahora < est.get("t_prot_fin", 0):
+        p = est.get("vis", {}).get("b")
+        if p:
+            cx, cy = int(p[0] * CELDA + CELDA // 2), int(p[1] * CELDA + CELDA // 2)
+            r = 14 + int(3 * abs(math.sin(ahora / 150)))
+            pygame.draw.circle(pantalla, (255, 220, 80), (cx, cy), r + 3, 1)
+            pygame.draw.circle(pantalla, (255, 130, 20), (cx, cy), r, 2)
+
+
 def estado_hab(est, clave, cd):
     resto = cd - (pygame.time.get_ticks() - est.get(clave, -99999))
     return "listo" if resto <= 0 else f"{resto / 1000:.1f}s"
@@ -1219,6 +1261,9 @@ def habilidad(est, tecla):
             est["pend"].append(("APAGAR", x, y)); est["agua"] -= 1
         est["t_mang"] = ahora
         est["msg"] = f"Manguera: {len(cand)} focos apuntados"
+        for x, y in cand:
+            fx_nuevo(est, "agua", x, y, 600, (120, 200, 255), AGUA_GOTAS)
+            fx_nuevo(est, "chorro", x, y, 300, (150, 220, 255), (bx, by))
     elif tecla == pygame.K_t:
         if estado_hab(est, "t_torre", CD_TORRE_MS) != "listo":
             est["msg"] = "Torre en recuperación"; return
@@ -1226,6 +1271,7 @@ def habilidad(est, tecla):
                   and (i % n - bx) ** 2 + (i // n - by) ** 2 <= TORRE_R ** 2]
         est["t_torre"] = ahora
         _marcar(est, fuegos, (255, 140, 0), 5000)
+        fx_nuevo(est, "onda", bx, by, 900, (255, 140, 0), TORRE_R)
         est["msg"] = f"Torre de vigilancia: {len(fuegos)} focos en un radio de {TORRE_R} celdas"
     elif tecla == pygame.K_z:
         if estado_hab(est, "t_boti", CD_BOTIQUIN_MS) != "listo":
@@ -1239,6 +1285,8 @@ def habilidad(est, tecla):
         est.setdefault("tratados", set()).add(cerca[0])
         est["t_boti"] = ahora
         est["msg"] = "Botiquín: animal atendido"
+        _a = est["animales"][cerca[0]]
+        fx_nuevo(est, "cura", _a[0], _a[1], 900, (80, 230, 120))
     elif tecla == pygame.K_x:
         if estado_hab(est, "t_rastreo", CD_RASTREO_MS) != "listo":
             est["msg"] = "Rastreo en recuperación"; return
@@ -1246,6 +1294,7 @@ def habilidad(est, tecla):
                and (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= RASTREO_R ** 2]
         est["t_rastreo"] = ahora
         _marcar(est, pos, (80, 220, 255), 6000)
+        fx_nuevo(est, "onda", vx, vy, 900, (80, 220, 255), RASTREO_R)
         est["msg"] = f"Rastreo: {len(pos)} animales cerca"
     elif tecla == pygame.K_q:
         if estado_hab(est, "t_senal", CD_SENAL_MS) != "listo":
@@ -1254,6 +1303,7 @@ def habilidad(est, tecla):
         pos = [(a[0], a[1]) for a, st in zip(est["animales"], sts) if st == "aislado"]
         est["t_senal"] = ahora
         _marcar(est, pos, (255, 230, 60), 6000)
+        fx_nuevo(est, "onda", vx, vy, 1200, (255, 230, 60), 14)
         est["msg"] = f"Señal de auxilio: {len(pos)} animales aislados marcados" if pos else "Señal de auxilio: sin animales aislados"
     elif tecla == pygame.K_h:
         if estado_hab(est, "t_prot", CD_PROT_MS) != "listo":
@@ -1291,6 +1341,7 @@ def dibujar_habilidades(pantalla, est, fnt):
     """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
     import math
     ahora = pygame.time.get_ticks()
+    dibujar_fx(pantalla, est)
     est["marcas"] = [m for m in est.get("marcas", []) if m[3] > ahora]
     r = CELDA + 2 + int(2 * abs(math.sin(ahora / 200)))
     for x, y, col, _ in est["marcas"]:
