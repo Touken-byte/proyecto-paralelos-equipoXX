@@ -474,6 +474,7 @@ def registrar_salon(est):
     ev = est.get("evaluacion") or {}
     if not ev:
         return
+    desbloquear(est, "guia:causas"); desbloquear(est, "atlas:motor")
     s = cargar_salon()
     s["partidas"] += 1
     if ev.get("puntos", 0) > s["puntos"]:
@@ -517,18 +518,123 @@ CUADERNO = [
                   "Protección: se esconde entre el follaje; la veterinaria debe localizarlo antes de que llegue el fuego.",
                   "[ficha provisional: verificar datos]"])]),
     ("Guía de prevención", [
-        ("Ficha de ejemplo", ["Causas frecuentes: quemas agrícolas sin control y descuidos con fuego.",
-                              "Prevención: no encender fuego con viento y avisar a las autoridades ante un foco.",
-                              "[contenido de ejemplo]"])]),
+        ("Causas frecuentes", ["Las quemas agrícolas sin control y los descuidos con fuego son causas frecuentes de incendios forestales.",
+                               "[contenido provisional: verificar con fuentes]"]),
+        ("Ante un foco", ["No encender fuego con viento y avisar de inmediato a las autoridades ante un foco.",
+                          "[contenido provisional: verificar con fuentes]"]),
+        ("Cortafuegos", ["Un cortafuegos es una franja sin vegetación combustible que frena el avance del fuego.",
+                         "En el juego se construye con clic izquierdo y necesita 4 s de recuperación.",
+                         "[contenido provisional: verificar con fuentes]"])]),
     ("Manual de emergencias", [
-        ("Ficha de ejemplo", ["Mochila de agua: apaga una celda en llamas. El tanque se recarga junto al río.",
-                              "Cortafuegos: barrera que frena el avance. Tiene tiempo de recuperación.",
-                              "[contenido de ejemplo]"])]),
+        ("Mochila de agua", ["Clic derecho apaga una celda en llamas.",
+                             "El tanque tiene 6 cargas y se recarga junto al río."]),
+        ("Cortafuegos", ["Clic izquierdo crea una barrera que frena el avance del fuego.",
+                         "Recuperación: 4 s."]),
+        ("Manguera de presión (G)", ["Apunta a varios focos cercanos a la vez y gasta una carga de agua por foco.",
+                                     "Recuperación: 8 s."]),
+        ("Torre de vigilancia (T)", ["Marca los focos que hay alrededor del bombero.",
+                                     "Recuperación: 15 s."]),
+        ("Protección térmica (H)", ["Durante 6 s el bombero cruza celdas en llamas sin recibir daño.",
+                                    "Recuperación: 20 s."]),
+        ("Rescate (E)", ["Recoge o suelta un animal cercano.",
+                         "Llévalo al refugio (zona verde) para ponerlo a salvo."]),
+        ("Botiquín (Z)", ["Atiende a un animal herido, aislado o asustado que esté cerca.",
+                          "Recuperación: 8 s."]),
+        ("Rastreo animal (X)", ["Marca los animales que hay cerca de la veterinaria.",
+                                "Recuperación: 10 s."]),
+        ("Señal de auxilio (Q)", ["Marca los animales aislados.",
+                                  "Recuperación: 12 s."])]),
     ("Atlas de incendios", [
-        ("Ficha de ejemplo", ["El fuego avanza más rápido en la dirección del viento.",
-                              "El Vigía (tecla V) muestra el riesgo de quema con simulaciones Monte Carlo.",
-                              "[contenido de ejemplo]"])]),
+        ("Propagación del fuego", ["El fuego avanza más rápido en la dirección del viento.",
+                                   "El motor es un autómata celular estocástico: cada celda cambia de estado según sus vecinas."]),
+        ("El Vigía", ["Pulsa V para calcular el riesgo de quema con simulaciones Monte Carlo.",
+                      "Muchas simulaciones del mismo incendio dan la probabilidad de que cada celda se queme."]),
+        ("Niveles de emergencia", ["Inicial: menos de 15% del bosque perdido. Avanzada: menos de 35%. Crítica: 35% o más.",
+                                   "En emergencia crítica empieza una cuenta regresiva."]),
+        ("Modalidades del motor", ["El motor existe en versión secuencial, OpenMP, MPI e híbrida (MPI + OpenMP).",
+                                   "En cada ronda el juego usa la versión secuencial; el Vigía usa la híbrida."])]),
 ]
+
+# Claves estables de cada ficha (mismo orden que CUADERNO). Lo desbloqueado va a output/cuaderno.json.
+CUAD_CLAVES = [
+    ["fauna:tapir", "fauna:jaguar", "fauna:taitetu", "fauna:loro"],
+    ["guia:causas", "guia:foco", "guia:cortafuegos"],
+    ["manual:mochila", "manual:cortafuego", "manual:manguera", "manual:torre", "manual:termica",
+     "manual:rescate", "manual:botiquin", "manual:rastreo", "manual:senal"],
+    ["atlas:propagacion", "atlas:vigia", "atlas:emergencia", "atlas:motor"],
+]
+assert [len(c) for c in CUAD_CLAVES] == [len(s[1]) for s in CUADERNO]
+CUAD_PISTA = {"fauna": "Identifica a esta especie con Conocimiento silvestre (K) o rescátala.",
+              "manual": "Usa esta herramienta en una partida para desbloquearla.",
+              "guia": "Sigue jugando: se desbloquea con tu progreso.",
+              "atlas": "Sigue jugando: se desbloquea con tu progreso."}
+HAB_T = {pygame.K_g: "t_mang", pygame.K_t: "t_torre", pygame.K_h: "t_prot",
+         pygame.K_z: "t_boti", pygame.K_x: "t_rastreo", pygame.K_q: "t_senal"}
+HAB_FICHA = {pygame.K_g: "manguera", pygame.K_t: "torre", pygame.K_h: "termica",
+             pygame.K_z: "botiquin", pygame.K_x: "rastreo", pygame.K_q: "senal"}
+CUADERNO_RUTA = "output/cuaderno.json"
+NOTIF_MS = 6000
+
+def cargar_cuaderno():
+    import json
+    validas = {c for cs in CUAD_CLAVES for c in cs}
+    try:
+        with open(CUADERNO_RUTA, encoding="utf-8") as f:
+            return set(json.load(f).get("abiertas", [])) & validas
+    except Exception:
+        return set()
+
+def guardar_cuaderno():
+    import json
+    try:
+        os.makedirs(os.path.dirname(CUADERNO_RUTA) or ".", exist_ok=True)
+        with open(CUADERNO_RUTA, "w", encoding="utf-8") as f:
+            json.dump({"abiertas": sorted(CUAD["abiertas"])}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+CUAD = {"abiertas": cargar_cuaderno(), "nuevas": set()}
+
+def desbloquear(est, clave):
+    """Desbloquea una ficha una sola vez: la guarda, la marca como nueva y encola la notificacion."""
+    if clave in CUAD["abiertas"]:
+        return
+    pos = next(((s, i) for s, cs in enumerate(CUAD_CLAVES) for i, c in enumerate(cs) if c == clave), None)
+    if pos is None:
+        return
+    CUAD["abiertas"].add(clave)
+    CUAD["nuevas"].add(clave)
+    guardar_cuaderno()
+    est.setdefault("notif", []).append(CUADERNO[pos[0]][1][pos[1]][0])
+
+def dibujar_icono_cuaderno(pantalla, x, y, fnt):
+    pygame.draw.rect(pantalla, (120, 80, 170), (x, y, 26, 30), border_radius=3)
+    pygame.draw.rect(pantalla, (200, 180, 240), (x, y, 26, 30), 2, border_radius=3)
+    pygame.draw.line(pantalla, (200, 180, 240), (x + 6, y + 3), (x + 6, y + 27), 2)
+    t = fnt.render("N", True, (255, 255, 255))
+    pantalla.blit(t, (x + 15 - t.get_width() // 2, y + 9))
+    if CUAD["nuevas"]:
+        pygame.draw.circle(pantalla, (255, 60, 60), (x + 26, y + 2), 8)
+        c = fnt.render(str(len(CUAD["nuevas"])), True, (255, 255, 255))
+        pantalla.blit(c, (x + 26 - c.get_width() // 2, y + 2 - c.get_height() // 2))
+
+def dibujar_notif(pantalla, est, fnt, lado):
+    """Franja discreta abajo a la derecha del mapa. No pausa la partida."""
+    ahora = pygame.time.get_ticks()
+    act = est.get("notif_act")
+    if (act is None or ahora >= act[1]) and est.get("notif"):
+        act = (est["notif"].pop(0), ahora + NOTIF_MS)
+        est["notif_act"] = act
+    if act is None or ahora >= act[1]:
+        return
+    txt = fnt.render("Cuaderno: nueva ficha - " + act[0], True, (255, 255, 255))
+    w = txt.get_width() + 20
+    x, y = lado - w - 10, lado - 40
+    cuadro = pygame.Surface((w, 26), pygame.SRCALPHA)
+    cuadro.fill((45, 25, 70, 225))
+    pantalla.blit(cuadro, (x, y))
+    pygame.draw.rect(pantalla, (255, 170, 60), (x, y, w, 26), 2)
+    pantalla.blit(txt, (x + 10, y + 6))
 
 def cuaderno(pantalla, fuente):
     """Cuaderno de Guardianes. Modal: izq/der cambia seccion, arriba/abajo la ficha.
@@ -575,12 +681,20 @@ def cuaderno(pantalla, fuente):
         for i, (nom, _) in enumerate(fichas):
             r = pygame.Rect(lista.x, lista.y + i * 36, lista.w, 30)
             pygame.draw.rect(pantalla, (255, 87, 34) if i == ent else (70, 50, 100), r, border_radius=6)
-            pantalla.blit(f_s.render(nom, True, (255, 255, 255)), (r.x + 10, r.y + 6))
+            _cl = CUAD_CLAVES[sec][i]
+            _ab = _cl in CUAD["abiertas"]
+            pantalla.blit(f_s.render(nom if _ab else "??? bloqueada", True, (255, 255, 255) if _ab else (170, 160, 190)), (r.x + 10, r.y + 6))
+            if _cl in CUAD["nuevas"]:
+                pygame.draw.circle(pantalla, (255, 60, 60), (r.right - 12, r.centery), 5)
         det = pygame.Rect(lista.right + 20, 140, marco.right - lista.right - 40, lista.h)
         pygame.draw.rect(pantalla, (32, 20, 52), det, border_radius=6)
         yy = det.y + 14
-        pantalla.blit(f_tit.render(fichas[ent][0], True, (240, 240, 240)), (det.x + 14, yy)); yy += 44
-        for linea in fichas[ent][1]:
+        _cl = CUAD_CLAVES[sec][ent]
+        _ab = _cl in CUAD["abiertas"]
+        if _ab:
+            CUAD["nuevas"].discard(_cl)
+        pantalla.blit(f_tit.render(fichas[ent][0] if _ab else "Ficha bloqueada", True, (240, 240, 240)), (det.x + 14, yy)); yy += 44
+        for linea in (fichas[ent][1] if _ab else [CUAD_PISTA.get(_cl.split(":")[0], "")]):
             for parte in _ajustar(linea, f_t, det.w - 28):
                 pantalla.blit(f_t.render(parte, True, (230, 230, 230)), (det.x + 14, yy)); yy += 28
             yy += 8
@@ -1163,6 +1277,7 @@ def habilidad(est, tecla):
             est["msg"] = "Conocimiento silvestre: sin ficha para esa especie"; return
         est["t_conoc"] = ahora
         est.setdefault("conocidas", set()).add(a[3])
+        desbloquear(est, "fauna:" + a[3])
         est["ficha_act"] = (ficha[0], ficha[1], ahora + DUR_FICHA_MS)
         est["msg"] = "Conocimiento silvestre: " + ficha[0] + " identificado"
 
@@ -1591,6 +1706,7 @@ def main():
                         pygame.display.flip()
                         try:
                             est["riesgo"], est["info_vigia"] = calcular_vigia(n)
+                            desbloquear(est, "atlas:vigia")
                             est["ver_riesgo"] = True
                             est["msg"] = ""
                         except Exception as ex:
@@ -1617,7 +1733,10 @@ def main():
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
                 elif e.key in (pygame.K_g, pygame.K_t, pygame.K_h, pygame.K_k, pygame.K_z, pygame.K_x, pygame.K_q):
+                    _t0 = est.get(HAB_T.get(e.key))
                     habilidad(est, e.key)
+                    if e.key in HAB_T and est.get(HAB_T[e.key]) != _t0:
+                        desbloquear(est, "manual:" + HAB_FICHA[e.key])
                 elif e.key == pygame.K_n:
                     pausa_prev_ = est["tick"]["pausa"]
                     est["tick"]["pausa"] = True
@@ -1648,6 +1767,9 @@ def main():
                             est["agua"] -= 1
                         else:
                             est["t_cf"] = ahora_c
+                        desbloquear(est, "manual:cortafuego" if tipo == "CORTAFUEGO" else "manual:mochila")
+                        if tipo == "CORTAFUEGO":
+                            desbloquear(est, "guia:cortafuegos")
                         if tipo in sonidos:
                             sonidos[tipo].play()
 
@@ -1669,6 +1791,9 @@ def main():
                 actualizar_emergencia(est)
                 est["msg"] = ""
                 mover_fauna(est)
+                desbloquear(est, "atlas:propagacion"); desbloquear(est, "guia:foco")
+                if est["nivel"] != "inicial":
+                    desbloquear(est, "atlas:emergencia")
                 redibujar()
             tk["res"] = None; tk["t_fin"] = ahora
         if est.get("ia_rol", "veterinaria") == "bombero":
@@ -1703,6 +1828,7 @@ def main():
             rx, ry, rw, rh = est["refugio"]
             if rx <= est["vx"] < rx + rw and ry <= est["vy"] < ry + rh:
                 est["carga"][2] = "salvo"
+                desbloquear(est, "fauna:" + est["carga"][3]); desbloquear(est, "manual:rescate")
                 nsalvos = sum(1 for a in est["animales"] if a[2] == "salvo")
                 est["carga"][0] = rx + 1 + ((nsalvos - 1) % 5) * 2
                 est["carga"][1] = ry + 2 + ((nsalvos - 1) // 5) * 2
@@ -1793,6 +1919,7 @@ def main():
         eventos_periodicos(est, pantalla, fuente)
         dibujar_habilidades(pantalla, est, fuente_p)
         dibujar_globo(pantalla, est, fuente_p)
+        dibujar_notif(pantalla, est, fuente_p, n * CELDA)
         if est["msg"]:
             linea2 = est["msg"]
         elif quemando == 0:
@@ -1804,6 +1931,7 @@ def main():
         pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
         px = n * CELDA + 10
         pantalla.blit(fuente.render("EL VIGIA", True, (255, 255, 255)), (px, 10))
+        dibujar_icono_cuaderno(pantalla, n * CELDA + PANEL_W - 50, 8, fuente_p)
         if pygame.time.get_ticks() - AJ["t"] < 2500:
             dibujar_barra_volumen(pantalla, n * CELDA - 170, 6)
         pantalla.blit(fuente.render("V: mapa de riesgo", True, (200, 200, 200)), (px, 34))
