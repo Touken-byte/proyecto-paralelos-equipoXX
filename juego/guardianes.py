@@ -204,6 +204,11 @@ NIVEL_SEL = {"i": 0}   # indice del nivel activo (el menu de niveles lo cambiara
 def nivel_actual():
     return NIVELES[NIVEL_SEL["i"]]
 
+def ruta_mapa(niv):
+    """Un archivo de mapa por nivel: el nombre lleva tamaño y semilla (antes solo el tamaño)."""
+    suf = f"_f{niv['focos']}" if niv["focos"] is not None else ""
+    return f"data/maps/map_{niv['n']}_s{niv['semilla_mapa']}{suf}.bin"
+
 def args_viento(niv):
     return f"--viento-ang {niv['viento_ang']} --viento-fuerza {niv['viento_fuerza']}"
 
@@ -211,7 +216,7 @@ def asegurar_motor(niv=None):
     """Compila fire_seq y genera el mapa del nivel dentro del contenedor si faltan."""
     niv = niv or nivel_actual()
     focos = f" --focos {niv['focos']}" if niv["focos"] is not None else ""
-    mapa = f"data/maps/map_{niv['n']}.bin"
+    mapa = ruta_mapa(niv)
     orden = ("cd /home/mpiuser/proyecto && mkdir -p bin data/maps output && "
              "{ [ -x bin/fire_seq ] || g++ -std=c++17 -O2 -I src/common src/sequential/fire_seq.cpp -o bin/fire_seq; } && "
              f"{{ [ -f {mapa} ] || python3 data/gen_map.py --n {niv['n']} --seed {niv['semilla_mapa']}{focos} --out {mapa}; }}")
@@ -253,7 +258,7 @@ def texto_viento(niv):
 def miniatura_nivel(niv, lado):
     clave = (niv["id"], lado)
     if clave not in _MINIATURAS:
-        n, estado, _ = leer_mapa(f"data/maps/map_{niv['n']}.bin")
+        n, estado, _ = leer_mapa(ruta_mapa(niv))
         s = pygame.Surface((n, n))
         paleta = {1: (46, 125, 50), 2: (230, 60, 30), 5: (33, 110, 190)}
         for y in range(n):
@@ -1906,7 +1911,7 @@ def main():
         h = est.get("tick", {}).get("hilo")
         if h is not None and h.is_alive():
             h.join()
-        shutil.copy(f"data/maps/map_{nivel_actual()['n']}.bin", MAPA_JUEGO)
+        shutil.copy(ruta_mapa(nivel_actual()), MAPA_JUEGO)
         os.chmod(MAPA_JUEGO, 0o666)   # el contenedor (mpiuser) debe poder reescribirlo
         n, estado, fuel = leer_mapa(MAPA_JUEGO)
         est.update(n=n, estado=estado, fuel=fuel, paso=0, ronda=0, pend=[], msg="",
