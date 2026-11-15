@@ -219,7 +219,13 @@ NIVELES = [
 ]
 NIVEL_SEL = {"i": 0}   # indice del nivel activo (el menu de niveles lo cambiara)
 
+NIVEL_CORAZON = dict(id="corazon", zona=0, nombre="El corazón del incendio", n=128, semilla_mapa=63, focos=9,
+                     semilla=63, viento_ang=200.0, viento_fuerza=1.2, animales=8,
+                     dialogos="silencio", dificultad=4)
+
 def nivel_actual():
+    if MODO_ESP["id"] == "corazon":
+        return NIVEL_CORAZON
     return NIVELES[NIVEL_SEL["i"]]
 
 def ruta_mapa(niv):
@@ -463,7 +469,8 @@ MODOS_ESP = [("record", "Modo récord", True,
               "Más animales y el bosque no cuenta: salva a todos los que puedas."),
              ("desafio", "Desafío", True,
               "Tanque de agua reducido y un máximo de rondas: hazlo con menos recursos."),
-             ("corazon", "El corazón del incendio", False, "Próximamente.")]
+             ("corazon", "El corazón del incendio", True,
+              "Un escenario especial con 9 focos y viento fuerte. Va directo, sin elegir nivel.")]
 
 def cargar_records():
     import json
@@ -478,7 +485,7 @@ def registrar_record(est, ev):
     """Modo récord: guarda la mejor puntuación por nivel (solo si la misión se cumple)."""
     import json
     est["record_msg"] = ""
-    if MODO_ESP["id"] not in ("record", "supervivencia", "desafio") or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
+    if MODO_ESP["id"] not in ("record", "supervivencia", "desafio", "corazon") or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
         return
     r = cargar_records()
     idn = nivel_actual()["id"]
@@ -1031,6 +1038,11 @@ def menu_principal(pantalla, fuente):
                     m = seleccionar_modo(pantalla, fuente)
                     if m == "salir":
                         return False
+                    if m is not None and me == "corazon":
+                        NIVEL_SEL["i"] = 0
+                        MODO["ia"] = None if m == "dos" else m
+                        MODO_ESP["id"] = me
+                        return True
                     if m is not None:
                         k = seleccionar_nivel(pantalla, fuente)
                         if k == "salir":
@@ -1200,6 +1212,8 @@ INICIO_TXT = {
                 "Repartámonos el mapa. Yo voy por los animales del fondo."),
     "tarija3": ("Cinco focos y viento fuerte. Sin bromas, de verdad.",
                 "Refugio primero. Después lo demás."),
+    "corazon": ("Nueve focos a la vez. Este es el corazón del incendio.",
+                "Refugio primero. Después, los focos más grandes."),
 }
 
 def dialogos_inicio(est):
@@ -2579,9 +2593,9 @@ def main():
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]),
                       "C = continuar   R = reiniciar"]
-            if MODO_ESP["id"] in ("record", "supervivencia", "desafio"):
+            if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
-                lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío"}[MODO_ESP["id"]]]
+                lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío", "corazon": "El corazón del incendio"}[MODO_ESP["id"]]]
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
