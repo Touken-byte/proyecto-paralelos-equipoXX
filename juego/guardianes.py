@@ -2085,6 +2085,11 @@ def dibujar_fx(pantalla, est):
                 px = cx + int(dx * f * 9)
                 py = cy + int(dy * f * 9 + 10 * f * f)
                 pygame.draw.rect(pantalla, col, (px, py, 2, 2))
+        elif tipo == "corazones":
+            for k in range(3):
+                g = max(0.0, min(1.0, f * 1.3 - k * 0.15))
+                if 0 < g < 1:
+                    dibujar_corazon(pantalla, cx + (k - 1) * 9, cy - 6 - int(28 * g) - k * 3, col)
         elif tipo == "cura":
             py = cy - 8 - int(18 * f)
             pygame.draw.rect(pantalla, col, (cx - 1, py - 4, 3, 9))
@@ -2097,6 +2102,18 @@ def dibujar_fx(pantalla, est):
             r = 14 + int(3 * abs(math.sin(ahora / 150)))
             pygame.draw.circle(pantalla, (255, 220, 80), (cx, cy), r + 3, 1)
             pygame.draw.circle(pantalla, (255, 130, 20), (cx, cy), r, 2)
+
+
+def dibujar_corazon(pantalla, x, y, col, esc=1):
+    """Corazon pixel art de 5x5 (esc = tamano del pixel). x, y = centro."""
+    filas = (".#.#.", "#####", "#####", ".###.", "..#..")
+    x0, y0 = x - 5 * esc // 2, y - 5 * esc // 2
+    luz = tuple(min(255, c + 90) for c in col)
+    for fi, fila in enumerate(filas):
+        for ci, ch in enumerate(fila):
+            if ch == "#":
+                c = luz if (fi == 1 and ci == 1) else col
+                pantalla.fill(c, (x0 + ci * esc, y0 + fi * esc, esc, esc))
 
 
 def estado_hab(est, clave, cd):
@@ -3282,6 +3299,8 @@ def main():
             if rx <= est["vx"] < rx + rw and ry <= est["vy"] < ry + rh:
                 est["carga"][2] = "salvo"
                 fx_nuevo(est, "estrellas", est["vx"], est["vy"], 1500, (255, 230, 60))
+                fx_nuevo(est, "corazones", est["vx"], est["vy"], 1700, (255, 90, 120))
+                fx_nuevo(est, "onda", est["vx"], est["vy"], 900, (120, 255, 160), 3)
                 desbloquear(est, "fauna:" + est["carga"][3]); desbloquear(est, "manual:rescate")
                 if "rescate" in sonidos:
                     sonidos["rescate"].play()
@@ -3351,6 +3370,10 @@ def main():
                 sa = voltear_sprite(sa, esp)
             dibujar_sombra(pantalla, _cx, _cy + CELDA // 2, int(sa.get_width() * 0.8))
             pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
+            if ea == "cargado":
+                dibujar_corazon(pantalla, _cx + sa.get_width() // 2 + 5,
+                                _cy + CELDA // 2 - sa.get_height() + 2 - (1 if (_t // 250) % 2 else 0),
+                                (255, 90, 120), 2 if (_t // 250) % 2 else 1)
             col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
             if col_anillo:
                 pygame.draw.circle(pantalla, col_anillo, (_cx, _cy), 16, 3)
