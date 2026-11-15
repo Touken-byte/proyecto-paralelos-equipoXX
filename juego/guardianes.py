@@ -305,9 +305,39 @@ def dibujar_estrellas(pantalla, cx, cy, llenas, total=4, r=7):
 ZONAS = {1: ("Yacuiba", "Bosques de Yacuiba"), 2: ("Aguaragüe", "Serranía del Aguaragüe"),
          3: ("Tarija", "Región de Tarija"), 4: ("Gran incendio", "El gran incendio")}
 
+CAMPANA_RUTA = "output/campana.json"
+
+def cargar_campana():
+    import json
+    try:
+        with open(CAMPANA_RUTA, encoding="utf-8") as f:
+            return set(json.load(f).get("completados", []))
+    except Exception:
+        return set()
+
+def marcar_nivel_completo(id_nivel):
+    import json
+    c = cargar_campana()
+    c.add(id_nivel)
+    try:
+        os.makedirs(os.path.dirname(CAMPANA_RUTA) or ".", exist_ok=True)
+        with open(CAMPANA_RUTA, "w", encoding="utf-8") as f:
+            json.dump({"completados": sorted(c)}, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+def nivel_completado(i):
+    return NIVELES[i]["id"] in cargar_campana()
+
 def nivel_bloqueado(i):
-    """El candado de campaña (F3) reemplaza esta función."""
-    return False
+    """Una zona se abre al completar todos los niveles de la anterior (CAMPANA_ABIERTA=1 abre todo)."""
+    if os.environ.get("CAMPANA_ABIERTA"):
+        return False
+    z = NIVELES[i]["zona"]
+    if z <= 1:
+        return False
+    hechos = cargar_campana()
+    return any(nv["id"] not in hechos for nv in NIVELES if nv["zona"] == z - 1)
 
 def seleccionar_nivel(pantalla, fuente):
     """Devuelve el indice del nivel elegido, None si vuelve, 'salir' si cierra."""
@@ -393,6 +423,11 @@ def seleccionar_nivel(pantalla, fuente):
                 nom = f_p.render(niv["nombre"], True, (255, 255, 255))
             pantalla.blit(nom, nom.get_rect(center=(r.centerx, r.y + lado + 30)))
             dibujar_estrellas(pantalla, r.centerx - 33, r.y + lado + 56, niv["dificultad"])
+            if nivel_completado(i):
+                cx, cy = r.right - 22, r.y + 22
+                pygame.draw.circle(pantalla, (40, 150, 70), (cx, cy), 14)
+                pygame.draw.lines(pantalla, (255, 255, 255), False,
+                                  [(cx - 7, cy), (cx - 2, cy + 6), (cx + 8, cy - 6)], 3)
             if nivel_bloqueado(i):
                 vel = pygame.Surface(r.size, pygame.SRCALPHA)
                 vel.fill((10, 14, 12, 190))
@@ -545,6 +580,7 @@ def registrar_salon(est):
     s["salvos"] = max(s["salvos"], ev.get("salvos", 0))
     s["bosque"] = max(s["bosque"], ev.get("bosque", 0))
     if str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
+        marcar_nivel_completo(nivel_actual()["id"])
         r = ev.get("ronda", 0)
         if s["rondas"] is None or r < s["rondas"]:
             s["rondas"] = r
