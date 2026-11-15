@@ -1599,6 +1599,55 @@ def dibujar_barra_volumen(pantalla, x, y, ancho=150):
         pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * AJ["mus"]), 8), border_radius=4)
 
 
+def ajustes_audio(pantalla):
+    """Pantalla de ajustes: tres barras independientes (musica, ambiente, efectos)."""
+    fondo = pantalla.copy()
+    w, h = pantalla.get_size()
+    f_t = pygame.font.Font(None, 40); f_o = pygame.font.Font(None, 28); f_p = pygame.font.Font(None, 22)
+    canales = [("mus", "Musica"), ("amb", "Ambiente (fuego)"), ("efx", "Efectos")]
+    sel = 0
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                guardar_ajustes()
+                return
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_o, pygame.K_RETURN, pygame.K_KP_ENTER):
+                    guardar_ajustes()
+                    return
+                elif e.key == pygame.K_UP:
+                    sel = (sel - 1) % 3
+                elif e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % 3
+                elif e.key == pygame.K_LEFT:
+                    cambiar_volumen(-0.1, canales[sel][0])
+                elif e.key == pygame.K_RIGHT:
+                    cambiar_volumen(0.1, canales[sel][0])
+                elif e.key == pygame.K_m:
+                    AJ["mute"] = not AJ["mute"]; aplicar_volumen(); guardar_ajustes()
+        pantalla.blit(fondo, (0, 0))
+        velo = pygame.Surface((w, h), pygame.SRCALPHA); velo.fill((0, 0, 0, 190)); pantalla.blit(velo, (0, 0))
+        t = f_t.render("Ajustes de audio", True, (255, 255, 255))
+        pantalla.blit(t, (w // 2 - t.get_width() // 2, h // 2 - 130))
+        ancho = 260; x0 = w // 2 - ancho // 2
+        for i, (c, nom) in enumerate(canales):
+            y = h // 2 - 70 + i * 55
+            col = (255, 200, 80) if i == sel else (220, 220, 220)
+            pantalla.blit(f_o.render(nom + "  " + str(int(round(AJ[c] * 100))) + "%", True, col), (x0, y))
+            pygame.draw.rect(pantalla, (70, 70, 70), (x0, y + 26, ancho, 10), border_radius=5)
+            if not AJ["mute"]:
+                pygame.draw.rect(pantalla, (120, 255, 160) if i == sel else (90, 190, 120), (x0, y + 26, int(ancho * AJ[c]), 10), border_radius=5)
+        if AJ["mute"]:
+            m = f_o.render("SILENCIADO (M para activar)", True, (255, 120, 120))
+            pantalla.blit(m, (w // 2 - m.get_width() // 2, h // 2 + 100))
+        ayuda = f_p.render("Arriba/Abajo: canal   Izq/Der: volumen   M: silenciar   Esc u O: cerrar", True, (200, 200, 200))
+        pantalla.blit(ayuda, (w // 2 - ayuda.get_width() // 2, h // 2 + 135))
+        pygame.display.flip()
+        reloj.tick(30)
+
+
 def main():
     global CELDA
     os.makedirs("output", exist_ok=True)
@@ -1760,6 +1809,12 @@ def main():
                     habilidad(est, e.key)
                     if e.key in HAB_T and est.get(HAB_T[e.key]) != _t0:
                         desbloquear(est, "manual:" + HAB_FICHA[e.key])
+                elif e.key == pygame.K_o:
+                    pausa_prev_ = est["tick"]["pausa"]
+                    est["tick"]["pausa"] = True
+                    ajustes_audio(pantalla)
+                    est["tick"]["pausa"] = pausa_prev_
+                    est["tick"]["t_fin"] = pygame.time.get_ticks()
                 elif e.key == pygame.K_n:
                     pausa_prev_ = est["tick"]["pausa"]
                     est["tick"]["pausa"] = True
