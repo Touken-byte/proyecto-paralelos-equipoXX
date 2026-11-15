@@ -459,7 +459,8 @@ def seleccionar_nivel(pantalla, fuente):
 RECORDS_RUTA = "output/records.json"
 MODOS_ESP = [("record", "Modo récord", True,
               "Mismo mapa y misma semilla siempre: consigue la mejor puntuación en un nivel."),
-             ("supervivencia", "Supervivencia", False, "Próximamente."),
+             ("supervivencia", "Supervivencia", True,
+              "Más animales y el bosque no cuenta: salva a todos los que puedas."),
              ("desafio", "Desafío", False, "Próximamente."),
              ("corazon", "El corazón del incendio", False, "Próximamente.")]
 
@@ -476,10 +477,12 @@ def registrar_record(est, ev):
     """Modo récord: guarda la mejor puntuación por nivel (solo si la misión se cumple)."""
     import json
     est["record_msg"] = ""
-    if MODO_ESP["id"] != "record" or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
+    if MODO_ESP["id"] not in ("record", "supervivencia") or not str(ev.get("titulo", "")).startswith("MISION CUMPLIDA"):
         return
     r = cargar_records()
     idn = nivel_actual()["id"]
+    if MODO_ESP["id"] == "supervivencia":
+        idn = "supervivencia:" + idn
     ant = r.get(idn)
     p = ev.get("puntos", 0)
     if ant is None or p > ant.get("puntos", 0):
@@ -1341,10 +1344,13 @@ def cuadro_grande(pantalla, paginas, fuente):
         pygame.display.flip()
         reloj.tick(30)
 
+def animales_nivel(niv):
+    return min(12, niv["animales"] * 2) if MODO_ESP["id"] == "supervivencia" else niv["animales"]
+
 def intro_nivel(pantalla, fuente, est):
     niv = nivel_actual()
     b, v = INICIO_TXT[niv["id"]]
-    pag = [(None, f"{niv['nombre']}. Apaga el incendio, lleva los {niv['animales']} animales al refugio y conserva el bosque."),
+    pag = [(None, f"{niv['nombre']}. Apaga el incendio, lleva los {animales_nivel(niv)} animales al refugio" + ("." if MODO_ESP["id"] == "supervivencia" else " y conserva el bosque.")),
            ("b", b)]
     if v:
         pag.append(("v", v))
@@ -1623,9 +1629,11 @@ def evaluar(est):
     frac = 0.5 * salvos / max(1, total) + 0.5 * bosque / 100
     estrellas = 3 if frac >= 0.75 else 2 if frac >= 0.5 else 1
     puntos = salvos * 100 + bosque * 5 + estrellas * 50
+    if MODO_ESP["id"] == "supervivencia":
+        puntos = salvos * 100 + max(0, 40 - est["ronda"]) * 5
     return dict(salvos=salvos, total=total, bosque=bosque, estrellas=estrellas,
                 puntos=puntos, ronda=est["ronda"], focos=est["estado"].count(2),
-                titulo=("MISION CUMPLIDA" if salvos >= META_SALVOS and bosque >= META_BOSQUE
+                titulo=("MISION CUMPLIDA" if salvos >= META_SALVOS and (bosque >= META_BOSQUE or MODO_ESP["id"] == "supervivencia")
                         else "MISION FALLIDA: meta no alcanzada"))
 
 def ia_veterinaria(est, ahora):
@@ -2137,7 +2145,7 @@ def main():
         est["bx"], est["by"] = posicion_inicial(n, estado)
         est["refugio"] = (4, n - 14, 10, 10)
         est["vx"], est["vy"] = 4 + 5, n - 14 + 5
-        est["animales"] = crear_animales(n, estado, est["refugio"], nivel_actual()["animales"])
+        est["animales"] = crear_animales(n, estado, est["refugio"], animales_nivel(nivel_actual()))
         est["carga"] = None
         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
         est.update(nivel="inicial", cuenta=None, evaluacion=None, ver_eval=False)
@@ -2451,7 +2459,7 @@ def main():
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
         pantalla.fill((0, 0, 0), txt_v.get_rect(topleft=(6, 24)))
         pantalla.blit(txt_v, (6, 24))
-        txt_m = fuente.render(f"Meta: {META_SALVOS} animales y {META_BOSQUE}% bosque", True, (255, 230, 120))
+        txt_m = fuente.render((f"Meta: {META_SALVOS} animales y {META_BOSQUE}% bosque" if MODO_ESP["id"] != "supervivencia" else f"Supervivencia: meta {META_SALVOS} animales"), True, (255, 230, 120))
         pantalla.fill((0, 0, 0), txt_m.get_rect(topleft=(6, 44)))
         pantalla.blit(txt_m, (6, 44))
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
@@ -2567,9 +2575,9 @@ def main():
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]),
                       "C = continuar   R = reiniciar"]
-            if MODO_ESP["id"] == "record":
-                lineas[7:7] = [est.get("record_msg") or "Modo récord: solo cuenta si cumples la misión."]
-                lineas[1:1] = ["Modo récord"]
+            if MODO_ESP["id"] in ("record", "supervivencia"):
+                lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
+                lineas[1:1] = ["Modo récord" if MODO_ESP["id"] == "record" else "Supervivencia"]
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
