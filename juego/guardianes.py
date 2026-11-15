@@ -787,6 +787,8 @@ def registrar_salon(est):
     if not ev:
         return
     desbloquear(est, "guia:causas"); desbloquear(est, "atlas:motor")
+    if est.get("ia_rol"):
+        desbloquear(est, "manual:ia")
     pagar_monedas(est, ev)
     if MODO_ESP["id"]:
         registrar_record(est, ev)   # los modos especiales no tocan el Salón ni la campaña
@@ -860,7 +862,12 @@ CUADERNO = [
         ("Rastreo animal (X)", ["Marca los animales que hay cerca de la veterinaria.",
                                 "Recuperación: 10 s."]),
         ("Señal de auxilio (Q)", ["Marca los animales aislados.",
-                                  "Recuperación: 12 s."])]),
+                                  "Recuperación: 12 s."]),
+        ("Apoyo al bombero (F)", ["Si la veterinaria está a 2 celdas o menos, le da +2 de agua y +15 de vida.",
+                                  "Recuperación: 15 s."]),
+        ("Compañero IA", ["En solitario, la IA controla al otro personaje. Elegirás su dificultad antes de jugar.",
+                          "Asistente: prioriza apoyarte. Equilibrado: usa manguera (bombero) y botiquín (veterinaria).",
+                          "Experto: además usa la señal de auxilio y prioriza lo que amenaza el refugio."])]),
     ("Atlas de incendios", [
         ("Propagación del fuego", ["El fuego avanza más rápido en la dirección del viento.",
                                    "El motor es un autómata celular estocástico: cada celda cambia de estado según sus vecinas."]),
@@ -877,7 +884,7 @@ CUAD_CLAVES = [
     ["fauna:tapir", "fauna:jaguar", "fauna:taitetu", "fauna:loro"],
     ["guia:causas", "guia:foco", "guia:cortafuegos"],
     ["manual:mochila", "manual:cortafuego", "manual:manguera", "manual:torre", "manual:termica",
-     "manual:rescate", "manual:botiquin", "manual:rastreo", "manual:senal"],
+     "manual:rescate", "manual:botiquin", "manual:rastreo", "manual:senal", "manual:apoyo", "manual:ia"],
     ["atlas:propagacion", "atlas:vigia", "atlas:emergencia", "atlas:motor"],
 ]
 assert [len(c) for c in CUAD_CLAVES] == [len(s[1]) for s in CUADERNO]
@@ -1216,9 +1223,9 @@ def menu_principal(pantalla, fuente):
         "Bombero: flechas.  Veterinaria: W A S D.  El modo se elige al pulsar Jugar.",
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
-        "M: silenciar o activar la música.  |  N: Cuaderno de Guardianes (pausa).",
+        "M: silenciar la música.  |  O: ajustes de audio  |  N: Cuaderno (pausa).",
         "Bombero: G manguera, T torre.  Veterinaria: Z botiquín, X rastreo, Q señal de auxilio.",
-        "",
+        "Menú: Modos especiales, Tienda (skins con EcoMonedas) y dificultad de la IA en solitario.",
         "Pulsa cualquier tecla para volver.",
     ]
     w, h = pantalla.get_size()
@@ -1429,6 +1436,7 @@ def apoyo(est, ahora, avisar=True):
     est["agua"] = min(tanque_max(), est["agua"] + 2)
     est["vida"]["b"] = min(VIDA_MAX, est["vida"]["b"] + 15)
     est["t_apoyo"] = ahora
+    desbloquear(est, "manual:apoyo")
     est["msg"] = "Apoyo: +2 agua y +15 vida al bombero"; decir(est, "v", "Toma agua. De nada, por cierto.", "importante")
     return True
 
