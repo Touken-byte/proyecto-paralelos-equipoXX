@@ -2985,6 +2985,52 @@ def main():
                         sup.fill((9, 12, 6), (j * CELDA, i * CELDA, CELDA, CELDA), special_flags=pygame.BLEND_RGB_ADD)
                     elif h == 7:
                         sup.fill((9, 12, 6), (j * CELDA, i * CELDA, CELDA, CELDA), special_flags=pygame.BLEND_RGB_SUB)
+        # V11: decorados (arboles 2x2, arbustos, rocas, troncos quemados, orilla del rio)
+        C2 = CELDA * 2
+        cubiertas = set()
+        for i in range(0, n - 1, 2):
+            for j in range(0, n - 1, 2):
+                idx = i * n + j
+                if (estado[idx] == 1 and estado[idx + 1] == 1 and estado[idx + n] == 1 and estado[idx + n + 1] == 1
+                        and min(fuel[idx], fuel[idx + 1], fuel[idx + n], fuel[idx + n + 1]) >= 130
+                        and (((i * 83492791) ^ (j * 2654435761)) >> 5) & 7 < 5):
+                    x0, y0 = j * CELDA, i * CELDA
+                    cubiertas.update((idx, idx + 1, idx + n, idx + n + 1))
+                    sup.fill((14, 40, 22), (x0 + 1, y0 + C2 - 2, C2 - 2, 2))
+                    sup.fill((20, 60, 32), (x0 + 1, y0 + 2, C2 - 2, C2 - 5))
+                    sup.fill((20, 60, 32), (x0 + 2, y0, C2 - 4, C2 - 3))
+                    sup.fill((36, 110, 52), (x0 + 2, y0 + 1, C2 - 5, C2 - 6))
+                    sup.fill((92, 172, 82), (x0 + 3, y0 + 1, 3, 2))
+                    sup.fill((90, 60, 35), (x0 + C2 // 2 - 1, y0 + C2 - 3, 2, 3))
+        for i in range(n):
+            for j in range(n):
+                idx = i * n + j
+                s = estado[idx]
+                x0, y0 = j * CELDA, i * CELDA
+                h2 = (((i * 40503) ^ (j * 9973)) >> 3) & 15
+                if s == 1 and idx not in cubiertas and h2 == 3:
+                    sup.fill((46, 92, 40), (x0 + 1, y0 + 2, CELDA - 2, CELDA - 3))
+                    sup.set_at((x0 + 2, y0 + 2), (110, 170, 90))
+                elif s == 0 and h2 == 5:
+                    sup.fill((80, 80, 78), (x0 + 1, y0 + CELDA - 2, CELDA - 2, 1))
+                    sup.fill((130, 130, 125), (x0 + 1, y0 + 2, CELDA - 2, CELDA - 4))
+                    sup.set_at((x0 + 1, y0 + 2), (178, 178, 172))
+                elif s == 3 and h2 < 3:
+                    sup.fill((24, 20, 18), (x0 + CELDA // 2 - 1, y0 + 1, 2, CELDA - 1))
+                    sup.set_at((x0 + 1, y0 + 2), (24, 20, 18))
+                if s == 5:
+                    for dj, di, rr in ((0, -1, (0, 0, CELDA, 1)), (0, 1, (0, CELDA - 1, CELDA, 1)),
+                                       (-1, 0, (0, 0, 1, CELDA)), (1, 0, (CELDA - 1, 0, 1, CELDA))):
+                        ii, jj = i + di, j + dj
+                        if 0 <= ii < n and 0 <= jj < n and estado[ii * n + jj] != 5:
+                            sup.fill((170, 225, 255), (x0 + rr[0], y0 + rr[1], rr[2], rr[3]))
+                elif s in (0, 1, 3):
+                    for dj, di, rr in ((0, -1, (0, 0, CELDA, 1)), (0, 1, (0, CELDA - 1, CELDA, 1)),
+                                       (-1, 0, (0, 0, 1, CELDA)), (1, 0, (CELDA - 1, 0, 1, CELDA))):
+                        ii, jj = i + di, j + dj
+                        if 0 <= ii < n and 0 <= jj < n and estado[ii * n + jj] == 5:
+                            sup.fill((96, 84, 60) if s != 1 else (22, 56, 34),
+                                     (x0 + rr[0], y0 + rr[1], rr[2], rr[3]))
         est["sup"] = sup
         est["fuego"] = fuego
         est["agua"] = agua
