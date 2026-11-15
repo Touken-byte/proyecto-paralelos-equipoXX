@@ -696,6 +696,81 @@ def monedas_partida(ev):
         g += ECO_MISION + ev.get("estrellas", 0) * ECO_POR_ESTRELLA
     return g
 
+# Skins: solo recoloreo de paleta (casco/gorro y uniforme/bata), sin ventajas (spec 10.4)
+SKINS = {
+    "bombero": [("Clásico", 0, {}),
+                ("Guardaparque", 60, {"R": (90, 100, 40), "U": (190, 170, 120)}),
+                ("Aguaragüe", 100, {"R": (240, 130, 30), "U": (30, 50, 110)}),
+                ("Ceibo", 150, {"R": (230, 60, 140), "U": (200, 30, 30)})],
+    "vet": [("Clásica", 0, {}),
+            ("Cuaderno", 60, {"G": (40, 90, 190), "W": (245, 235, 200)}),
+            ("Quebracho", 100, {"G": (110, 70, 40), "W": (190, 230, 180)}),
+            ("Aurora", 150, {"G": (130, 70, 190), "W": (240, 240, 240)})],
+}
+SKIN_ACTUAL = {"bombero": 0, "vet": 0}
+
+def skin_comprada(pers, i, d=None):
+    if d is None:
+        d = cargar_eco()
+    return i == 0 or f"{pers}:{i}" in d.get("comprados", [])
+
+def skin_equipada(pers, d=None):
+    if d is None:
+        d = cargar_eco()
+    eq = d.get("equipado", {})
+    i = eq.get(pers, 0) if isinstance(eq, dict) else 0
+    if not isinstance(i, int) or not 0 <= i < len(SKINS[pers]) or not skin_comprada(pers, i, d):
+        return 0
+    return i
+
+def refrescar_skins():
+    d = cargar_eco()
+    for p in SKINS:
+        SKIN_ACTUAL[p] = skin_equipada(p, d)
+
+def comprar_skin(pers, i):
+    d = cargar_eco()
+    nombre, precio, _ = SKINS[pers][i]
+    if skin_comprada(pers, i, d):
+        return False, "Ya la tienes"
+    if d.get("saldo", 0) < precio:
+        return False, f"Te faltan {precio - d.get('saldo', 0)} EcoMonedas"
+    d["saldo"] = d.get("saldo", 0) - precio
+    d.setdefault("comprados", []).append(f"{pers}:{i}")
+    if not isinstance(d.get("equipado"), dict):
+        d["equipado"] = {}
+    d["equipado"][pers] = i
+    guardar_eco(d)
+    refrescar_skins()
+    return True, f"Comprada: {nombre}"
+
+def equipar_skin(pers, i):
+    d = cargar_eco()
+    if not skin_comprada(pers, i, d):
+        return False, "Aún no la tienes"
+    if not isinstance(d.get("equipado"), dict):
+        d["equipado"] = {}
+    d["equipado"][pers] = i
+    guardar_eco(d)
+    refrescar_skins()
+    return True, f"Equipada: {SKINS[pers][i][0]}"
+
+def sprite_personaje(pers, i=None):
+    # devuelve (nombre_de_cache, sprite); el nombre incluye la skin para sprite_paso
+    if i is None:
+        i = SKIN_ACTUAL[pers]
+    if i == 0:
+        if pers == "bombero":
+            return "bombero", sprite_bombero()
+        return "vet", sprite_generico("vet", SPRITE_VET, PALETA_VET)
+    base, matriz = (PALETA_BOMBERO, SPRITE_BOMBERO) if pers == "bombero" else (PALETA_VET, SPRITE_VET)
+    pal = dict(base)
+    pal.update(SKINS[pers][i][2])
+    nombre = f"{pers}:{i}"
+    return nombre, sprite_generico(nombre, matriz, pal)
+
+refrescar_skins()
+
 def pagar_monedas(est, ev):
     d = cargar_eco()
     g = monedas_partida(ev)
@@ -2500,8 +2575,8 @@ def main():
             pygame.draw.circle(pantalla, (255, 150, 0),
                                (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2), 14, 3)
         _t = pygame.time.get_ticks()
-        for _k, _nom, _spr in (("b", "bombero", sprite_bombero()),
-                               ("v", "vet", sprite_generico("vet", SPRITE_VET, PALETA_VET))):
+        for _k, _nom, _spr in (("b",) + sprite_personaje("bombero"),
+                               ("v",) + sprite_personaje("vet")):
             _px, _py, _mov = pos_suave(est, _k, est[_k + "x"], est[_k + "y"], _t)
             _salto = 0
             if _mov and (_t // 130) % 2 == 1:
