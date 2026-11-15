@@ -2567,6 +2567,9 @@ def main():
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]),
                       "C = continuar   R = reiniciar"]
+            if MODO_ESP["id"] == "record":
+                lineas[7:7] = [est.get("record_msg") or "Modo récord: solo cuenta si cumples la misión."]
+                lineas[1:1] = ["Modo récord"]
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
