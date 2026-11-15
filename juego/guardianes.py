@@ -1065,6 +1065,7 @@ ZONA_ALERTA = 10                      # celdas de fuego al refugio que disparan 
 CD_MANGUERA_MS = 8000; CD_TORRE_MS = 15000; CD_BOTIQUIN_MS = 8000
 CD_RASTREO_MS = 10000; CD_SENAL_MS = 12000
 CD_PROT_MS = 20000; DUR_PROT_MS = 6000   # proteccion termica: recuperacion y duracion
+CD_CONOC_MS = 8000; CONOC_R = 4; DUR_FICHA_MS = 7000   # conocimiento silvestre: recuperacion, radio y tiempo de la ficha
 
 def estado_hab(est, clave, cd):
     resto = cd - (pygame.time.get_ticks() - est.get(clave, -99999))
@@ -1147,6 +1148,23 @@ def habilidad(est, tecla):
         est["t_prot_fin"] = ahora + DUR_PROT_MS
         est["msg"] = "Protección térmica activa: cruza las llamas sin daño"
         decir(est, "b", "Traje térmico listo. Ahora sí puedo meterme al fuego.", "importante", "prot")
+    elif tecla == pygame.K_k:
+        if estado_hab(est, "t_conoc", CD_CONOC_MS) != "listo":
+            est["msg"] = "Conocimiento silvestre en recuperación"; return
+        cerca = [a for a in est["animales"] if (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= CONOC_R ** 2]
+        if not cerca:
+            est["msg"] = "Conocimiento silvestre: no hay animales cerca"; return
+        a = min(cerca, key=lambda a: (a[0] - vx) ** 2 + (a[1] - vy) ** 2)
+        import unicodedata
+        def clave(s):
+            return unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode().lower()
+        ficha = next(((nom, lin) for nom, lin in CUADERNO[0][1] if clave(nom) == a[3]), None)
+        if ficha is None:
+            est["msg"] = "Conocimiento silvestre: sin ficha para esa especie"; return
+        est["t_conoc"] = ahora
+        est.setdefault("conocidas", set()).add(a[3])
+        est["ficha_act"] = (ficha[0], ficha[1], ahora + DUR_FICHA_MS)
+        est["msg"] = "Conocimiento silvestre: " + ficha[0] + " identificado"
 
 def dibujar_habilidades(pantalla, est, fnt):
     """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
@@ -1497,7 +1515,7 @@ def main():
         est["derrota"] = False; est["t_dano"] = 0
         est["agua"] = TANQUE; est["t_cf"] = -99999; est["t_rec"] = 0; est["t_apoyo"] = -99999
         est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
-        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set(); est["t_prot"] = -99999; est["t_prot_fin"] = 0
+        est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set(); est["t_prot"] = -99999; est["t_prot_fin"] = 0; est["t_conoc"] = -99999; est["ficha_act"] = None
         dialogos_inicio(est)
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
@@ -1598,7 +1616,7 @@ def main():
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
-                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_h, pygame.K_z, pygame.K_x, pygame.K_q):
+                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_h, pygame.K_k, pygame.K_z, pygame.K_x, pygame.K_q):
                     habilidad(est, e.key)
                 elif e.key == pygame.K_n:
                     pausa_prev_ = est["tick"]["pausa"]
@@ -1822,7 +1840,7 @@ def main():
                              ("Botiquin (Z) " + estado_hab(est, "t_boti", CD_BOTIQUIN_MS), True),
                              ("Rastreo animal (X) " + estado_hab(est, "t_rastreo", CD_RASTREO_MS), True),
                              ("Senal de auxilio (Q) " + estado_hab(est, "t_senal", CD_SENAL_MS), True),
-                             ("Conocimiento silvestre (proximamente)", False)]),
+                             ("Conocimiento silvestre (K) " + estado_hab(est, "t_conoc", CD_CONOC_MS), True)]),
         ]
         for titulo, habs in bloques:
             pantalla.blit(fuente_p.render(titulo, True, (255, 255, 255)), (px, py)); py += 20
@@ -1835,6 +1853,19 @@ def main():
             if i_a in est.get("tratados", ()) and st in ("herido", "aislado", "asustado"):
                 st = "atendido"
             pantalla.blit(fuente_p.render(a[3].capitalize() + ": " + st, True, ESP_INFO[a[3]][1]), (px, py)); py += 18
+        fa = est.get("ficha_act")
+        if fa and pygame.time.get_ticks() < fa[2]:
+            ancho_f = n * CELDA - 80
+            partes = [("Conocimiento silvestre: " + fa[0], (255, 220, 100))]
+            for lin in fa[1]:
+                partes += [(p_, (235, 235, 235)) for p_ in _ajustar(lin, fuente_p, ancho_f - 24)]
+            alto_f = 16 + 20 * len(partes)
+            cuadro_f = pygame.Surface((ancho_f, alto_f), pygame.SRCALPHA)
+            cuadro_f.fill((20, 30, 24, 230))
+            pantalla.blit(cuadro_f, (40, 80))
+            pygame.draw.rect(pantalla, (255, 170, 60), (40, 80, ancho_f, alto_f), 2)
+            for k_f, (t_f, c_f) in enumerate(partes):
+                pantalla.blit(fuente_p.render(t_f, True, c_f), (52, 88 + 20 * k_f))
         if est.get("ver_eval") and est.get("evaluacion"):
             ev = est["evaluacion"]
             pygame.draw.rect(pantalla, (15, 20, 25), (60, 120, 440, 250))
