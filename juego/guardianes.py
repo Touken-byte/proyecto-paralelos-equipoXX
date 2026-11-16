@@ -1752,6 +1752,24 @@ def decorar_mapa(sup, est, cubiertas):
         sup.fill((190, 150, 90), (x0 + 1, y0 + 2, CELDA - 2, 2))
 
 
+def arbol3(sup, x0, y0, v):
+    # arbol de 3x3 celdas: sombra, tronco y copa en 3 tonos con brillo
+    C3 = CELDA * 3
+    cx = x0 + C3 // 2
+    r = C3 // 2 - 2
+    cy = y0 + C3 // 2 - 2
+    pygame.draw.ellipse(sup, (14, 40, 22), (x0 + 1, y0 + C3 - 5, C3 - 2, 5))
+    sup.fill((90, 60, 35), (cx - 1, y0 + C3 - 6, 3, 5))
+    sup.fill((60, 40, 24), (cx + 1, y0 + C3 - 6, 1, 5))
+    pygame.draw.circle(sup, (18, 54, 30), (cx, cy), r + 1)
+    pygame.draw.circle(sup, (26 + 4 * v, 84 + 8 * v, 40 + 4 * v), (cx, cy), r)
+    pygame.draw.circle(sup, (36 + 5 * v, 112 + 10 * v, 52), (cx - 1, cy - 1), max(2, r * 2 // 3))
+    pygame.draw.circle(sup, (70 + 6 * v, 156 + 8 * v, 72), (cx - 2, cy - 3), max(1, r // 3))
+    sup.set_at((cx - 3, cy - 4), (150, 215, 120))
+    sup.set_at((cx + 2, cy + 2), (16, 48, 26))
+    sup.set_at((cx - 2, cy + 3), (16, 48, 26))
+
+
 def color_boton(activo):
     # relleno del boton: naranja claro si esta seleccionado
     return (255, 120, 60) if activo else (38, 56, 44)
@@ -3829,21 +3847,13 @@ def main():
         # V11: decorados (arboles 2x2, arbustos, rocas, troncos quemados, orilla del rio)
         C2 = CELDA * 2
         cubiertas = set()
-        for i in range(0, n - 1, 2):
-            for j in range(0, n - 1, 2):
-                idx = i * n + j
-                if (estado[idx] == 1 and estado[idx + 1] == 1 and estado[idx + n] == 1 and estado[idx + n + 1] == 1
-                        and min(fuel[idx], fuel[idx + 1], fuel[idx + n], fuel[idx + n + 1]) >= 130
-                        and (((i * 83492791) ^ (j * 2654435761)) >> 5) & 7 < 5):
-                    x0, y0 = j * CELDA, i * CELDA
-                    cubiertas.update((idx, idx + 1, idx + n, idx + n + 1))
-                    _v = ((i * 3 + j) // 2) % 3; _cx = x0 + C2 // 2; _cy = y0 + C2 // 2 - 1; _r = C2 // 2 - 2
-                    pygame.draw.ellipse(sup, (14, 40, 22), (x0 + 1, y0 + C2 - 4, C2 - 2, 4))
-                    sup.fill((90, 60, 35), (_cx - 1, y0 + C2 - 4, 2, 3)); sup.fill((60, 40, 24), (_cx, y0 + C2 - 4, 1, 3))
-                    pygame.draw.circle(sup, (18, 54, 30), (_cx, _cy), _r + 1)
-                    pygame.draw.circle(sup, (30 + 4 * _v, 98 + 10 * _v, 46 + 4 * _v), (_cx - 1, _cy - 1), _r)
-                    pygame.draw.circle(sup, (58 + 6 * _v, 140 + 8 * _v, 66), (_cx - 2, _cy - 2), max(1, _r // 2))
-                    sup.fill((110, 190, 96), (_cx - 3, _cy - 3, 2, 1)); sup.set_at((_cx + 2, _cy + 1), (16, 48, 26)); sup.set_at((_cx - 1, _cy + 2), (16, 48, 26))
+        for i in range(0, n - 2, 3):
+            for j in range(0, n - 2, 3):
+                idxs = [(i + a) * n + j + b for a in range(3) for b in range(3)]
+                if (all(estado[k] == 1 for k in idxs) and min(fuel[k] for k in idxs) >= 130
+                        and (((i * 83492791) ^ (j * 2654435761)) >> 5) & 7 < 6):
+                    cubiertas.update(idxs)
+                    arbol3(sup, j * CELDA, i * CELDA, ((i + j) // 3) % 3)
         for i in range(n):
             for j in range(n):
                 idx = i * n + j
