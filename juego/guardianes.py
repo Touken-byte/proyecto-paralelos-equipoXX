@@ -672,12 +672,14 @@ def seleccionar_modo_especial(pantalla, fuente):
                 return "salir"
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
+                    sonar("ui_volver")
                     return None
                 elif e.key == pygame.K_UP:
-                    sel = (sel - 1) % len(MODOS_ESP)
+                    sel = (sel - 1) % len(MODOS_ESP); sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    sel = (sel + 1) % len(MODOS_ESP)
+                    sel = (sel + 1) % len(MODOS_ESP); sonar("ui_mover")
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    sonar("ui_aceptar")
                     elegido = sel
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
@@ -2456,12 +2458,14 @@ def seleccionar_dificultad(pantalla, fuente):
                 return "salir"
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
+                    sonar("ui_volver")
                     return None
                 elif e.key == pygame.K_UP:
-                    sel = (sel - 1) % len(claves)
+                    sel = (sel - 1) % len(claves); sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    sel = (sel + 1) % len(claves)
+                    sel = (sel + 1) % len(claves); sonar("ui_mover")
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    sonar("ui_aceptar")
                     return claves[sel]
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
