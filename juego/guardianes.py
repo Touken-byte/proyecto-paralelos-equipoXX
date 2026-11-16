@@ -14,7 +14,7 @@ ALCANCE = 6                                  # celdas desde el bombero
 LIMITES = {"APAGAR": 6, "CORTAFUEGO": 8}     # usos por ronda (se renuevan con Enter)
 DIR_SONIDOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sonidos")
 MAPA_JUEGO = "output/juego_mapa.bin"
-PANEL_W = 330                                # panel lateral derecho
+PANEL_W = 220                                # panel lateral derecho
 VIGIA_PROCS, VIGIA_SIMS, VIGIA_PASOS, VIGIA_HILOS = 3, 32, 100, 2
 SALIDA_VIGIA = "output/vigia/juego.pgm"
 ACCIONES = "output/juego_acciones.txt"
@@ -3210,6 +3210,30 @@ def pantalla_pausa(pantalla, est, fuente, inicio=False):
         pygame.display.flip()
         reloj.tick(30)
 
+_PANEL_ICONOS = (
+    ("BOMBERO", (("Mochila", "D", None), ("Cortafuegos", "I", "t_cf"), ("Manguera", "G", "t_mang"),
+                 ("Proteccion", "H", "t_prot"), ("Torre", "T", "t_torre"))),
+    ("VETERINARIA", (("Rescate", "E", None), ("Apoyo", "F", "t_apoyo"), ("Botiquin", "Z", "t_boti"),
+                     ("Rastreo", "X", "t_rastreo"), ("Senal", "Q", "t_senal"), ("Conocimiento", "K", "t_conoc"))),
+)
+
+def panel_resumen(pantalla, est, fnt, px, py):
+    """Panel minimo: fila de iconos de habilidades con recarga y una pista de ayuda."""
+    for titulo, items in _PANEL_ICONOS:
+        pantalla.blit(fnt.render(titulo, True, (255, 235, 190)), (px, py))
+        pygame.draw.line(pantalla, (255, 140, 40), (px, py + 16), (px + PANEL_W - 24, py + 16))
+        py += 22
+        for k, (pref, tecla, clave) in enumerate(items):
+            x = px + k * 30
+            s = pygame.Surface((12, 13), pygame.SRCALPHA)
+            dibujar_icono_hab(s, pref, est, 0, 0)
+            pantalla.blit(pygame.transform.scale(s, (24, 26)), (x, py))
+            t = fnt.render(tecla, True, (255, 220, 100))
+            pantalla.blit(t, (x + 12 - t.get_width() // 2, py + 28))
+        py += 52
+    pantalla.blit(fnt.render("P: ayuda y pausa", True, (200, 200, 200)), (px, py))
+    pantalla.blit(fnt.render("O: audio   N: cuaderno", True, (200, 200, 200)), (px, py + 18))
+
 def ajustes_audio(pantalla):
     """Pantalla de ajustes: tres barras independientes (musica, ambiente, efectos)."""
     fondo = pantalla.copy()
@@ -3963,7 +3987,7 @@ def main():
         elif quemando == 0:
             linea2 = f"Incendio controlado. Bosque conservado: {veg * 100 // est['veg0']}%  (R = reiniciar)"
         else:
-            linea2 = "Izq: cortafuegos | Der: agua | P: pausa | O: audio | Retroceso: deshacer | R: reiniciar"
+            linea2 = "Izq: cortafuegos | Der: agua | P: ayuda y pausa"
         pantalla.blit(fuente.render(linea1, True, (255, 255, 255)), (10, n * CELDA + 6))
         pantalla.blit(fuente.render(linea2, True, (200, 200, 200)), (10, n * CELDA + 30))
         dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA + 56)
@@ -4009,7 +4033,7 @@ def main():
                              ("Senal de auxilio (Q) " + estado_hab(est, "t_senal", CD_SENAL_MS), True),
                              ("Conocimiento silvestre (K) " + estado_hab(est, "t_conoc", CD_CONOC_MS), True)]),
         ]
-        for titulo, habs in bloques:
+        for titulo, habs in ():
             pantalla.blit(fuente_p.render(titulo, True, (255, 235, 190)), (px, py))
             pygame.draw.line(pantalla, (255, 140, 40), (px, py + 17), (px + PANEL_W - 24, py + 17))
             py += 22
@@ -4017,13 +4041,7 @@ def main():
                 c = (230, 230, 230) if activa else (110, 110, 110)
                 dibujar_icono_hab(pantalla, nombre, est, px, py); pantalla.blit(fuente_p.render(nombre, True, c), (px + 16, py)); py += 18
             py += 10
-        pantalla.blit(fuente_p.render("FAUNA", True, (255, 235, 190)), (px, py))
-        pygame.draw.line(pantalla, (255, 140, 40), (px, py + 17), (px + PANEL_W - 24, py + 17))
-        py += 22
-        for i_a, (a, st) in enumerate(zip(est["animales"], estados_fauna(est))):
-            if i_a in est.get("tratados", ()) and st in ("herido", "aislado", "asustado"):
-                st = "atendido"
-            pantalla.blit(fuente_p.render(a[3].capitalize() + ": " + st, True, ESP_INFO[a[3]][1]), (px, py)); py += 18
+        panel_resumen(pantalla, est, fuente_p, px, py)
         fa = est.get("ficha_act")
         if fa and pygame.time.get_ticks() < fa[2]:
             ancho_f = n * CELDA - 80
