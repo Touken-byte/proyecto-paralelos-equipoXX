@@ -3379,15 +3379,16 @@ _PANEL_ICONOS = (
 def panel_resumen(pantalla, est, fnt, px, py):
     """Panel minimo: fila de iconos de habilidades con recarga y una pista de ayuda."""
     for titulo, items in _PANEL_ICONOS:
-        pantalla.blit(fnt.render(titulo, True, (255, 235, 190)), (px, py))
-        pygame.draw.line(pantalla, (255, 140, 40), (px, py + 16), (px + PANEL_W - 24, py + 16))
+        pantalla.blit(fnt.render(titulo, True, (90, 40, 10)), (px + 1, py + 1)); pantalla.blit(fnt.render(titulo, True, (255, 200, 90)), (px, py))
+        pygame.draw.line(pantalla, (230, 170, 60), (px, py + 17), (px + PANEL_W - 24, py + 17), 2)
         py += 22
         for k, (pref, tecla, clave) in enumerate(items):
             x = px + k * 30
             s = pygame.Surface((12, 13), pygame.SRCALPHA)
             dibujar_icono_hab(s, pref, est, 0, 0)
+            pygame.draw.rect(pantalla, (20, 28, 24), (x - 2, py - 2, 28, 30), border_radius=4); pygame.draw.rect(pantalla, (120, 90, 40), (x - 2, py - 2, 28, 30), 1, border_radius=4)
             pantalla.blit(pygame.transform.scale(s, (24, 26)), (x, py))
-            t = fnt.render(tecla, True, (255, 220, 100))
+            t = fnt.render(tecla, True, (255, 235, 150))
             pantalla.blit(t, (x + 12 - t.get_width() // 2, py + 28))
         py += 52
     pantalla.blit(fnt.render("P: ayuda y pausa", True, (200, 200, 200)), (px, py))
