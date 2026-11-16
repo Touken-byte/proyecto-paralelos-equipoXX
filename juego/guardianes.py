@@ -2704,6 +2704,30 @@ def mover_fauna(est):
         else:
             pend.discard(i)
 
+def pajaros_ambiente(est):
+    """Pajaros de fondo: suenan con el bosque sano y se apagan al llegar a 15% de perdida."""
+    s = AJ["snd"].get("amb_pajaros")
+    if not s:
+        return
+    try:
+        perdida = 100 - est["estado"].count(1) * 100 // est["veg0"]
+        f = 0.0 if est["ver_eval"] else max(0.0, 1.0 - perdida / 15.0)
+        f = round(f * 20) / 20
+        if f != AJ.get("paj_f"):
+            AJ["paj_f"] = f
+            aplicar_volumen()
+        ahora = pygame.time.get_ticks()
+        if f > 0 and s.get_num_channels() == 0:
+            if "t_paj" not in est:
+                est["t_paj"] = ahora
+            elif ahora - est["t_paj"] > 4000:
+                s.play(fade_ms=800)
+                est.pop("t_paj")
+        else:
+            est.pop("t_paj", None)
+    except Exception:
+        pass
+
 def chillar_fauna(est):
     """Un chillido por especie al pasar a asustado/aislado/herido; uno por tick y con pausa."""
     ya = est.setdefault("chillaron", set())
@@ -2759,14 +2783,14 @@ def actualizar_emergencia(est):
 
 AJUSTES_RUTA = os.path.join("output", "ajustes.json")
 AJ = {"mus": 0.5, "amb": 0.5, "efx": 0.5, "mute": False, "t": -10000, "snd": {}, "f": None}
-CAT_SND = {"musica": "mus", "fuego": "amb", "amb_viento": "amb"}   # canal de cada sonido; el resto es "efx"
-BASE_VOL = {"musica": 0.35, "amb_viento": 0.3}   # volumen base de cada sonido; los efectos usan 1.0
+CAT_SND = {"musica": "mus", "fuego": "amb", "amb_viento": "amb", "amb_pajaros": "amb"}   # canal de cada sonido; el resto es "efx"
+BASE_VOL = {"musica": 0.35, "amb_viento": 0.3, "amb_pajaros": 0.5}   # volumen base de cada sonido; los efectos usan 1.0
 
 
 def aplicar_volumen():
     for k, s in AJ["snd"].items():
         try:
-            s.set_volume(0.0 if AJ["mute"] else AJ[CAT_SND.get(k, "efx")] * BASE_VOL.get(k, 1.0))
+            s.set_volume(0.0 if AJ["mute"] else AJ[CAT_SND.get(k, "efx")] * BASE_VOL.get(k, 1.0) * (AJ.get("paj_f", 1.0) if k == "amb_pajaros" else 1.0))
         except Exception:
             pass
 
@@ -3080,7 +3104,8 @@ def main():
                    "pip_recoger", "pip_soltar", "hab_manguera", "hab_torre", "hab_botiquin", "hab_rastreo",
                    "hab_senal", "alerta_avanzada", "alerta_critica", "alerta_tic",
                    "ui_notif", "ui_moneda", "amb_viento",
-                   "chillido_jaguar", "chillido_loro", "chillido_tapir", "chillido_taitetu"):
+                   "chillido_jaguar", "chillido_loro", "chillido_tapir", "chillido_taitetu",
+                   "amb_pajaros"):
             try:
                 sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
             except Exception:
@@ -3539,7 +3564,7 @@ def main():
             raise
         except Exception:
             pass
-        dibujar_habilidades(pantalla, est, fuente_p)
+        pajaros_ambiente(est); dibujar_habilidades(pantalla, est, fuente_p)
         dibujar_globo(pantalla, est, fuente_p)
         dibujar_notif(pantalla, est, fuente_p, n * CELDA)
         if est["msg"]:

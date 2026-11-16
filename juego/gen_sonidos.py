@@ -187,6 +187,26 @@ def chillido_taitetu():
     # Gruñido corto y seco
     return _aspero(_nota(230.0, 150.0, 0.2, 0.55, decay=3.0, arm=0.8), 0.2, 22)
 
+def amb_pajaros():
+    # Trinos sueltos de aves sobre silencio (6 s, no en bucle); entra y sale suave
+    random.seed(31)
+    N = int(TASA * 6.0); out = [0.0] * N
+    for ini in (0.3, 1.2, 1.7, 3.0, 3.4, 4.6):
+        base = random.uniform(2200.0, 3400.0)
+        pos = int(TASA * ini)
+        for k in range(random.randint(2, 4)):
+            f0 = base * random.uniform(0.9, 1.2)
+            nota = _nota(f0, f0 * random.uniform(0.8, 1.35), 0.07, 0.22, decay=2.5, arm=0.2)
+            for j, v in enumerate(nota):
+                if pos + j < N:
+                    out[pos + j] += v
+            pos += int(TASA * 0.09)
+    F = int(TASA * 0.2)
+    for i in range(F):
+        out[i] *= i / F
+        out[N - 1 - i] *= i / F
+    return out
+
 def amb_viento():
     import random
     random.seed(11)
@@ -219,6 +239,7 @@ if __name__ == "__main__":
                     ("alerta_critica", alerta_critica), ("alerta_tic", alerta_tic),
                     ("ui_notif", ui_notif), ("ui_moneda", ui_moneda), ("amb_viento", amb_viento),
                     ("chillido_jaguar", chillido_jaguar), ("chillido_loro", chillido_loro),
-                    ("chillido_tapir", chillido_tapir), ("chillido_taitetu", chillido_taitetu)):
+                    ("chillido_tapir", chillido_tapir), ("chillido_taitetu", chillido_taitetu),
+                    ("amb_pajaros", amb_pajaros)):
         guardar("juego/sonidos/" + nom + ".wav", fn())
     print("OK: sonidos generados en juego/sonidos/")
