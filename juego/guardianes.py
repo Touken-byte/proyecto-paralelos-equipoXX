@@ -650,6 +650,8 @@ def seleccionar_nivel(pantalla, fuente):
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in rects.items():
                     if r.collidepoint(e.pos):
+                        if sel != i:
+                            sonar("ui_mover")
                         sel = i
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for z, r in tab_rects.items():
@@ -784,6 +786,8 @@ def seleccionar_modo_especial(pantalla, fuente):
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
+                        if sel != i:
+                            sonar("ui_mover")
                         sel = i
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
@@ -848,6 +852,8 @@ def seleccionar_modo(pantalla, fuente):
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
+                        if sel != i:
+                            sonar("ui_mover")
                         sel = i
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
@@ -2787,6 +2793,8 @@ def seleccionar_dificultad(pantalla, fuente):
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
+                        if sel != i:
+                            sonar("ui_mover")
                         sel = i
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
