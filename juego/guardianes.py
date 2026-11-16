@@ -533,19 +533,23 @@ def seleccionar_nivel(pantalla, fuente):
             if e.type == pygame.KEYDOWN:
                 aviso = ""
                 if e.key == pygame.K_ESCAPE:
+                    sonar("ui_volver")
                     return None
                 elif e.key == pygame.K_LEFT:
-                    sel = idxs[(idxs.index(sel) - 1) % k]
+                    sel = idxs[(idxs.index(sel) - 1) % k]; sonar("ui_mover")
                 elif e.key == pygame.K_RIGHT:
-                    sel = idxs[(idxs.index(sel) + 1) % k]
+                    sel = idxs[(idxs.index(sel) + 1) % k]; sonar("ui_mover")
                 elif e.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_TAB):
+                    sonar("ui_mover")
                     paso = -1 if e.key == pygame.K_UP else 1
                     z = zonas[(zonas.index(zona) + paso) % len(zonas)]
                     sel = next(i for i, nv in enumerate(NIVELES) if nv["zona"] == z)
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                     if nivel_bloqueado(sel):
                         aviso = "Nivel bloqueado: completa antes la zona anterior."
+                        sonar("ui_volver")
                     else:
+                        sonar("ui_jugar")
                         return sel
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in rects.items():
@@ -732,12 +736,14 @@ def seleccionar_modo(pantalla, fuente):
                 return "salir"
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
+                    sonar("ui_volver")
                     return None
                 elif e.key == pygame.K_UP:
-                    sel = (sel - 1) % len(opciones)
+                    sel = (sel - 1) % len(opciones); sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    sel = (sel + 1) % len(opciones)
+                    sel = (sel + 1) % len(opciones); sonar("ui_mover")
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    sonar("ui_aceptar")
                     r_ = elegir_dificultad_modo(pantalla, fuente, opciones[sel][1])
                     if r_ == "salir":
                         return "salir"
@@ -1304,19 +1310,21 @@ def tienda(pantalla, fuente):
                 return "salir"
             if e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
+                    sonar("ui_volver")
                     return None
                 elif e.key in (pygame.K_LEFT, pygame.K_RIGHT):
-                    col = 1 - col
+                    col = 1 - col; sonar("ui_mover")
                 elif e.key == pygame.K_UP:
-                    sel[col] = (sel[col] - 1) % len(SKINS[pers[col]])
+                    sel[col] = (sel[col] - 1) % len(SKINS[pers[col]]); sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    sel[col] = (sel[col] + 1) % len(SKINS[pers[col]])
+                    sel[col] = (sel[col] + 1) % len(SKINS[pers[col]]); sonar("ui_mover")
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                     p, i = pers[col], sel[col]
                     if skin_comprada(p, i, d):
                         msg_ok, msg = equipar_skin(p, i)
                     else:
                         msg_ok, msg = comprar_skin(p, i)
+                    sonar("ui_tienda" if msg_ok else "ui_volver")
                     d = cargar_eco()
         pantalla.blit(fondo, (0, 0))
         t = f_tit.render("Tienda de personalización", True, (255, 170, 60))
