@@ -91,8 +91,9 @@ pygame.draw.rect = _rect_pixel
 
 def obtener_tiles():
     """Tiles pixel art dibujados por codigo (se construyen una sola vez)."""
-    if _TILES:
+    if _TILES.get('C') == CELDA:
         return _TILES
+    _TILES.clear(); _TILES['C'] = CELDA
     C = CELDA
 
     def base(col):
@@ -106,13 +107,17 @@ def obtener_tiles():
 
     veg = []
     for b in [(28, 70, 40), (34, 100, 50), (40, 135, 58)]:
-        claro = tuple(min(255, c + 30) for c in b)
+        claro = tuple(min(255, c + 34) for c in b)
+        brillo = tuple(min(255, c + 70) for c in b)
         oscuro = tuple(max(0, c - 18) for c in b)
+        sombra = tuple(max(0, c - 34) for c in b)
         fila = []
         for v in range(4):
             s = base(b)
-            pygame.draw.rect(s, claro, (1 + v % 2, 1, 3, 3))
-            puntos(s, oscuro, [(v, 5), (5 - v, 0)])
+            s.fill(sombra, (0, C - 1, C, 1))
+            s.fill(claro, (1 + v % 2, 1, max(2, C // 2), max(2, C // 3)))
+            s.set_at((1 + v % 2, 1), brillo)
+            puntos(s, oscuro, [(v + 1, C // 2 + 1), (C - 2 - v, C // 2), (v, C - 2)])
             fila.append(s)
         veg.append(fila)
     _TILES["veg"] = veg
@@ -121,15 +126,24 @@ def obtener_tiles():
     for v in range(4):
         s = base((33, 150, 243)); y = 1 + (v % 3) * 2
         puntos(s, (120, 200, 255), [(v, y), (v + 1, y), (v + 2, y)])
+        puntos(s, (22, 118, 205), [(v + 3, y + 1), (v + 4, y + 1)])
+        puntos(s, (225, 245, 255), [(C - 1 - v, y + 3)])
         agua.append(s)
         s = base((222, 200, 150))
-        puntos(s, (190, 165, 115), [(v, 1), (5 - v, 4)])
+        puntos(s, (190, 165, 115), [(v, 1), (C - 1 - v, C - 2)])
+        puntos(s, (150, 175, 95), [(v + 2, 3), (v + 2, 4), (C - 1 - v, 1)])
+        puntos(s, (240, 224, 178), [(C - 2 - v, 2)])
         vacia.append(s)
         s = base((121, 85, 72))
-        puntos(s, (80, 55, 45), [(0, v), (1, v), (3, 5 - v), (4, 5 - v)])
+        for yy in range(1, C, 2):
+            s.fill((88, 60, 50), (0, yy, C, 1))
+        puntos(s, (150, 112, 94), [(v, 0), (C - 1 - v, C - 1)])
         cortafuego.append(s)
         s = base((45, 45, 45))
-        puntos(s, (140, 50, 20), [(v, 2), (5 - v, 4)])
+        puntos(s, (140, 50, 20), [(v, 2), (C - 1 - v, 4)])
+        puntos(s, (255, 120, 30), [(v, 2)])
+        puntos(s, (90, 88, 86), [(C - 2 - v, 1), (v + 1, C - 1)])
+        puntos(s, (28, 28, 28), [(v + 2, 3), (C - 1 - v, 5)])
         quemada.append(s)
         suelo_fuego.append(base((90, 20, 10)))
     _TILES[5], _TILES[0], _TILES[4], _TILES[3], _TILES[2] = agua, vacia, cortafuego, quemada, suelo_fuego
@@ -142,8 +156,10 @@ def obtener_tiles():
     fuego = []
     for ext, inte in formas:
         s = pygame.Surface((C, C), pygame.SRCALPHA)
-        pygame.draw.polygon(s, (255, 110, 20), ext)
-        pygame.draw.polygon(s, (255, 220, 80), inte)
+        _k = (C - 1) / 5.0
+        pygame.draw.polygon(s, (255, 110, 20), [(round(x * _k), round(y * _k)) for x, y in ext])
+        pygame.draw.polygon(s, (255, 220, 80), [(round(x * _k), round(y * _k)) for x, y in inte])
+        s.set_at((min(C - 1, round(3 * _k)), min(C - 1, round(4 * _k))), (255, 250, 200))
         fuego.append(s)
     _TILES["fuego"] = fuego
     return _TILES
