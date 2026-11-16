@@ -1663,6 +1663,16 @@ def dibujar_fondo_panel(pantalla, x, ancho, alto):
     pantalla.blit(s, (x, 0))
 
 
+def marco_dorado(pantalla, rect, alpha=200):
+    # caja oscura translucida con borde dorado y filete interior
+    if alpha > 0:
+        s = pygame.Surface(rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(s, (14, 20, 16, alpha), s.get_rect(), border_radius=6)
+        pantalla.blit(s, rect.topleft)
+    pygame.draw.rect(pantalla, (230, 170, 60), rect, 2, border_radius=6)
+    pygame.draw.rect(pantalla, (120, 80, 20), rect.inflate(-4, -4), 1, border_radius=4)
+
+
 def color_boton(activo):
     # relleno del boton: naranja claro si esta seleccionado
     return (255, 120, 60) if activo else (38, 56, 44)
@@ -4102,13 +4112,13 @@ def main():
             if frac_ > 0:
                 pygame.draw.line(pantalla, tuple(min(255, c + 70) for c in _cb), (bx_, by_), (bx_ + max(0, int(28 * frac_) - 1), by_))
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
-        pantalla.fill((0, 0, 0), txt_v.get_rect(topleft=(6, 24)))
-        pantalla.blit(txt_v, (6, 24))
+        pass
+        pass
         txt_m = fuente.render((f"Meta: {META_SALVOS} animales y {META_BOSQUE}% bosque" if MODO_ESP["id"] not in ("supervivencia", "desafio") else (f"Supervivencia: meta {META_SALVOS} animales" if MODO_ESP["id"] == "supervivencia" else f"Desafío: {META_SALVOS} animales y {META_BOSQUE}% bosque en {LIMITE_DESAFIO} rondas")), True, (255, 230, 120))
-        pantalla.fill((0, 0, 0), txt_m.get_rect(topleft=(6, 44)))
-        pantalla.blit(txt_m, (6, 44))
+        pass
+        pass
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
-        pantalla.fill((0, 0, 0), txt_a.get_rect(topleft=(6, 4)))
+        marco_dorado(pantalla, pygame.Rect(0, 0, max(txt_v.get_width(), txt_m.get_width(), txt_a.get_width()) + 14, 67)); pantalla.blit(txt_v, (6, 24)); pantalla.blit(txt_m, (6, 44))
         pantalla.blit(txt_a, (6, 4))
         for tipo, x, y in est["pend"]:   # acciones pendientes de la ronda
             col = (255, 255, 255) if tipo == "CORTAFUEGO" else (0, 255, 255)
@@ -4139,9 +4149,9 @@ def main():
             linea2 = f"Incendio controlado. Bosque conservado: {veg * 100 // est['veg0']}%  (R = reiniciar)"
         else:
             linea2 = "Izq: cortafuegos | Der: agua | P: ayuda y pausa"
-        _l1 = fuente.render(linea1, True, (255, 255, 255)); pantalla.fill((0, 0, 0), _l1.get_rect(topleft=(6, n * CELDA - 46))); pantalla.blit(_l1, (6, n * CELDA - 46))
-        _l2 = fuente.render(linea2, True, (200, 200, 200)); pantalla.fill((0, 0, 0), _l2.get_rect(topleft=(6, n * CELDA - 24))); pantalla.blit(_l2, (6, n * CELDA - 24))
-        dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA)
+        _l1 = fuente.render(linea1, True, (255, 255, 255)); marco_dorado(pantalla, pygame.Rect(0, n * CELDA - 50, max(_l1.get_width(), fuente.size(linea2)[0]) + 14, 50)); pantalla.blit(_l1, (6, n * CELDA - 46))
+        _l2 = fuente.render(linea2, True, (200, 200, 200)); pantalla.blit(_l2, (6, n * CELDA - 24))
+        dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA); marco_dorado(pantalla, pygame.Rect(n * CELDA, 0, PANEL_W, n * CELDA), 0)
         px = n * CELDA + 10
         pantalla.blit(fuente.render("EL VIGIA", True, (255, 170, 60)), (px, 10))
         dibujar_icono_cuaderno(pantalla, n * CELDA + PANEL_W - 50, 8, fuente_p)
