@@ -4018,8 +4018,6 @@ def main():
                                           True, (255, 120, 120)), (px, py + 20))
         dibujar_ignis(pantalla, n * CELDA + PANEL_W - 45, py + 52, est["nivel"], pygame.time.get_ticks())
         py += 50
-        ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
-        uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
         panel_resumen(pantalla, est, fuente_p, px, py)
         fa = est.get("ficha_act")
         if fa and pygame.time.get_ticks() < fa[2]:
