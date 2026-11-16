@@ -1143,15 +1143,16 @@ def cuaderno(pantalla, fuente):
                 return "salir"
             if e.type == pygame.KEYDOWN:
                 if e.key in (pygame.K_ESCAPE, pygame.K_n, pygame.K_BACKSPACE):
+                    sonar("ui_volver")
                     return None
                 elif e.key == pygame.K_RIGHT:
-                    sec = (sec + 1) % len(CUADERNO); ent = 0
+                    sec = (sec + 1) % len(CUADERNO); ent = 0; sonar("ui_mover")
                 elif e.key == pygame.K_LEFT:
-                    sec = (sec - 1) % len(CUADERNO); ent = 0
+                    sec = (sec - 1) % len(CUADERNO); ent = 0; sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    ent = (ent + 1) % len(CUADERNO[sec][1])
+                    ent = (ent + 1) % len(CUADERNO[sec][1]); sonar("ui_mover")
                 elif e.key == pygame.K_UP:
-                    ent = (ent - 1) % len(CUADERNO[sec][1])
+                    ent = (ent - 1) % len(CUADERNO[sec][1]); sonar("ui_mover")
         pantalla.blit(fondo, (0, 0))
         marco = pygame.Rect(30, 30, w - 60, h - 60)
         pygame.draw.rect(pantalla, (0, 0, 0), marco.move(4, 5), border_radius=8)
@@ -1458,18 +1459,21 @@ def centro_analisis(pantalla, fuente):
             if res is not None:
                 if e.key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                     res = None
+                    sonar("ui_volver")
                 continue
             if e.key == pygame.K_ESCAPE:
+                sonar("ui_volver")
                 return None
             elif e.key == pygame.K_UP:
-                sel = (sel - 1) % len(CENTRO_PARAMS)
+                sel = (sel - 1) % len(CENTRO_PARAMS); sonar("ui_mover")
             elif e.key == pygame.K_DOWN:
-                sel = (sel + 1) % len(CENTRO_PARAMS)
+                sel = (sel + 1) % len(CENTRO_PARAMS); sonar("ui_mover")
             elif e.key in (pygame.K_LEFT, pygame.K_RIGHT):
                 d = 1 if e.key == pygame.K_RIGHT else -1
                 idx[sel] = (idx[sel] + d) % len(CENTRO_PARAMS[sel][1])
                 msg = ""
             elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                sonar("ui_aceptar")
                 v = [CENTRO_PARAMS[k][1][idx[k]] for k in range(len(CENTRO_PARAMS))]
                 par = {"ang": v[0], "fuerza": v[1], "hum": v[2], "sims": v[3], "n": v[4], "fila": v[5]}
                 pantalla.blit(fondo, (0, 0))
