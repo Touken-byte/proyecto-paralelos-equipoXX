@@ -94,11 +94,34 @@ def fuego():
     k = 0.025 / rms   # nivel RMS fijo y bajo (ajustable)
     return [max(-1.0, min(1.0, v * k)) for v in out]
 
+def ui_mover():
+    return _nota(700.0, 700.0, 0.05, 0.35, decay=6.0)
+
+def ui_aceptar():
+    return _nota(520.0, 700.0, 0.07, 0.45, decay=3.0, arm=0.3) + _nota(880.0, 880.0, 0.12, 0.45, decay=4.0, arm=0.3)
+
+def ui_volver():
+    return _nota(620.0, 620.0, 0.06, 0.4, decay=4.0) + _nota(420.0, 420.0, 0.1, 0.4, decay=5.0)
+
+def ui_jugar():
+    s = []
+    for f in (392.0, 523.25, 659.25):
+        s += _nota(f, f, 0.08, 0.5, decay=2.5, arm=0.3)
+    return s + _nota(783.99, 783.99, 0.3, 0.5, decay=3.0, arm=0.3)
+
+def ui_tienda():
+    return _nota(1318.5, 1318.5, 0.06, 0.45, decay=3.0, arm=0.4) + _nota(1760.0, 1760.0, 0.25, 0.45, decay=4.0, arm=0.4)
+
+def ui_salir():
+    return _nota(330.0, 220.0, 0.12, 0.5, decay=3.0, arm=0.2) + _nota(220.0, 130.0, 0.28, 0.5, decay=3.0, arm=0.2)
+
 if __name__ == "__main__":
     os.makedirs("juego/sonidos", exist_ok=True)
     guardar("juego/sonidos/agua.wav", agua())
     guardar("juego/sonidos/cortafuegos.wav", cortafuegos())
     for nom, fn in (("rescate", rescate), ("recompensa", recompensa), ("derrota", derrota),
-                    ("proteccion", proteccion), ("conocimiento", conocimiento), ("fuego", fuego)):
+                    ("proteccion", proteccion), ("conocimiento", conocimiento), ("fuego", fuego),
+                    ("ui_mover", ui_mover), ("ui_aceptar", ui_aceptar), ("ui_volver", ui_volver),
+                    ("ui_jugar", ui_jugar), ("ui_tienda", ui_tienda), ("ui_salir", ui_salir)):
         guardar("juego/sonidos/" + nom + ".wav", fn())
     print("OK: sonidos generados en juego/sonidos/")
