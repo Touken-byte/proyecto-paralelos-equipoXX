@@ -3044,6 +3044,172 @@ def dibujar_barra_volumen(pantalla, x, y, ancho=150):
         pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * AJ["mus"]), 8), border_radius=4)
 
 
+PAUSA_TABS = ["Controles", "Habilidades", "Fauna", "Audio"]
+PAUSA_CTRL = [
+    ("BOMBERO", [("Flechas", "moverse"), ("Clic izquierdo", "cortafuegos"), ("Clic derecho", "mochila de agua"),
+                 ("G", "manguera de presion"), ("T", "torre de vigilancia"), ("H", "proteccion termica")]),
+    ("VETERINARIA", [("W A S D", "moverse"), ("E", "recoger o soltar un animal"), ("Z", "botiquin"),
+                     ("X", "rastreo animal"), ("Q", "senal de auxilio"), ("K", "conocimiento silvestre"),
+                     ("F", "apoyo al bombero")]),
+    ("GENERAL", [("V", "mapa de riesgo (El Vigia)"), ("P", "pausa y ayuda"), ("O", "ajustes de audio"),
+                 ("M", "silenciar"), ("N", "Cuaderno de Guardianes"), ("Retroceso", "deshacer"),
+                 ("R", "reiniciar"), ("I", "imagen de resultados (al final)")]),
+]
+# (prefijo del icono, nombre visible, descripcion, clave de recarga, duracion)
+PAUSA_HAB = [
+    ("BOMBERO", [("Mochila", "Mochila de agua", "Clic derecho apaga una celda en llamas. Se recarga junto al rio.", "agua"),
+                 ("Cortafuegos", "Cortafuegos", "Clic izquierdo crea una barrera que frena el fuego.", "cf"),
+                 ("Manguera", "Manguera de presion (G)", "Apaga varios focos cercanos; gasta una carga por foco.", "t_mang"),
+                 ("Proteccion", "Proteccion termica (H)", "Durante 6 s cruzas celdas en llamas sin dano.", "t_prot"),
+                 ("Torre", "Torre de vigilancia (T)", "Marca los focos que hay alrededor del bombero.", "t_torre")]),
+    ("VETERINARIA", [("Rescate", "Rescate (E)", "Recoge o suelta un animal cercano. Llevalo al refugio.", None),
+                     ("Apoyo", "Apoyo al bombero (F)", "A 2 celdas o menos le da +2 de agua y +15 de vida.", "apoyo"),
+                     ("Botiquin", "Botiquin (Z)", "Atiende a un animal herido, aislado o asustado.", "t_boti"),
+                     ("Rastreo", "Rastreo animal (X)", "Marca los animales que hay cerca.", "t_rastreo"),
+                     ("Senal", "Senal de auxilio (Q)", "Marca los animales aislados.", "t_senal"),
+                     ("Conocimiento", "Conocimiento silvestre (K)", "Identifica al animal cercano y abre su ficha.", "t_conoc")]),
+]
+
+def _rects_pausa(w, h):
+    marco = pygame.Rect(30, 30, w - 60, h - 60)
+    tw = (marco.w - 48) // 4
+    return marco, [pygame.Rect(marco.x + 24 + i * tw, marco.y + 52, tw - 6, 30) for i in range(4)]
+
+def _recarga_pausa(est, clave):
+    if clave is None:
+        return ""
+    if clave == "agua":
+        return f"{est['agua']}/{tanque_max()}"
+    if clave == "cf":
+        return estado_cortafuego(est)
+    if clave == "apoyo":
+        return estado_apoyo(est)
+    cd = {"t_mang": CD_MANGUERA_MS, "t_prot": CD_PROT_MS, "t_torre": CD_TORRE_MS, "t_boti": CD_BOTIQUIN_MS,
+          "t_rastreo": CD_RASTREO_MS, "t_senal": CD_SENAL_MS, "t_conoc": CD_CONOC_MS}[clave]
+    return estado_hab(est, clave, cd)
+
+def _dibujar_pausa(pantalla, est, tab, sel, fondo, inicio):
+    w, h = pantalla.get_size()
+    F = _SPRITES.setdefault("pausa_f", {})
+    if not F:
+        F["t"] = pygame.font.Font(None, 40); F["s"] = pygame.font.Font(None, 26); F["p"] = pygame.font.Font(None, 22)
+    f_t, f_s, f_p = F["t"], F["s"], F["p"]
+    pantalla.blit(fondo, (0, 0))
+    velo = pygame.Surface((w, h), pygame.SRCALPHA); velo.fill((0, 0, 0, 200)); pantalla.blit(velo, (0, 0))
+    marco, rt = _rects_pausa(w, h)
+    pygame.draw.rect(pantalla, (0, 0, 0), marco.move(4, 5), border_radius=8)
+    pygame.draw.rect(pantalla, (22, 36, 28), marco, border_radius=8)
+    pygame.draw.rect(pantalla, (255, 170, 60), marco, 3, border_radius=8)
+    pantalla.blit(f_t.render("COMO SE JUEGA" if inicio else "PAUSA", True, (255, 170, 60)), (marco.x + 24, marco.y + 12))
+    for i, r in enumerate(rt):
+        pygame.draw.rect(pantalla, (255, 170, 60) if i == tab else (40, 60, 48), r, border_radius=4)
+        t = f_p.render(f"{i + 1}  {PAUSA_TABS[i]}", True, (30, 20, 10) if i == tab else (220, 220, 220))
+        pantalla.blit(t, t.get_rect(center=r.center))
+    x1 = marco.x + 24
+    x2 = marco.x + 24 + marco.w // 2
+    y0 = marco.y + 98
+    if tab == 0:
+        def bloque(x, y, titulo, filas):
+            pantalla.blit(f_s.render(titulo, True, (255, 235, 190)), (x, y))
+            pygame.draw.line(pantalla, (255, 140, 40), (x, y + 20), (x + marco.w // 2 - 48, y + 20))
+            y += 28
+            for tecla, texto in filas:
+                pantalla.blit(f_p.render(tecla, True, (255, 220, 100)), (x, y))
+                pantalla.blit(f_p.render(texto, True, (230, 230, 230)), (x + 110, y))
+                y += 22
+            return y + 10
+        y = bloque(x1, y0, PAUSA_CTRL[0][0], PAUSA_CTRL[0][1])
+        bloque(x1, y, PAUSA_CTRL[1][0], PAUSA_CTRL[1][1])
+        bloque(x2, y0, PAUSA_CTRL[2][0], PAUSA_CTRL[2][1])
+    elif tab == 1:
+        for col, (titulo, filas) in enumerate(PAUSA_HAB):
+            x = x1 if col == 0 else x2
+            y = y0
+            pantalla.blit(f_s.render(titulo, True, (255, 235, 190)), (x, y))
+            pygame.draw.line(pantalla, (255, 140, 40), (x, y + 20), (x + marco.w // 2 - 48, y + 20))
+            y += 28
+            for pref, nombre, desc, clave in filas:
+                dibujar_icono_hab(pantalla, pref, est, x, y + 2)
+                rec = _recarga_pausa(est, clave)
+                pantalla.blit(f_p.render(nombre + ("   " + rec if rec else ""), True, (255, 220, 100)), (x + 20, y))
+                for k, lin in enumerate(_ajustar(desc, f_p, marco.w // 2 - 80)[:2]):
+                    pantalla.blit(f_p.render(lin, True, (225, 225, 225)), (x + 20, y + 18 + 18 * k))
+                y += 58
+    elif tab == 2:
+        pantalla.blit(f_s.render("ANIMALES DEL NIVEL", True, (255, 235, 190)), (x1, y0))
+        pygame.draw.line(pantalla, (255, 140, 40), (x1, y0 + 20), (x1 + marco.w // 2 - 48, y0 + 20))
+        y = y0 + 28
+        for i_a, (a, st) in enumerate(zip(est["animales"], estados_fauna(est))):
+            if i_a in est.get("tratados", ()) and st in ("herido", "aislado", "asustado"):
+                st = "atendido"
+            pantalla.blit(f_p.render(a[3].capitalize() + ": " + st, True, ESP_INFO[a[3]][1]), (x1, y)); y += 22
+        pantalla.blit(f_s.render("ESTADOS", True, (255, 235, 190)), (x2, y0))
+        pygame.draw.line(pantalla, (255, 140, 40), (x2, y0 + 20), (x2 + marco.w // 2 - 48, y0 + 20))
+        y = y0 + 28
+        for lin in ("Herido: el fuego esta en su celda.", "Aislado: el fuego esta a 3 celdas o menos.",
+                    "Asustado: el fuego esta a 8 celdas o menos.", "Tranquilo: el fuego esta lejos.",
+                    "En evacuacion: va contigo hacia el refugio.", "A salvo: ya llego al refugio.",
+                    "Los animales no mueren: si no pueden huir,", "quedan pendientes de rescate."):
+            pantalla.blit(f_p.render(lin, True, (225, 225, 225)), (x2, y)); y += 22
+    else:
+        canales = [("mus", "Musica"), ("amb", "Ambiente (fuego, viento, aves)"), ("efx", "Efectos")]
+        ancho = 300; x0 = marco.centerx - ancho // 2
+        for i, (c, nom) in enumerate(canales):
+            y = y0 + 20 + i * 64
+            col = (255, 200, 80) if i == sel else (220, 220, 220)
+            pantalla.blit(f_s.render(nom + "  " + str(int(round(AJ[c] * 100))) + "%", True, col), (x0, y))
+            pygame.draw.rect(pantalla, (70, 70, 70), (x0, y + 26, ancho, 10), border_radius=5)
+            if not AJ["mute"]:
+                pygame.draw.rect(pantalla, (120, 255, 160) if i == sel else (90, 190, 120),
+                                 (x0, y + 26, int(ancho * AJ[c]), 10), border_radius=5)
+        if AJ["mute"]:
+            pantalla.blit(f_s.render("SILENCIADO (M)", True, (255, 120, 120)), (x0, y0 + 20 + 3 * 64))
+    pie = "Tab o 1-4: pestanas   |   Esc, P o Enter: continuar" + ("   |   Audio: arriba/abajo canal, izq/der volumen, M silenciar" if tab == 3 else "")
+    pantalla.blit(f_p.render(pie, True, (200, 190, 150)), (marco.x + 24, marco.bottom - 28))
+
+def pantalla_pausa(pantalla, est, fuente, inicio=False):
+    """Pausa con ayuda en pestanas. Se abre con P y al empezar la partida."""
+    fondo = pantalla.copy()
+    w, h = pantalla.get_size()
+    tab, sel = 0, 0
+    canales = ["mus", "amb", "efx"]
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                guardar_ajustes()
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_p, pygame.K_RETURN, pygame.K_KP_ENTER):
+                    sonar("ui_volver"); guardar_ajustes()
+                    return None
+                elif e.key == pygame.K_TAB:
+                    tab = (tab + 1) % 4; sonar("ui_mover")
+                elif e.key in (pygame.K_1, pygame.K_2, pygame.K_3, pygame.K_4):
+                    tab = e.key - pygame.K_1; sonar("ui_mover")
+                elif e.key == pygame.K_m:
+                    AJ["mute"] = not AJ["mute"]; aplicar_volumen(); guardar_ajustes()
+                elif tab == 3 and e.key == pygame.K_UP:
+                    sel = (sel - 1) % 3; sonar("ui_mover")
+                elif tab == 3 and e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % 3; sonar("ui_mover")
+                elif tab == 3 and e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+                    cambiar_volumen(0.1 if e.key == pygame.K_RIGHT else -0.1, canales[sel])
+                    if canales[sel] == "efx":
+                        sonar("ui_mover")
+                elif e.key == pygame.K_RIGHT:
+                    tab = (tab + 1) % 4; sonar("ui_mover")
+                elif e.key == pygame.K_LEFT:
+                    tab = (tab - 1) % 4; sonar("ui_mover")
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(_rects_pausa(w, h)[1]):
+                    if r.collidepoint(e.pos) and tab != i:
+                        tab = i; sonar("ui_mover")
+        _dibujar_pausa(pantalla, est, tab, sel, fondo, inicio)
+        pygame.display.flip()
+        reloj.tick(30)
+
 def ajustes_audio(pantalla):
     """Pantalla de ajustes: tres barras independientes (musica, ambiente, efectos)."""
     fondo = pantalla.copy()
@@ -3461,7 +3627,7 @@ def main():
         pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
         pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
     if ok_menu:
-        intro_nivel(pantalla, fuente, est)
+        intro_nivel(pantalla, fuente, est); pantalla_pausa(pantalla, est, fuente, inicio=True); est["tick"]["t_fin"] = pygame.time.get_ticks()
     if not ok_menu:
         pygame.quit()
         return
@@ -3548,8 +3714,11 @@ def main():
                     est["tick"]["pausa"] = pausa_prev_
                     est["tick"]["t_fin"] = pygame.time.get_ticks()
                 elif e.key == pygame.K_p:
-                    est["tick"]["pausa"] = not est["tick"]["pausa"]
-                    est["msg"] = "PAUSA (P para continuar)" if est["tick"]["pausa"] else ""
+                    pausa_prev_ = est["tick"]["pausa"]
+                    est["tick"]["pausa"] = True
+                    pantalla_pausa(pantalla, est, fuente)
+                    est["tick"]["pausa"] = pausa_prev_
+                    est["tick"]["t_fin"] = pygame.time.get_ticks()
                 elif e.key == pygame.K_RETURN:
                     est["tick"]["t_fin"] = 0     # depuracion: adelanta el siguiente tick
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
