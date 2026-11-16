@@ -2843,6 +2843,29 @@ def mover_fauna(est):
         else:
             pend.discard(i)
 
+_TINTE = {"lado": 0, "clave": None, "sup": None}
+
+def tinte_emergencia(pantalla, est):
+    """Velo de color sobre el mapa: naranja suave en avanzada, rojo pulsante en critica."""
+    import math
+    nivel = est.get("nivel")
+    if est.get("ver_eval") or nivel not in ("avanzada", "critica"):
+        return
+    if nivel == "avanzada":
+        col, alfa = (255, 140, 30), 25
+    else:
+        col = (230, 30, 20)
+        alfa = int(round((37 + 18 * math.sin(pygame.time.get_ticks() / 190)) / 5) * 5)
+    lado = est["n"] * CELDA
+    clave = (col, alfa, lado)
+    if _TINTE["clave"] != clave:
+        if _TINTE["lado"] != lado or _TINTE["sup"] is None:
+            _TINTE["sup"] = pygame.Surface((lado, lado), pygame.SRCALPHA)
+            _TINTE["lado"] = lado
+        _TINTE["sup"].fill((col[0], col[1], col[2], alfa))
+        _TINTE["clave"] = clave
+    pantalla.blit(_TINTE["sup"], (0, 0))
+
 def pajaros_ambiente(est):
     """Pajaros de fondo: suenan con el bosque sano y se apagan al llegar a 15% de perdida."""
     s = AJ["snd"].get("amb_pajaros")
@@ -3703,7 +3726,7 @@ def main():
             raise
         except Exception:
             pass
-        pajaros_ambiente(est); dibujar_habilidades(pantalla, est, fuente_p)
+        pajaros_ambiente(est); tinte_emergencia(pantalla, est); dibujar_habilidades(pantalla, est, fuente_p)
         dibujar_globo(pantalla, est, fuente_p)
         dibujar_notif(pantalla, est, fuente_p, n * CELDA)
         if est["msg"]:
