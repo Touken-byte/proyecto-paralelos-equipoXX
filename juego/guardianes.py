@@ -106,7 +106,7 @@ def obtener_tiles():
             s.set_at((x % C, y % C), col)
 
     veg = []
-    for b in [(28, 70, 40), (34, 100, 50), (40, 135, 58)]:
+    for b in [(36, 92, 46), (48, 128, 54), (64, 164, 66)]:
         claro = tuple(min(255, c + 34) for c in b)
         brillo = tuple(min(255, c + 70) for c in b)
         oscuro = tuple(max(0, c - 18) for c in b)
@@ -127,12 +127,12 @@ def obtener_tiles():
         s = base((33, 150, 243)); y = 1 + (v % 3) * 2
         puntos(s, (120, 200, 255), [(v, y), (v + 1, y), (v + 2, y)])
         puntos(s, (22, 118, 205), [(v + 3, y + 1), (v + 4, y + 1)])
-        puntos(s, (225, 245, 255), [(C - 1 - v, y + 3)])
+        puntos(s, (225, 245, 255), [(C - 1 - v, y + 3), (v + 2, y + 5)])
         agua.append(s)
-        s = base((222, 200, 150))
-        puntos(s, (190, 165, 115), [(v, 1), (C - 1 - v, C - 2)])
+        s = base((205, 160, 105))
+        puntos(s, (172, 130, 84), [(v, 1), (C - 1 - v, C - 2)])
         puntos(s, (150, 175, 95), [(v + 2, 3), (v + 2, 4), (C - 1 - v, 1)])
-        puntos(s, (240, 224, 178), [(C - 2 - v, 2)])
+        puntos(s, (224, 184, 130), [(C - 2 - v, 2)])
         vacia.append(s)
         s = base((121, 85, 72))
         for yy in range(1, C, 2):
@@ -3860,6 +3860,11 @@ def main():
                 elif s == 3 and h2 < 3:
                     sup.fill((24, 20, 18), (x0 + CELDA // 2 - 1, y0 + 1, 2, CELDA - 1))
                     sup.set_at((x0 + 1, y0 + 2), (24, 20, 18))
+                if s == 1 and idx not in cubiertas and h2 in (7, 9, 11) and CELDA >= 6:
+                    _fc = {7: (255, 150, 190), 9: (250, 250, 240), 11: (255, 225, 80)}[h2]
+                    sup.set_at((x0 + 2 + h2 % 3, y0 + 3), _fc)
+                    sup.set_at((x0 + 3 + h2 % 3, y0 + 3), _fc)
+                    sup.set_at((x0 + 2 + h2 % 3, y0 + 4), (40, 110, 50))
                 if s == 5:
                     for dj, di, rr in ((0, -1, (0, 0, CELDA, 1)), (0, 1, (0, CELDA - 1, CELDA, 1)),
                                        (-1, 0, (0, 0, 1, CELDA)), (1, 0, (CELDA - 1, 0, 1, CELDA))):
