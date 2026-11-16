@@ -1199,8 +1199,8 @@ def desbloquear(est, clave):
     sonar("ui_notif"); est.setdefault("notif", []).append(CUADERNO[pos[0]][1][pos[1]][0])
 
 def dibujar_icono_cuaderno(pantalla, x, y, fnt):
-    pygame.draw.rect(pantalla, (120, 80, 170), (x, y, 26, 30), border_radius=3)
-    pygame.draw.rect(pantalla, (200, 180, 240), (x, y, 26, 30), 2, border_radius=3)
+    pygame.draw.rect(pantalla, (90, 60, 140), (x, y, 26, 30), border_radius=3); pygame.draw.line(pantalla, (150, 120, 200), (x + 10, y + 24), (x + 22, y + 24), 1); pygame.draw.line(pantalla, (150, 120, 200), (x + 10, y + 27), (x + 22, y + 27), 1)
+    pygame.draw.rect(pantalla, (230, 170, 60), (x, y, 26, 30), 2, border_radius=3)
     pygame.draw.line(pantalla, (200, 180, 240), (x + 6, y + 3), (x + 6, y + 27), 2)
     t = fnt.render("N", True, (255, 255, 255))
     pantalla.blit(t, (x + 15 - t.get_width() // 2, y + 9))
@@ -1658,9 +1658,19 @@ def dibujar_fondo_panel(pantalla, x, ancho, alto):
         s = _degradado_tramado(ancho, alto, lambda t: (int(28 - 8 * t), int(40 - 12 * t), int(36 - 10 * t)))
         pygame.draw.rect(s, (255, 140, 40), (0, 0, 3, alto))
         pygame.draw.rect(s, (255, 205, 130), (0, 0, 1, alto))
-        pygame.draw.rect(s, (150, 70, 20), (2, 0, 1, alto))
+        pygame.draw.rect(s, (150, 70, 20), (2, 0, 1, alto)); _salpicar(s, ancho, alto)
         cache[(ancho, alto)] = s
     pantalla.blit(s, (x, 0))
+
+
+def _salpicar(s, ancho, alto):
+    # motas oscuras y claras fijas para dar textura al panel
+    rng = random.Random(7)
+    for _ in range(ancho * alto // 70):
+        px_, py_ = rng.randrange(4, ancho), rng.randrange(alto)
+        c = s.get_at((px_, py_))
+        d = -7 if rng.random() < 0.7 else 5
+        s.set_at((px_, py_), (max(0, min(255, c[0] + d)), max(0, min(255, c[1] + d)), max(0, min(255, c[2] + d))))
 
 
 def marco_dorado(pantalla, rect, alpha=200):
@@ -4153,7 +4163,7 @@ def main():
         _l2 = fuente.render(linea2, True, (200, 200, 200)); pantalla.blit(_l2, (6, n * CELDA - 24))
         dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA); marco_dorado(pantalla, pygame.Rect(n * CELDA, 0, PANEL_W, n * CELDA), 0)
         px = n * CELDA + 10
-        pantalla.blit(fuente.render("EL VIGIA", True, (255, 170, 60)), (px, 10))
+        pantalla.blit(fuente.render("EL VIGIA", True, (90, 40, 10)), (px + 1, 11)); pantalla.blit(fuente.render("EL VIGIA", True, (255, 170, 60)), (px, 10)); pygame.draw.line(pantalla, (230, 170, 60), (px, min(32, 10 + fuente.get_height())), (px + PANEL_W - 70, min(32, 10 + fuente.get_height())), 2)
         dibujar_icono_cuaderno(pantalla, n * CELDA + PANEL_W - 50, 8, fuente_p)
         if pygame.time.get_ticks() - AJ["t"] < 2500:
             dibujar_barra_volumen(pantalla, n * CELDA - 170, 6)
