@@ -158,6 +158,30 @@ def alerta_critica():
 def alerta_tic():
     return _nota(900.0, 900.0, 0.05, 0.35, decay=6.0)
 
+def ui_notif():
+    return _nota(1318.5, 1318.5, 0.08, 0.3, decay=3.0, arm=0.3) + _nota(1760.0, 1760.0, 0.22, 0.3, decay=4.0, arm=0.3)
+
+def ui_moneda():
+    return _nota(1568.0, 1568.0, 0.05, 0.4, decay=3.0, arm=0.5) + _nota(2093.0, 2093.0, 0.05, 0.4, decay=3.0, arm=0.5) + _nota(2637.0, 2637.0, 0.22, 0.4, decay=4.0, arm=0.5)
+
+def amb_viento():
+    import random
+    random.seed(11)
+    N = int(TASA * 6.0); M = int(TASA * 0.4)
+    raw = []; prev = 0.0
+    for _ in range(N + M):
+        prev = 0.96 * prev + 0.04 * random.uniform(-1, 1)
+        raw.append(prev)
+    out = []
+    for i in range(N):
+        v = raw[i]
+        if i < M:
+            a = i / M
+            v = raw[i] * a + raw[N + i] * (1 - a)
+        mod = 0.65 + 0.35 * math.sin(2 * math.pi * 2 * i / N)
+        out.append(max(-1.0, min(1.0, v * mod * 5.0)) * 0.5)
+    return out
+
 if __name__ == "__main__":
     os.makedirs("juego/sonidos", exist_ok=True)
     guardar("juego/sonidos/agua.wav", agua())
@@ -169,6 +193,7 @@ if __name__ == "__main__":
                     ("pip_recoger", pip_recoger), ("pip_soltar", pip_soltar), ("hab_manguera", hab_manguera),
                     ("hab_torre", hab_torre), ("hab_botiquin", hab_botiquin), ("hab_rastreo", hab_rastreo),
                     ("hab_senal", hab_senal), ("alerta_avanzada", alerta_avanzada),
-                    ("alerta_critica", alerta_critica), ("alerta_tic", alerta_tic)):
+                    ("alerta_critica", alerta_critica), ("alerta_tic", alerta_tic),
+                    ("ui_notif", ui_notif), ("ui_moneda", ui_moneda), ("amb_viento", amb_viento)):
         guardar("juego/sonidos/" + nom + ".wav", fn())
     print("OK: sonidos generados en juego/sonidos/")
