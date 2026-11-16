@@ -940,7 +940,7 @@ def pagar_monedas(est, ev):
     g = monedas_partida(ev)
     d["saldo"] = d.get("saldo", 0) + g
     guardar_eco(d)
-    est["monedas_txt"] = f"   EcoMonedas: +{g} (saldo {d['saldo']})"
+    sonar("ui_moneda") if g else None; est["monedas_txt"] = f"   EcoMonedas: +{g} (saldo {d['saldo']})"
 
 def registrar_salon(est):
     """Actualiza los records con la evaluacion de la partida (una vez por partida)."""
@@ -1094,7 +1094,7 @@ def desbloquear(est, clave):
     CUAD["abiertas"].add(clave)
     CUAD["nuevas"].add(clave)
     guardar_cuaderno()
-    est.setdefault("notif", []).append(CUADERNO[pos[0]][1][pos[1]][0])
+    sonar("ui_notif"); est.setdefault("notif", []).append(CUADERNO[pos[0]][1][pos[1]][0])
 
 def dibujar_icono_cuaderno(pantalla, x, y, fnt):
     pygame.draw.rect(pantalla, (120, 80, 170), (x, y, 26, 30), border_radius=3)
@@ -2739,8 +2739,8 @@ def actualizar_emergencia(est):
 
 AJUSTES_RUTA = os.path.join("output", "ajustes.json")
 AJ = {"mus": 0.5, "amb": 0.5, "efx": 0.5, "mute": False, "t": -10000, "snd": {}, "f": None}
-CAT_SND = {"musica": "mus", "fuego": "amb"}   # canal de cada sonido; el resto es "efx"
-BASE_VOL = {"musica": 0.35}   # volumen base de cada sonido; los efectos usan 1.0
+CAT_SND = {"musica": "mus", "fuego": "amb", "amb_viento": "amb"}   # canal de cada sonido; el resto es "efx"
+BASE_VOL = {"musica": 0.35, "amb_viento": 0.3}   # volumen base de cada sonido; los efectos usan 1.0
 
 
 def aplicar_volumen():
@@ -3058,12 +3058,13 @@ def main():
         for _n in ("rescate", "recompensa", "derrota", "proteccion", "conocimiento", "fuego",
                    "ui_mover", "ui_aceptar", "ui_volver", "ui_jugar", "ui_tienda", "ui_salir",
                    "pip_recoger", "pip_soltar", "hab_manguera", "hab_torre", "hab_botiquin", "hab_rastreo",
-                   "hab_senal", "alerta_avanzada", "alerta_critica", "alerta_tic"):
+                   "hab_senal", "alerta_avanzada", "alerta_critica", "alerta_tic",
+                   "ui_notif", "ui_moneda", "amb_viento"):
             try:
                 sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
             except Exception:
                 pass
-        AJ["snd"] = sonidos
+        AJ["snd"] = sonidos; sonidos["amb_viento"].play(loops=-1) if "amb_viento" in sonidos else None
         aplicar_volumen()
     except Exception as ex:
         print("Aviso: sin audio (" + str(ex) + ")")
