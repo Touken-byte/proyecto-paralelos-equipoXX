@@ -802,7 +802,7 @@ def seleccionar_modo_especial(pantalla, fuente):
         for i, r in enumerate(rects):
             ok = MODOS_ESP[i][2]
             col = (255, 87, 34) if i == sel and ok else (90, 90, 90) if i == sel else (38, 56, 44)
-            rr = r.inflate(14, 0) if i == sel else r
+            rr = rect_boton(r, i == sel)
             pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
             pygame.draw.rect(pantalla, col, rr, border_radius=8)
             pygame.draw.rect(pantalla, (255, 200, 120) if i == sel and ok else (90, 120, 95), rr, 2, border_radius=8)
@@ -867,7 +867,7 @@ def seleccionar_modo(pantalla, fuente):
         t = f_tit.render("Elige el modo de juego", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 170)))
         for i, r in enumerate(rects):
-            rr = r.inflate(14, 0) if i == sel else r
+            rr = rect_boton(r, i == sel)
             pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
             pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
             pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
@@ -1663,6 +1663,13 @@ def dibujar_fondo_panel(pantalla, x, ancho, alto):
     pantalla.blit(s, (x, 0))
 
 
+def rect_boton(r, activo):
+    # boton seleccionado: mas ancho y 2 px mas arriba
+    if not activo:
+        return r
+    return r.inflate(14, 0).move(0, -2)
+
+
 def sonar(nombre):
     """Reproduce un sonido de interfaz por el canal de efectos (no falla si no hay audio)."""
     try:
@@ -1869,7 +1876,7 @@ def menu_principal(pantalla, fuente):
                 centrado(linea, fuente, (240, 240, 240), 160 + k * 34)
         else:
             for i, r in enumerate(rects):
-                rr = r.inflate(14, 0) if i == sel else r
+                rr = rect_boton(r, i == sel)
                 pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
                 pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
                 pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
@@ -2804,7 +2811,7 @@ def seleccionar_dificultad(pantalla, fuente):
         t = f_tit.render("Dificultad del compañero", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 150)))
         for i, r in enumerate(rects):
-            rr = r.inflate(14, 0) if i == sel else r
+            rr = rect_boton(r, i == sel)
             pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
             pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
             pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
