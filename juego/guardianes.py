@@ -914,7 +914,7 @@ MAQUETAS = {
         "",
         "Compartir resultados como imagen.",
         "Cámara inteligente y pantalla dividida.",
-        "Arte pixel definitivo, animaciones y audio avanzado."]),
+        "Más niveles, especies y contenido educativo."]),
 }
 
 SALON_RUTA = "output/salon.json"
