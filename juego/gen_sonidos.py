@@ -211,10 +211,11 @@ def amb_viento():
     import random
     random.seed(11)
     N = int(TASA * 6.0); M = int(TASA * 0.4)
-    raw = []; prev = 0.0
+    raw = []; prev = 0.0; prev2 = 0.0
     for _ in range(N + M):
-        prev = 0.96 * prev + 0.04 * random.uniform(-1, 1)
-        raw.append(prev)
+        prev = 0.97 * prev + 0.03 * random.uniform(-1, 1)
+        prev2 = 0.97 * prev2 + 0.03 * prev
+        raw.append(prev2)
     out = []
     for i in range(N):
         v = raw[i]
@@ -222,8 +223,9 @@ def amb_viento():
             a = i / M
             v = raw[i] * a + raw[N + i] * (1 - a)
         mod = 0.65 + 0.35 * math.sin(2 * math.pi * 2 * i / N)
-        out.append(max(-1.0, min(1.0, v * mod * 5.0)) * 0.5)
-    return out
+        out.append(v * mod)
+    pico = max(abs(x) for x in out) or 1.0
+    return [x * 0.6 / pico for x in out]
 
 if __name__ == "__main__":
     os.makedirs("juego/sonidos", exist_ok=True)
