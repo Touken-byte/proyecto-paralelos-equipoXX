@@ -3614,12 +3614,13 @@ def main():
                         and (((i * 83492791) ^ (j * 2654435761)) >> 5) & 7 < 5):
                     x0, y0 = j * CELDA, i * CELDA
                     cubiertas.update((idx, idx + 1, idx + n, idx + n + 1))
-                    sup.fill((14, 40, 22), (x0 + 1, y0 + C2 - 2, C2 - 2, 2))
-                    sup.fill((20, 60, 32), (x0 + 1, y0 + 2, C2 - 2, C2 - 5))
-                    sup.fill((20, 60, 32), (x0 + 2, y0, C2 - 4, C2 - 3))
-                    sup.fill((36, 110, 52), (x0 + 2, y0 + 1, C2 - 5, C2 - 6))
-                    sup.fill((92, 172, 82), (x0 + 3, y0 + 1, 3, 2))
-                    sup.fill((90, 60, 35), (x0 + C2 // 2 - 1, y0 + C2 - 3, 2, 3))
+                    _v = ((i * 3 + j) // 2) % 3; _cx = x0 + C2 // 2; _cy = y0 + C2 // 2 - 1; _r = C2 // 2 - 2
+                    pygame.draw.ellipse(sup, (14, 40, 22), (x0 + 1, y0 + C2 - 4, C2 - 2, 4))
+                    sup.fill((90, 60, 35), (_cx - 1, y0 + C2 - 4, 2, 3)); sup.fill((60, 40, 24), (_cx, y0 + C2 - 4, 1, 3))
+                    pygame.draw.circle(sup, (18, 54, 30), (_cx, _cy), _r + 1)
+                    pygame.draw.circle(sup, (30 + 4 * _v, 98 + 10 * _v, 46 + 4 * _v), (_cx - 1, _cy - 1), _r)
+                    pygame.draw.circle(sup, (58 + 6 * _v, 140 + 8 * _v, 66), (_cx - 2, _cy - 2), max(1, _r // 2))
+                    sup.fill((110, 190, 96), (_cx - 3, _cy - 3, 2, 1)); sup.set_at((_cx + 2, _cy + 1), (16, 48, 26)); sup.set_at((_cx - 1, _cy + 2), (16, 48, 26))
         for i in range(n):
             for j in range(n):
                 idx = i * n + j
