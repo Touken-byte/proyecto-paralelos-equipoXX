@@ -2354,6 +2354,17 @@ def dibujar_fx(pantalla, est):
                 g = max(0.0, min(1.0, f * 1.3 - k * 0.15))
                 if 0 < g < 1:
                     dibujar_corazon(pantalla, cx + (k - 1) * 9, cy - 6 - int(28 * g) - k * 3, col)
+        elif tipo == "lupa":
+            _qy = cy - 14 - int(16 * f)
+            _q = ("#####", "#...#", "....#", "..##.", "..#..", ".....", "..#..")
+            for _fi, _fila in enumerate(_q):
+                for _ci, _ch in enumerate(_fila):
+                    if _ch == "#":
+                        pygame.draw.rect(pantalla, (40, 30, 10), (cx - 7 + _ci * 3 - 1, _qy + _fi * 3 - 1, 5, 5))
+            for _fi, _fila in enumerate(_q):
+                for _ci, _ch in enumerate(_fila):
+                    if _ch == "#":
+                        pygame.draw.rect(pantalla, col, (cx - 7 + _ci * 3, _qy + _fi * 3, 3, 3))
         elif tipo == "cura":
             py = cy - 8 - int(18 * f)
             pygame.draw.rect(pantalla, (20, 40, 25), (cx - 2, py - 5, 5, 11))
@@ -2496,7 +2507,7 @@ def habilidad(est, tecla, desde_ia=False):
         est["t_conoc"] = ahora
         est.setdefault("conocidas", set()).add(a[3])
         desbloquear(est, "fauna:" + a[3])
-        est["ficha_act"] = (ficha[0], ficha[1], ahora + DUR_FICHA_MS)
+        fx_nuevo(est, "lupa", a[0], a[1], 1200, (255, 235, 120)); est["ficha_act"] = (ficha[0], ficha[1], ahora + DUR_FICHA_MS)
         est["msg"] = "Conocimiento silvestre: " + ficha[0] + " identificado"
         _s = AJ["snd"].get("conocimiento")
         if _s:
