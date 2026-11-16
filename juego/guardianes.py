@@ -354,8 +354,9 @@ _OJOS = {
                  (0, 2): "E", (1, 2): "E", (2, 2): "E"},
     "herido": {(0, 0): "K", (2, 0): "K", (1, 1): "K", (0, 2): "K", (2, 2): "K"},
     "feliz": {(1, 1): "K", (0, 2): "K", (2, 2): "K"},
+    "parpadeo": {(0, 1): "K", (1, 1): "K", (2, 1): "K"},
 }
-_ESTADO_CARA = {"asustado": "asustado", "aislado": "asustado", "herido": "herido", "salvo": "feliz"}
+_ESTADO_CARA = {"asustado": "asustado", "aislado": "asustado", "herido": "herido", "salvo": "feliz", "a salvo": "feliz", "parpadeo": "parpadeo"}
 
 def matriz_animal(esp, cara):
     filas = [list(r) for r in (_LORO if esp == "loro" else _CUADRUPEDO)]
@@ -3493,6 +3494,8 @@ def anim_animal(est, i, esp, sfa, ax, ay, t):
             dy = -1 if (t // 200) % 2 else 0
     elif esp == "loro" and sfa == "asustado":
         dy = -int(2 * abs(math.sin(t / 80)))
+    elif sfa == "a salvo":
+        dy = -1 if (t // 300 + i) % 2 else 0
     return int(px * CELDA + CELDA // 2) + dx, int(py * CELDA + CELDA // 2) + dy
 
 
@@ -3993,7 +3996,8 @@ def main():
         _pend = est.get("pendientes", ())
         for _i, ((ax, ay, ea, esp), sfa) in enumerate(zip(est["animales"], estados_fauna(est))):
             _cx, _cy = anim_animal(est, _i, esp, sfa, ax, ay, _t)
-            sa = sprite_animal(esp, sfa)
+            _sf = "parpadeo" if (sfa in ("tranquilo", "escondido") and (_t // 120 + _i * 7) % 25 == 0) else sfa
+            sa = sprite_animal(esp, _sf)
             _dd = est.setdefault("dir_an", {})
             _ant = _dd.get(_i)
             if _ant is None:
@@ -4001,7 +4005,7 @@ def main():
             elif ax != _ant[0]:
                 _dd[_i] = (ax, 1 if ax > _ant[0] else -1)
             if _dd[_i][1] < 0:
-                sa = voltear_sprite(sa, esp + ":" + str(sfa))
+                sa = voltear_sprite(sa, esp + ":" + str(_sf))
             dibujar_sombra(pantalla, _cx, _cy + CELDA // 2, int(sa.get_width() * 0.8))
             pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
             if ea == "cargado":
