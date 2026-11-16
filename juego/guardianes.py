@@ -483,7 +483,7 @@ def correr_ronda(paso, pendientes):
 MODO = {"ia": "veterinaria"}   # quien controla la IA: "veterinaria", "bombero" o None (dos jugadores)
 
 MODO_ESP = {"id": None}         # modo especial activo: None (campaña), "record", ...
-ALTO_PANT = {"h": 768}          # alto del escritorio, para calcular CELDA por nivel
+ALTO_PANT = {"h": 768, "w": 1366}          # alto del escritorio, para calcular CELDA por nivel
 _MINIATURAS = {}
 _MAPAS_LISTOS = {"ok": False}
 DIALOGO_TXT = {"facil": "inicio, final, ocasionales y datos educativos",
@@ -3162,16 +3162,20 @@ def tinte_emergencia(pantalla, est):
 
 CAM_ST = {"x": 0.0, "y": 0.0, "listo": False, "sup": None}
 
+CELDA_BASE = 16
+
 def tam_vista(n):
-    # Tamano de la vista en pixeles. Sin VISTA muestra el mundo completo (igual que antes).
-    lado = n * CELDA
+    # Vista en pixeles: lo que cabe en el escritorio (menos panel y barra de titulo), sin pasar del mundo.
+    # Con VISTA=<celdas> se fuerza una vista cuadrada (solo para pruebas).
+    mundo = n * CELDA
     try:
         k = int(os.environ.get("VISTA", "0"))
     except ValueError:
         k = 0
     if k >= 20:
-        lado = min(lado, k * CELDA)
-    return lado, lado
+        return min(mundo, k * CELDA), min(mundo, k * CELDA)
+    return (min(mundo, max(200, ALTO_PANT["w"] - PANEL_W)),
+            min(mundo, max(200, ALTO_PANT["h"] - 72)))
 
 def superficie_mundo(n):
     # Superficie donde se dibuja todo el mundo; la ventana solo muestra un recorte.
@@ -3798,9 +3802,9 @@ def main():
     asegurar_motor()
     pygame.init()
     if os.environ.get("CELDA"):
-        CELDA = max(3, min(8, int(os.environ["CELDA"])))
+        CELDA = max(3, min(24, int(os.environ["CELDA"])))
     else:   # ajusta el tamano de celda a la altura de la pantalla
-        ALTO_PANT["h"] = pygame.display.Info().current_h; CELDA = max(5, min(7, (ALTO_PANT["h"] - 72) // nivel_actual()["n"]))
+        _info_pant = pygame.display.Info(); ALTO_PANT["h"] = _info_pant.current_h; ALTO_PANT["w"] = _info_pant.current_w; CELDA = CELDA_BASE
     sonidos = {}
     try:   # si no hay audio, el juego sigue sin sonido
         pygame.mixer.init()
@@ -3943,7 +3947,7 @@ def main():
         niv = nivel_actual()
         asegurar_motor(niv)
         if not os.environ.get("CELDA"):
-            CELDA = max(5, min(7, (ALTO_PANT["h"] - 72) // niv["n"]))
+            CELDA = CELDA_BASE
         reiniciar()
         n = est["n"]
         pantalla = pygame.display.set_mode((tam_vista(n)[0] + PANEL_W, tam_vista(n)[1]))
