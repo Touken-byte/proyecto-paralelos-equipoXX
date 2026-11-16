@@ -660,7 +660,7 @@ def seleccionar_nivel(pantalla, fuente):
                 for i, r in rects.items():
                     if r.collidepoint(e.pos):
                         if nivel_bloqueado(i):
-                            aviso = "Nivel bloqueado: completa antes la zona anterior."
+                            aviso = "Nivel bloqueado: completa antes la zona anterior."; sonar("ui_volver")
                         else:
                             sonar("ui_aceptar")
                             return i
@@ -782,7 +782,7 @@ def seleccionar_modo_especial(pantalla, fuente):
                 elif e.key == pygame.K_DOWN:
                     sel = (sel + 1) % len(MODOS_ESP); sonar("ui_mover")
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                    sonar("ui_aceptar")
+                    sonar("ui_aceptar" if MODOS_ESP[sel][2] else "ui_volver")
                     elegido = sel
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
@@ -794,7 +794,7 @@ def seleccionar_modo_especial(pantalla, fuente):
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
                         sel = i
-                        elegido = i; sonar("ui_aceptar")
+                        elegido = i; sonar("ui_aceptar" if MODOS_ESP[i][2] else "ui_volver")
         if elegido is not None and MODOS_ESP[elegido][2]:
             return MODOS_ESP[elegido][0]
         pantalla.blit(fondo_marca(w, h), (0, 0))
