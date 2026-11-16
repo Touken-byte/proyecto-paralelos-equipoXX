@@ -3384,11 +3384,19 @@ def dibujar_particulas(pantalla, est):
         elif tipo == "brasa":
             col = (255, int(60 + 150 * f), 20)
             pygame.draw.rect(pantalla, col, (int(x), int(y), 2, 2))
+            if f > 0.35 and (edad // 3) % 2 == 0:
+                pantalla.set_at((int(x), int(y)), (255, 240, 170))
+            if f > 0.6:
+                pantalla.set_at((int(x) + 2, int(y) - 1), (200, 60, 20))
         elif tipo == "hoja":
-            pygame.draw.rect(pantalla, ((90, 150, 60), (60, 120, 50), (170, 130, 60))[int(tam) % 3],
-                             (int(x), int(y), 2, 2))
+            _ch = ((90, 150, 60), (60, 120, 50), (170, 130, 60))[int(tam) % 3]
+            pygame.draw.rect(pantalla, _ch, (int(x), int(y), 3, 2))
+            pantalla.set_at((int(x) + 1, int(y)), tuple(min(255, c + 60) for c in _ch))
         else:
-            pygame.draw.rect(pantalla, (175, 175, 175), (int(x), int(y), 2, 2))
+            _cx = int(x) + (edad // 6) % 3 - 1
+            pygame.draw.rect(pantalla, (190, 190, 190) if f > 0.4 else (130, 130, 130), (_cx, int(y), 2, 2))
+            if f > 0.4:
+                pantalla.set_at((_cx, int(y)), (230, 230, 230))
 
 
 def anim_animal(est, i, esp, sfa, ax, ay, t):
