@@ -2800,16 +2800,21 @@ def ajustes_audio(pantalla):
                 return
             if e.type == pygame.KEYDOWN:
                 if e.key in (pygame.K_ESCAPE, pygame.K_o, pygame.K_RETURN, pygame.K_KP_ENTER):
+                    sonar("ui_volver")
                     guardar_ajustes()
                     return
                 elif e.key == pygame.K_UP:
-                    sel = (sel - 1) % 3
+                    sel = (sel - 1) % 3; sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    sel = (sel + 1) % 3
+                    sel = (sel + 1) % 3; sonar("ui_mover")
                 elif e.key == pygame.K_LEFT:
                     cambiar_volumen(-0.1, canales[sel][0])
+                    if canales[sel][0] == "efx":
+                        sonar("ui_mover")
                 elif e.key == pygame.K_RIGHT:
                     cambiar_volumen(0.1, canales[sel][0])
+                    if canales[sel][0] == "efx":
+                        sonar("ui_mover")
                 elif e.key == pygame.K_m:
                     AJ["mute"] = not AJ["mute"]; aplicar_volumen(); guardar_ajustes()
         pantalla.blit(fondo, (0, 0))
