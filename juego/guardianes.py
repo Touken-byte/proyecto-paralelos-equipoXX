@@ -4020,27 +4020,6 @@ def main():
         py += 50
         ua = sum(1 for t, _, _ in est["pend"] if t == "APAGAR")
         uc = sum(1 for t, _, _ in est["pend"] if t == "CORTAFUEGO")
-        bloques = [
-            ("BOMBERO" + (" (IA)" if est.get("ia_rol", "veterinaria") == "bombero" else ""), [("Mochila de agua (clic der.) " + str(est["agua"]) + "/" + str(tanque_max()), True),
-                         ("Cortafuegos (clic izq.) " + estado_cortafuego(est), True),
-                         ("Manguera de presion (G) " + estado_hab(est, "t_mang", CD_MANGUERA_MS), True),
-                         ("Proteccion termica (H) " + estado_hab(est, "t_prot", CD_PROT_MS), True),
-                         ("Torre de vigilancia (T) " + estado_hab(est, "t_torre", CD_TORRE_MS), True)]),
-            ("VETERINARIA" + (" (IA)" if est.get("ia_rol", "veterinaria") == "veterinaria" else ""), [("Rescate (E)", True),
-                             ("Apoyo al bombero (F) " + estado_apoyo(est), True),
-                             ("Botiquin (Z) " + estado_hab(est, "t_boti", CD_BOTIQUIN_MS), True),
-                             ("Rastreo animal (X) " + estado_hab(est, "t_rastreo", CD_RASTREO_MS), True),
-                             ("Senal de auxilio (Q) " + estado_hab(est, "t_senal", CD_SENAL_MS), True),
-                             ("Conocimiento silvestre (K) " + estado_hab(est, "t_conoc", CD_CONOC_MS), True)]),
-        ]
-        for titulo, habs in ():
-            pantalla.blit(fuente_p.render(titulo, True, (255, 235, 190)), (px, py))
-            pygame.draw.line(pantalla, (255, 140, 40), (px, py + 17), (px + PANEL_W - 24, py + 17))
-            py += 22
-            for nombre, activa in habs:
-                c = (230, 230, 230) if activa else (110, 110, 110)
-                dibujar_icono_hab(pantalla, nombre, est, px, py); pantalla.blit(fuente_p.render(nombre, True, c), (px + 16, py)); py += 18
-            py += 10
         panel_resumen(pantalla, est, fuente_p, px, py)
         fa = est.get("ficha_act")
         if fa and pygame.time.get_ticks() < fa[2]:
