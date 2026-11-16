@@ -2321,7 +2321,8 @@ def dibujar_fx(pantalla, est):
             for dx, dy in extra:
                 px = cx + int(dx * f * 10)
                 py = cy + int(dy * f * 10 + 14 * f * f)
-                pygame.draw.circle(pantalla, col, (px, py), 2)
+                pygame.draw.rect(pantalla, col, (px - 1, py - 1, 3, 3))
+                pantalla.set_at((px - 1, py - 1), tuple(min(255, c + 80) for c in col))
         elif tipo == "chorro":
             if f < 0.8:
                 bx, by = extra
@@ -2331,13 +2332,18 @@ def dibujar_fx(pantalla, est):
         elif tipo == "destello":
             pygame.draw.circle(pantalla, col, (cx, cy), int(6 + 14 * f), 2)
             pygame.draw.circle(pantalla, col, (cx, cy), int(3 + 8 * f), 1)
+            _d = int(4 + 12 * f)
+            for _dx, _dy in ((_d, 0), (-_d, 0), (0, _d), (0, -_d)):
+                pygame.draw.rect(pantalla, (255, 255, 230), (cx + _dx - 1, cy + _dy - 1, 3, 3))
         elif tipo == "estrellas":
             for k in range(6):
                 ang = k * math.pi / 3 + f * 3
                 d = 4 + 18 * f
                 px = cx + int(math.cos(ang) * d)
                 py = cy - int(math.sin(ang) * d) - int(10 * f)
-                pygame.draw.rect(pantalla, col, (px - 1, py - 1, 3, 3))
+                pygame.draw.rect(pantalla, col, (px - 2, py, 5, 1))
+                pygame.draw.rect(pantalla, col, (px, py - 2, 1, 5))
+                pantalla.set_at((px, py), (255, 255, 235))
         elif tipo == "tierra":
             for dx, dy in extra:
                 px = cx + int(dx * f * 9)
@@ -2350,8 +2356,11 @@ def dibujar_fx(pantalla, est):
                     dibujar_corazon(pantalla, cx + (k - 1) * 9, cy - 6 - int(28 * g) - k * 3, col)
         elif tipo == "cura":
             py = cy - 8 - int(18 * f)
+            pygame.draw.rect(pantalla, (20, 40, 25), (cx - 2, py - 5, 5, 11))
+            pygame.draw.rect(pantalla, (20, 40, 25), (cx - 5, py - 2, 11, 5))
             pygame.draw.rect(pantalla, col, (cx - 1, py - 4, 3, 9))
             pygame.draw.rect(pantalla, col, (cx - 4, py - 1, 9, 3))
+            pygame.draw.rect(pantalla, (230, 255, 235), (cx - 1, py - 4, 1, 3))
             pygame.draw.circle(pantalla, col, (cx, py), 8 + int(4 * f), 1)
     if ahora < est.get("t_prot_fin", 0):
         p = est.get("vis", {}).get("b")
