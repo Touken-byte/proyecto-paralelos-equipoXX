@@ -1716,6 +1716,42 @@ def marcador_alerta(pantalla, fnt, cx, base_y, t):
     pantalla.blit(s, s.get_rect(center=r.center))
 
 
+def decorar_mapa(sup, est, cubiertas):
+    # vallas y cartel alrededor del refugio, sobre celdas libres
+    n, estado = est["n"], est["estado"]
+    rx, ry, rw, rh = est["refugio"]
+
+    def libre(cx, cy):
+        return 0 <= cx < n and 0 <= cy < n and estado[cy * n + cx] in (0, 1, 3) and (cy * n + cx) not in cubiertas
+
+    def poste(cx, cy):
+        x0, y0 = cx * CELDA, cy * CELDA
+        sup.fill((96, 66, 38), (x0 + CELDA // 2 - 1, y0, 2, CELDA))
+        sup.set_at((x0 + CELDA // 2 - 1, y0), (170, 125, 75))
+        sup.fill((150, 108, 62), (x0, y0 + 2, CELDA, 1))
+
+    def tramo(cx, cy):
+        x0, y0 = cx * CELDA, cy * CELDA
+        sup.fill((150, 108, 62), (x0, y0 + CELDA // 2 - 1, CELDA, 2))
+        sup.fill((96, 66, 38), (x0, y0 + CELDA // 2 + 1, CELDA, 1))
+        sup.fill((96, 66, 38), (x0, y0 + 1, 1, CELDA - 2))
+
+    ent = ry + rh // 2
+    for k in range(ry, ry + rh):
+        if k not in (ent - 1, ent) and libre(rx - 1, k):
+            poste(rx - 1, k)
+        if k % 5 != 0 and libre(rx + rw, k):
+            poste(rx + rw, k)
+    for k in range(rx, rx + rw):
+        if k % 4 != 3 and libre(k, ry + rh):
+            tramo(k, ry + rh)
+    if libre(rx - 2, ent - 1):
+        x0, y0 = (rx - 2) * CELDA, (ent - 1) * CELDA
+        sup.fill((96, 66, 38), (x0 + CELDA // 2, y0 + 4, 1, CELDA - 4))
+        sup.fill((40, 28, 16), (x0, y0 + 1, CELDA, 4))
+        sup.fill((190, 150, 90), (x0 + 1, y0 + 2, CELDA - 2, 2))
+
+
 def color_boton(activo):
     # relleno del boton: naranja claro si esta seleccionado
     return (255, 120, 60) if activo else (38, 56, 44)
@@ -3837,6 +3873,7 @@ def main():
                         if 0 <= ii < n and 0 <= jj < n and estado[ii * n + jj] == 5:
                             sup.fill((96, 84, 60) if s != 1 else (22, 56, 34),
                                      (x0 + rr[0], y0 + rr[1], rr[2], rr[3]))
+        decorar_mapa(sup, est, cubiertas)
         est["sup"] = sup
         est["fuego"] = fuego
         est["agua_celdas"] = agua
