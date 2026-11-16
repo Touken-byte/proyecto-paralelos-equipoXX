@@ -3192,6 +3192,8 @@ def camara_actualizar(est, n, vw, vh):
     max_x, max_y = max(0, mundo_px - vw), max(0, mundo_px - vh)
     mx = (est["bx"] + est["vx"]) / 2 * CELDA + CELDA / 2
     my = (est["by"] + est["vy"]) / 2 * CELDA + CELDA / 2
+    if pygame.time.get_ticks() < CAM_ST.get("libre_hasta", 0):   # mirando otra zona desde el minimapa
+        mx, my = CAM_ST["libre"]
     obj_x = max(0.0, min(float(max_x), mx - vw / 2))
     obj_y = max(0.0, min(float(max_y), my - vh / 2))
     if not CAM_ST["listo"]:
@@ -3202,6 +3204,56 @@ def camara_actualizar(est, n, vw, vh):
     CAM_ST["x"] = max(0.0, min(float(max_x), CAM_ST["x"]))
     CAM_ST["y"] = max(0.0, min(float(max_y), CAM_ST["y"]))
     return int(CAM_ST["x"]), int(CAM_ST["y"])
+
+MINI = {"sup": None, "fuego": None, "S": 0, "img": None}
+
+def minimapa_base(est, n, S):
+    # Terreno reducido + fuego + refugio. Solo se rehace cuando cambia el mapa o el tamano.
+    if MINI["sup"] is est["sup"] and MINI["fuego"] is est["fuego"] and MINI["S"] == S:
+        return MINI["img"]
+    try:
+        img = pygame.transform.smoothscale(est["sup"], (S, S))
+    except ValueError:
+        img = pygame.transform.scale(est["sup"], (S, S))
+    k = S / n
+    lado = max(2, int(k) + 1)
+    for x, y in est["fuego"]:
+        img.fill((255, 120, 30), (int(x * k), int(y * k), lado, lado))
+    rx, ry, rw, rh = est["refugio"]
+    pygame.draw.rect(img, (120, 255, 160), (int(rx * k), int(ry * k), max(2, int(rw * k)), max(2, int(rh * k))), 1)
+    MINI.update(sup=est["sup"], fuego=est["fuego"], S=S, img=img)
+    return img
+
+def dibujar_minimapa(pantalla, est, n, px, py, vista_w, vista_h, cam, fnt):
+    # Minimapa del mundo entero en el panel: animales, personajes y rectangulo de la camara.
+    S = min(PANEL_W - 24, vista_h - (py + 22) - 10)
+    if S < 64:
+        CAM_ST["mini"] = None
+        return
+    pantalla.blit(fnt.render("MAPA", True, (90, 40, 10)), (px + 1, py + 1))
+    pantalla.blit(fnt.render("MAPA", True, (255, 200, 90)), (px, py))
+    pygame.draw.line(pantalla, (230, 170, 60), (px, py + 17), (px + PANEL_W - 24, py + 17), 2)
+    r = pygame.Rect(px, py + 22, S, S)
+    CAM_ST["mini"] = r
+    pantalla.blit(minimapa_base(est, n, S), r.topleft)
+    k = S / n
+    for a in est["animales"]:
+        col = (120, 255, 160) if a[2] == "salvo" else (255, 230, 60)
+        pantalla.fill(col, (r.x + int(a[0] * k), r.y + int(a[1] * k), 2, 2))
+    for qx, qy, col in ((est["bx"], est["by"], (255, 140, 40)), (est["vx"], est["vy"], (90, 200, 255))):
+        x, y = r.x + int(qx * k), r.y + int(qy * k)
+        pantalla.fill((0, 0, 0), (x - 2, y - 2, 6, 6))
+        pantalla.fill(col, (x - 1, y - 1, 4, 4))
+    f = S / (n * CELDA)
+    pygame.draw.rect(pantalla, (255, 255, 255),
+                     (r.x + int(cam[0] * f), r.y + int(cam[1] * f), max(3, int(vista_w * f)), max(3, int(vista_h * f))), 1)
+    pygame.draw.rect(pantalla, (230, 170, 60), r.inflate(2, 2), 1)
+
+def mini_clic(mx, my, n):
+    # Clic en el minimapa: la camara mira ese punto 4 s y luego vuelve a seguir a los personajes.
+    r = CAM_ST["mini"]
+    CAM_ST["libre"] = ((mx - r.x) / r.w * n * CELDA, (my - r.y) / r.h * n * CELDA)
+    CAM_ST["libre_hasta"] = pygame.time.get_ticks() + 4000
 
 def pajaros_ambiente(est):
     """Pajaros de fondo: suenan con el bosque sano y se apagan al llegar a 15% de perdida."""
@@ -3526,6 +3578,7 @@ def panel_resumen(pantalla, est, fnt, px, py):
         py += 52
     pantalla.blit(fnt.render("P: ayuda y pausa", True, (200, 200, 200)), (px, py))
     pantalla.blit(fnt.render("O: audio   N: cuaderno", True, (200, 200, 200)), (px, py + 18))
+    return py + 44
 
 def ajustes_audio(pantalla):
     """Pantalla de ajustes: tres barras independientes (musica, ambiente, efectos)."""
@@ -4050,7 +4103,9 @@ def main():
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
                 _vw, _vh = tam_vista(n)
-                if my < _vh and mx < _vw:
+                if CAM_ST.get("mini") is not None and CAM_ST["mini"].collidepoint(mx, my):
+                    mini_clic(mx, my, n)
+                elif my < _vh and mx < _vw:
                     tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
                     cx, cy = (mx + int(CAM_ST["x"])) // CELDA, (my + int(CAM_ST["y"])) // CELDA
                     ahora_c = pygame.time.get_ticks()
@@ -4324,7 +4379,8 @@ def main():
         col_n = {"inicial": (120, 255, 160), "avanzada": (255, 200, 80), "critica": (255, 80, 80)}[est["nivel"]]
         banner_emergencia(pantalla, est, fuente_p, vista_w, py)
         py += 50
-        panel_resumen(pantalla, est, fuente_p, px, py)
+        py = panel_resumen(pantalla, est, fuente_p, px, py)
+        dibujar_minimapa(pantalla, est, n, px, py, vista_w, vista_h, (cam_x, cam_y), fuente_p)
         fa = est.get("ficha_act")
         if fa and pygame.time.get_ticks() < fa[2]:
             ancho_f = vista_w - 80
