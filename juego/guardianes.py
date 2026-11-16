@@ -1705,6 +1705,17 @@ def marco_dorado(pantalla, rect, alpha=200):
     pygame.draw.rect(pantalla, (120, 80, 20), rect.inflate(-4, -4), 1, border_radius=4)
 
 
+def marcador_alerta(pantalla, fnt, cx, base_y, t):
+    # burbuja oscura con signo de exclamacion amarillo que sube y baja
+    sube = 2 if (t // 250) % 2 else 0
+    r = pygame.Rect(0, 0, 14, 18)
+    r.midbottom = (cx, base_y - sube)
+    pygame.draw.rect(pantalla, (40, 28, 10), r, border_radius=4)
+    pygame.draw.rect(pantalla, (230, 170, 60), r, 1, border_radius=4)
+    s = fnt.render("!", True, (255, 230, 60))
+    pantalla.blit(s, s.get_rect(center=r.center))
+
+
 def color_boton(activo):
     # relleno del boton: naranja claro si esta seleccionado
     return (255, 120, 60) if activo else (38, 56, 44)
@@ -4100,17 +4111,14 @@ def main():
                                 (255, 90, 120), 2 if (_t // 250) % 2 else 1)
             col_anillo = {"asustado": (255, 230, 60), "aislado": (255, 140, 0), "herido": (255, 40, 40)}.get(sfa)
             if col_anillo:
-                pygame.draw.circle(pantalla, col_anillo, (_cx, _cy), 16, 3)
+                pygame.draw.ellipse(pantalla, col_anillo, pygame.Rect(_cx - 15, _cy + CELDA // 2 - 6, 30, 12), 3)
             ini, col_e = ESP_INFO[esp]
             t_e = fuente.render(ini, True, col_e)
             pos_e = (_cx - t_e.get_width() // 2, _cy + CELDA // 2 - sa.get_height() - t_e.get_height())
             pantalla.fill((0, 0, 0), t_e.get_rect(topleft=pos_e))
             pantalla.blit(t_e, pos_e)
-            if _i in _pend and (_t // 250) % 2 == 0:
-                t_x = fuente.render("!", True, (255, 60, 60))
-                pos_x = (_cx - t_x.get_width() // 2, pos_e[1] - t_x.get_height() - 2)
-                pantalla.fill((0, 0, 0), t_x.get_rect(topleft=pos_x))
-                pantalla.blit(t_x, pos_x)
+            if _i in _pend:
+                marcador_alerta(pantalla, fuente, _cx, pos_e[1] - 2, _t)
             if ea == "libre" and est["estado"][ay * n + ax] == 2:
                 pygame.draw.circle(pantalla, (255, 40, 40), (_cx, _cy), 12, 2)
         pygame.draw.circle(pantalla, (255, 255, 255),
