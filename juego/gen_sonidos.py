@@ -115,6 +115,49 @@ def ui_tienda():
 def ui_salir():
     return _nota(330.0, 220.0, 0.12, 0.5, decay=3.0, arm=0.2) + _nota(220.0, 130.0, 0.28, 0.5, decay=3.0, arm=0.2)
 
+def _silencio(seg):
+    return [0.0] * int(TASA * seg)
+
+def pip_recoger():
+    return _nota(600.0, 950.0, 0.09, 0.4, decay=4.0, arm=0.2)
+
+def pip_soltar():
+    return _nota(520.0, 300.0, 0.12, 0.4, decay=4.0, arm=0.2)
+
+def hab_manguera():
+    import random
+    random.seed(7)
+    n = int(TASA * 0.55); out = []; prev = 0.0
+    for i in range(n):
+        t = i / n
+        prev = 0.6 * prev + 0.4 * random.uniform(-1, 1)
+        out.append(0.45 * prev * min(1.0, i / (0.05 * TASA)) * (1 - t ** 3))
+    return out
+
+def hab_torre():
+    return _nota(1250.0, 1250.0, 0.1, 0.4, decay=3.0) + _silencio(0.06) + _nota(1250.0, 1250.0, 0.28, 0.3, decay=5.0)
+
+def hab_botiquin():
+    return _nota(1046.5, 1046.5, 0.09, 0.45, decay=3.0, arm=0.3) + _nota(1568.0, 1568.0, 0.32, 0.45, decay=4.0, arm=0.3)
+
+def hab_rastreo():
+    return _nota(900.0, 900.0, 0.07, 0.4, decay=3.0) + _silencio(0.07) + _nota(900.0, 900.0, 0.07, 0.4, decay=3.0)
+
+def hab_senal():
+    return _nota(1500.0, 2300.0, 0.4, 0.4, decay=1.5, arm=0.2)
+
+def alerta_avanzada():
+    return _nota(660.0, 660.0, 0.16, 0.45, decay=3.0, arm=0.3) + _silencio(0.05) + _nota(784.0, 784.0, 0.22, 0.45, decay=3.5, arm=0.3)
+
+def alerta_critica():
+    s = []
+    for f in (880.0, 660.0, 880.0, 660.0):
+        s += _nota(f, f, 0.13, 0.5, decay=2.5, arm=0.4) + _silencio(0.03)
+    return s
+
+def alerta_tic():
+    return _nota(900.0, 900.0, 0.05, 0.35, decay=6.0)
+
 if __name__ == "__main__":
     os.makedirs("juego/sonidos", exist_ok=True)
     guardar("juego/sonidos/agua.wav", agua())
@@ -122,6 +165,10 @@ if __name__ == "__main__":
     for nom, fn in (("rescate", rescate), ("recompensa", recompensa), ("derrota", derrota),
                     ("proteccion", proteccion), ("conocimiento", conocimiento), ("fuego", fuego),
                     ("ui_mover", ui_mover), ("ui_aceptar", ui_aceptar), ("ui_volver", ui_volver),
-                    ("ui_jugar", ui_jugar), ("ui_tienda", ui_tienda), ("ui_salir", ui_salir)):
+                    ("ui_jugar", ui_jugar), ("ui_tienda", ui_tienda), ("ui_salir", ui_salir),
+                    ("pip_recoger", pip_recoger), ("pip_soltar", pip_soltar), ("hab_manguera", hab_manguera),
+                    ("hab_torre", hab_torre), ("hab_botiquin", hab_botiquin), ("hab_rastreo", hab_rastreo),
+                    ("hab_senal", hab_senal), ("alerta_avanzada", alerta_avanzada),
+                    ("alerta_critica", alerta_critica), ("alerta_tic", alerta_tic)):
         guardar("juego/sonidos/" + nom + ".wav", fn())
     print("OK: sonidos generados en juego/sonidos/")

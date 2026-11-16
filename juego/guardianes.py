@@ -2203,6 +2203,7 @@ def habilidad(est, tecla, desde_ia=False):
         for x, y in cand:
             est["pend"].append(("APAGAR", x, y)); est["agua"] -= 1
         est["t_mang"] = ahora
+        sonar("hab_manguera")
         est["msg"] = f"Manguera: {len(cand)} focos apuntados"
         for x, y in cand:
             fx_nuevo(est, "agua", x, y, 600, (120, 200, 255), AGUA_GOTAS)
@@ -2215,6 +2216,7 @@ def habilidad(est, tecla, desde_ia=False):
         est["t_torre"] = ahora
         _marcar(est, fuegos, (255, 140, 0), 5000)
         fx_nuevo(est, "onda", bx, by, 900, (255, 140, 0), TORRE_R)
+        sonar("hab_torre")
         est["msg"] = f"Torre de vigilancia: {len(fuegos)} focos en un radio de {TORRE_R} celdas"
     elif tecla == pygame.K_z:
         if estado_hab(est, "t_boti", CD_BOTIQUIN_MS) != "listo":
@@ -2227,6 +2229,7 @@ def habilidad(est, tecla, desde_ia=False):
             est["msg"] = "Botiquín: no hay animales en peligro cerca"; return
         est.setdefault("tratados", set()).add(cerca[0])
         est["t_boti"] = ahora
+        sonar("hab_botiquin")
         est["msg"] = "Botiquín: animal atendido"
         _a = est["animales"][cerca[0]]
         fx_nuevo(est, "cura", _a[0], _a[1], 900, (80, 230, 120))
@@ -2238,6 +2241,7 @@ def habilidad(est, tecla, desde_ia=False):
         est["t_rastreo"] = ahora
         _marcar(est, pos, (80, 220, 255), 6000)
         fx_nuevo(est, "onda", vx, vy, 900, (80, 220, 255), RASTREO_R)
+        sonar("hab_rastreo")
         est["msg"] = f"Rastreo: {len(pos)} animales cerca"
     elif tecla == pygame.K_q:
         if estado_hab(est, "t_senal", CD_SENAL_MS) != "listo":
@@ -2247,6 +2251,7 @@ def habilidad(est, tecla, desde_ia=False):
         est["t_senal"] = ahora
         _marcar(est, pos, (255, 230, 60), 6000)
         fx_nuevo(est, "onda", vx, vy, 1200, (255, 230, 60), 14)
+        sonar("hab_senal")
         est["msg"] = f"Señal de auxilio: {len(pos)} animales aislados marcados" if pos else "Señal de auxilio: sin animales aislados"
     elif tecla == pygame.K_h:
         if estado_hab(est, "t_prot", CD_PROT_MS) != "listo":
@@ -2707,14 +2712,18 @@ def actualizar_emergencia(est):
     est["nivel"] = "inicial" if perdida < 15 else "avanzada" if perdida < 35 else "critica"
     if est["nivel"] != _prev and "dlg" in est:
         if est["nivel"] == "avanzada":
+            sonar("alerta_avanzada")
             decir(est, "b", "Se está extendiendo. Hay que priorizar los focos.", "importante", "avanzada")
         elif est["nivel"] == "critica":
+            sonar("alerta_critica")
             decir(est, "b", "Ok, ahora sí se puso serio. Todos a lo suyo.", "critico", "critica")
     if est["nivel"] == "critica":
         if est["cuenta"] is None:
             est["cuenta"] = CUENTA_RONDAS
         else:
             est["cuenta"] -= 1
+            if 0 < est["cuenta"] <= 3:
+                sonar("alerta_tic")
     if quem == 0 or (est["cuenta"] is not None and est["cuenta"] <= 0 and est["evaluacion"] is None):
         _primera = est["evaluacion"] is None
         est["evaluacion"] = evaluar(est); est["final_pend"] = True
@@ -3047,7 +3056,9 @@ def main():
         musica.play(loops=-1)
         sonidos["musica"] = musica
         for _n in ("rescate", "recompensa", "derrota", "proteccion", "conocimiento", "fuego",
-                   "ui_mover", "ui_aceptar", "ui_volver", "ui_jugar", "ui_tienda", "ui_salir"):
+                   "ui_mover", "ui_aceptar", "ui_volver", "ui_jugar", "ui_tienda", "ui_salir",
+                   "pip_recoger", "pip_soltar", "hab_manguera", "hab_torre", "hab_botiquin", "hab_rastreo",
+                   "hab_senal", "alerta_avanzada", "alerta_critica", "alerta_tic"):
             try:
                 sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
             except Exception:
@@ -3200,12 +3211,14 @@ def main():
                             if a[2] == "libre" and (a[0] - est["vx"]) ** 2 + (a[1] - est["vy"]) ** 2 <= 4:
                                 a[2] = "cargado"; est["carga"] = a
                                 fx_nuevo(est, "destello", a[0], a[1], 700, (80, 255, 140))
+                                sonar("pip_recoger")
                                 est["msg"] = "Animal en brazos: llévalo al refugio"
                                 break
                     else:
                         est["carga"][2] = "libre"
                         est["carga"][0], est["carga"][1] = est["vx"], est["vy"]
                         est["carga"] = None
+                        sonar("pip_soltar")
                 elif e.key == pygame.K_v:
                     if est.get("riesgo") is not None:
                         est["ver_riesgo"] = not est["ver_riesgo"]
