@@ -802,7 +802,7 @@ def seleccionar_modo_especial(pantalla, fuente):
         pantalla.blit(t, t.get_rect(center=(w // 2, 120)))
         for i, r in enumerate(rects):
             ok = MODOS_ESP[i][2]
-            col = (255, 87, 34) if i == sel and ok else (90, 90, 90) if i == sel else (38, 56, 44)
+            col = color_boton(True) if i == sel and ok else (90, 90, 90) if i == sel else (38, 56, 44)
             rr = rect_boton(r, i == sel)
             pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
             pygame.draw.rect(pantalla, col, rr, border_radius=8)
