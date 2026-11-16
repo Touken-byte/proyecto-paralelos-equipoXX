@@ -34,6 +34,27 @@ def color(s, fuel):
 
 _TILES = {}
 
+_FONT_ORIG = pygame.font.Font
+FUENTE_PIXEL = "VT323.ttf"        # alternativa: "PixelifySans.ttf" con _ESC_FUENTE = 0.72
+_ESC_FUENTE = 0.92
+_RUTA_FUENTE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fuentes", FUENTE_PIXEL)
+
+
+class _FuentePixel(_FONT_ORIG):
+    """V15: la fuente por defecto pasa a ser pixel art, sin suavizado."""
+    def __init__(self, nombre=None, tam=20, *a, **k):
+        if nombre is None and os.path.exists(_RUTA_FUENTE):
+            nombre, tam = _RUTA_FUENTE, max(10, int(round(tam * _ESC_FUENTE)))
+        super().__init__(nombre, tam, *a, **k)
+
+    def render(self, texto, antialias=True, color=(255, 255, 255), fondo=None):
+        if fondo is not None:
+            return super().render(texto, False, color, fondo)
+        return super().render(texto, False, color)
+
+
+pygame.font.Font = _FuentePixel
+
 _DR_ORIG = pygame.draw.rect
 
 

@@ -1,0 +1,1 @@
+Fuentes pixel con licencia SIL Open Font License 1.1, tomadas del repositorio google/fonts: VT323 y Pixelify Sans.
