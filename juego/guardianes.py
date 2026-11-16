@@ -167,22 +167,22 @@ def obtener_tiles():
 
 SPRITE_BOMBERO = [
     "..rRRRRr..",
-    ".RRRRRRRR.",
+    ".RHHRRRRR.",
     ".RRRYYRRR.",
     "rrrrrrrrrr",
     ".SSSSSSSS.",
     ".SKSSSSKS.",
-    "..SSSSSS..",
+    "..SSMMSS..",
     ".uUUUUUUu.",
     "BUUYYYYUUB",
     "BUUUUUUUUB",
     ".uUYYYYUu.",
-    "..UUUUUU..",
-    "..KK..KK..",
+    "..BBBBBB..",
+    "..BB..BB..",
     ".KKK..KKK.",
 ]
 PALETA_BOMBERO = {"R": (200, 30, 30), "r": (140, 21, 21), "u": (161, 140, 28),
-                  "S": (240, 190, 150), "K": (30, 30, 30),
+                  "S": (240, 190, 150), "K": (30, 30, 30), "H": (255, 130, 110), "M": (200, 100, 90),
                   "U": (230, 200, 40), "Y": (255, 255, 255), "B": (40, 110, 200)}
 _SPRITES = {}
 
@@ -216,10 +216,10 @@ SPRITE_VET = [
     ".GGSSSSGG.",
     ".GSSSSSSG.",
     ".GSKSSKSG.",
-    "..SSSSSS..",
+    "..SSMMSS..",
     "..wWWWWw..",
-    ".wWWGGWWw.",
-    "SWWWWWWWWS",
+    ".wWKWWKWw.",
+    "SWWWKKWWWS",
     "SWWWGGWWWS",
     ".wWWWWWWw.",
     "..PPPPPP..",
@@ -227,7 +227,7 @@ SPRITE_VET = [
     ".KKK..KKK.",
 ]
 PALETA_VET = {"G": (30, 140, 80), "g": (21, 98, 56), "w": (168, 168, 168),
-              "S": (240, 190, 150), "K": (30, 30, 30),
+              "S": (240, 190, 150), "K": (30, 30, 30), "M": (200, 100, 90),
               "W": (240, 240, 240), "P": (60, 60, 120)}
 SPRITE_ANIMAL = [
     ".DDDD..",
@@ -246,47 +246,7 @@ def con_sombras(pal):
 
 
 ANIMALES_SPR = {
-    "jaguar": ([
-        "......B.B...",
-        "..BBBBBBBBB.",
-        ".BBDBBDBBKBB",
-        "BBBBDBBBBBBB",
-        "BLLLLLLLLLB.",
-        ".BBBBBBBBBB.",
-        ".B.B....B.B.",
-        ".D.D....D.D.",
-    ], {"B": (225, 170, 40), "D": (40, 25, 10), "L": (245, 225, 170), "K": (20, 20, 20)}),
-    "tapir": ([
-        "....BBBB....",
-        "..BBBBBBBBB.",
-        ".BBBWWWBBBKB",
-        "BBBBWWWBBBBB",
-        "BBBBBBBBBBDD",
-        ".BBBBBBBBBBD",
-        ".B.B....B.B.",
-        ".D.D....D.D.",
-    ], {"B": (110, 90, 80), "W": (235, 235, 235), "D": (60, 45, 40), "K": (20, 20, 20)}),
-    "taitetu": ([
-        "...DDDDDD...",
-        "..DBDBDBDB..",
-        ".BBBBWWBBBBB",
-        "BBBBBWWBBBBK",
-        "BBBBBBBBBBBB",
-        ".BBBBBBBBBB.",
-        "..B.B..B.B..",
-        "..D.D..D.D..",
-    ], {"B": (80, 70, 60), "W": (220, 210, 180), "D": (45, 38, 32), "K": (20, 20, 20)}),
-    "loro": ([
-        "....RRRR....",
-        "...RRRRRR...",
-        "...RRKRROO..",
-        ".GGGRRRRO...",
-        "GGGGGGGYY...",
-        "GGGGGGGGY...",
-        ".GGGGGGG....",
-        "..YY..KK....",
-    ], {"G": (60, 170, 70), "R": (220, 40, 40), "Y": (250, 210, 40),
-        "O": (240, 150, 30), "K": (20, 20, 20)}),
+"O": (240, 150, 30), "K": (20, 20, 20), "H": (130, 225, 120)}),
 }
 
 def sprite_animal(esp):
