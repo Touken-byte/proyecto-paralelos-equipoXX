@@ -1761,6 +1761,7 @@ def menu_principal(pantalla, fuente):
     reloj = pygame.time.Clock()
     sel = 0
     ayuda = False
+    _pres = [None, 0]
     luci = [[random.uniform(0, w), random.uniform(0, h), random.uniform(0, 6.28), random.uniform(0.2, 0.8)]
             for _ in range(40)]
 
@@ -1770,6 +1771,8 @@ def menu_principal(pantalla, fuente):
 
     while True:
         accion = None
+        if _pres[0] is not None and pygame.time.get_ticks() - _pres[1] >= 100:
+            accion = _pres[0]; _pres[0] = None
         for e in pygame.event.get():
             if e.type == pygame.QUIT:
                 return False
@@ -1800,7 +1803,7 @@ def menu_principal(pantalla, fuente):
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
                         sel = i
-                        accion = i
+                        _pres[0] = i; _pres[1] = pygame.time.get_ticks()
         if accion is not None:
             sonar({"Jugar": "ui_jugar", "Campaña": "ui_jugar", "Tienda": "ui_tienda",
                    "Salir": "ui_salir"}.get(opciones[accion], "ui_aceptar"))
@@ -1881,11 +1884,11 @@ def menu_principal(pantalla, fuente):
                 centrado(linea, fuente, (240, 240, 240), 160 + k * 34)
         else:
             for i, r in enumerate(rects):
-                rr = rect_boton(r, i == sel)
+                rr = rect_boton(r, i == sel).move(0, 4 if i == _pres[0] else 0)
                 pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
                 pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
                 pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
-                centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery)
+                centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery + (2 if i == _pres[0] else 0))
             centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
         dibujar_barra_volumen(pantalla, 20, h - 46)
         pygame.display.flip()
