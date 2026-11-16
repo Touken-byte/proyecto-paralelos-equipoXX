@@ -166,20 +166,24 @@ def obtener_tiles():
 
 
 SPRITE_BOMBERO = [
-    "..rRRRRr..",
-    ".RHHRRRRR.",
-    ".RRRYYRRR.",
-    "rrrrrrrrrr",
-    ".SSSSSSSS.",
-    ".SKSSSSKS.",
-    "..SSMMSS..",
-    ".uUUUUUUu.",
-    "BUUYYYYUUB",
-    "BUUUUUUUUB",
-    ".uUYYYYUu.",
-    "..BBBBBB..",
-    "..BB..BB..",
-    ".KKK..KKK.",
+    "....KKKKKK....",
+    "...KRRRRRRK...",
+    "..KRHHRRRRRK..",
+    "..KRRRYYRRRK..",
+    ".KKrrrrrrrrKK.",
+    ".KSSSSSSSSSSK.",
+    ".KSSKYSSKYSSK.",
+    ".KSSKKSSKKSSK.",
+    ".KSSSSSSSSSSK.",
+    "..KSSSMMSSSK..",
+    "...KKKKKKKK...",
+    "..KuUUUUUUuK..",
+    ".KBUUYYYYUUBK.",
+    ".KBUUUUUUUUBK.",
+    "..KuUYYYYUuK..",
+    "..KBBBBBBBBK..",
+    "..KBBBKKBBBK..",
+    ".KKKKK..KKKKK.",
 ]
 PALETA_BOMBERO = {"R": (200, 30, 30), "r": (140, 21, 21), "u": (161, 140, 28),
                   "S": (240, 190, 150), "K": (30, 30, 30), "H": (255, 130, 110), "M": (200, 100, 90),
@@ -211,23 +215,28 @@ def posicion_inicial(n, estado):
 
 
 SPRITE_VET = [
-    "..gGGGGg..",
-    ".GGGGGGGG.",
-    ".GGSSSSGG.",
-    ".GSSSSSSG.",
-    ".GSKSSKSG.",
-    "..SSMMSS..",
-    "..wWWWWw..",
-    ".wWKWWKWw.",
-    "SWWWKKWWWS",
-    "SWWWGGWWWS",
-    ".wWWWWWWw.",
-    "..PPPPPP..",
-    "..PP..PP..",
-    ".KKK..KKK.",
+    "....KKKKKK....",
+    "...KGGGGGGK...",
+    "..KGGGGGGGGK..",
+    "..KGGGGGGGGK..",
+    ".KGGSSSSSSGGK.",
+    ".KGSSSSSSSSGK.",
+    ".KGSKESSKESGK.",
+    ".KGSKKSSKKSGK.",
+    ".KGSSSSSSSSGK.",
+    "..KGSSMMSSGK..",
+    "...KKKKKKKK...",
+    "..KwWWWWWWwK..",
+    ".KSWWTWWTWWSK.",
+    ".KSWWWTTWWWSK.",
+    "..KwWWWTWWwK..",
+    "..KPPPPPPPPK..",
+    "..KPPPKKPPPK..",
+    ".KKKKK..KKKKK.",
 ]
 PALETA_VET = {"G": (30, 140, 80), "g": (21, 98, 56), "w": (168, 168, 168),
               "S": (240, 190, 150), "K": (30, 30, 30), "M": (200, 100, 90),
+              "E": (255, 255, 255), "T": (90, 95, 110),
               "W": (240, 240, 240), "P": (60, 60, 120)}
 SPRITE_ANIMAL = [
     ".DDDD..",
@@ -292,9 +301,76 @@ ANIMALES_SPR = {
         "O": (240, 150, 30), "K": (20, 20, 20), "H": (130, 225, 120)}),
 }
 
-def sprite_animal(esp):
-    matriz, pal = ANIMALES_SPR.get(esp, ANIMALES_SPR["jaguar"])
-    return sprite_generico("animal:" + esp, matriz, pal)
+_CUADRUPEDO = [
+    "..........OO.OO.",
+    ".........OBBOBBO",
+    ".OO....OBBBBBBBO",
+    "OBBO...OBBBBBBBO",
+    "OBBO.OOOBBBBBBBO",
+    ".OBOBBBBBBBBBBBO",
+    "..OBBBBBBBBBNNO.",
+    "..OBLLLLLLLBBOO.",
+    "..OBBBBBBBBBBO..",
+    "..OOOOOOOOOOOO..",
+    "..OBBO....OBBO..",
+    "..OOOO....OOOO..",
+]
+_LORO = [
+    "......OOOO......",
+    ".....ORRRRO.....",
+    "....ORRRRRRO....",
+    "....ORRRRRROOO..",
+    "....ORRRRRROPPO.",
+    "....OGGGGGGOOO..",
+    "...OGGGGGGGGO...",
+    "..OGGGHGGGGGGO..",
+    ".OYGGGGGGGGGO...",
+    "OYYYGGGGGGGO....",
+    ".OOO....OYO.OYO.",
+    "........OOO.OOO.",
+]
+_OV_ANIMAL = {
+    "jaguar": [(9, 2, "H"), (10, 2, "H"), (5, 5, "H"), (9, 3, "D"), (1, 3, "D"), (4, 5, "D"), (7, 5, "D"),
+               (10, 5, "D"), (5, 6, "D"), (9, 6, "D"), (4, 8, "D"), (8, 8, "D"), (11, 8, "D")],
+    "tapir": [(10, 1, "W"), (11, 1, "W"), (13, 1, "W"), (14, 1, "W"), (12, 6, "D"), (13, 6, "D"),
+              (13, 5, "H"), (14, 5, "H"), (14, 4, "H"), (14, 3, "H"), (5, 5, "H"), (6, 5, "H"), (7, 5, "H")],
+    "taitetu": [(8, 2, "W"), (8, 3, "W"), (8, 4, "W"), (8, 5, "W"), (5, 3, "D"), (6, 3, "D"),
+                (5, 5, "H"), (6, 5, "H"), (7, 5, "H")],
+    "loro": [],
+}
+_PAL_ANIMAL = {
+    "jaguar": {"O": (50, 30, 10), "B": (225, 170, 40), "D": (40, 25, 10), "L": (245, 225, 170),
+               "N": (230, 120, 120), "H": (250, 205, 90), "K": (20, 20, 20), "E": (255, 255, 255)},
+    "tapir": {"O": (45, 34, 30), "B": (110, 90, 80), "D": (60, 45, 40), "L": (90, 72, 64),
+              "N": (60, 45, 40), "H": (150, 128, 115), "W": (235, 235, 235), "K": (20, 20, 20), "E": (255, 255, 255)},
+    "taitetu": {"O": (40, 34, 30), "B": (80, 70, 60), "D": (45, 38, 32), "L": (110, 98, 86),
+                "N": (150, 105, 100), "H": (125, 112, 98), "W": (220, 210, 180), "K": (20, 20, 20), "E": (255, 255, 255)},
+    "loro": {"O": (25, 30, 25), "R": (220, 40, 40), "G": (60, 170, 70), "H": (130, 225, 120),
+             "Y": (250, 210, 40), "P": (240, 150, 30), "K": (20, 20, 20), "E": (255, 255, 255)},
+}
+_OJOS = {
+    "normal": {(1, 1): "E", (2, 1): "K", (1, 2): "K", (2, 2): "K"},
+    "asustado": {(0, 0): "E", (1, 0): "E", (2, 0): "E", (0, 1): "E", (1, 1): "K", (2, 1): "E",
+                 (0, 2): "E", (1, 2): "E", (2, 2): "E"},
+    "herido": {(0, 0): "K", (2, 0): "K", (1, 1): "K", (0, 2): "K", (2, 2): "K"},
+    "feliz": {(1, 1): "K", (0, 2): "K", (2, 2): "K"},
+}
+_ESTADO_CARA = {"asustado": "asustado", "aislado": "asustado", "herido": "herido", "salvo": "feliz"}
+
+def matriz_animal(esp, cara):
+    filas = [list(r) for r in (_LORO if esp == "loro" else _CUADRUPEDO)]
+    ex = 7 if esp == "loro" else 11
+    for x, y, c in _OV_ANIMAL.get(esp, []):
+        filas[y][x] = c
+    for (dx, dy), c in _OJOS[cara].items():
+        filas[2 + dy][ex + dx] = c
+    return ["".join(f) for f in filas]
+
+def sprite_animal(esp, estado="normal"):
+    if esp not in _PAL_ANIMAL:
+        esp = "jaguar"
+    cara = _ESTADO_CARA.get(estado, "normal")
+    return sprite_generico("animal:%s:%s" % (esp, cara), matriz_animal(esp, cara), _PAL_ANIMAL[esp])
 
 
 def sprite_generico(nombre, matriz, paleta, escala=2):
@@ -3917,7 +3993,7 @@ def main():
         _pend = est.get("pendientes", ())
         for _i, ((ax, ay, ea, esp), sfa) in enumerate(zip(est["animales"], estados_fauna(est))):
             _cx, _cy = anim_animal(est, _i, esp, sfa, ax, ay, _t)
-            sa = sprite_animal(esp)
+            sa = sprite_animal(esp, sfa)
             _dd = est.setdefault("dir_an", {})
             _ant = _dd.get(_i)
             if _ant is None:
@@ -3925,7 +4001,7 @@ def main():
             elif ax != _ant[0]:
                 _dd[_i] = (ax, 1 if ax > _ant[0] else -1)
             if _dd[_i][1] < 0:
-                sa = voltear_sprite(sa, esp)
+                sa = voltear_sprite(sa, esp + ":" + str(sfa))
             dibujar_sombra(pantalla, _cx, _cy + CELDA // 2, int(sa.get_width() * 0.8))
             pantalla.blit(sa, (_cx - sa.get_width() // 2, _cy + CELDA // 2 - sa.get_height()))
             if ea == "cargado":
@@ -3971,7 +4047,7 @@ def main():
         salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
         for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
             frac_ = est["vida"][k_] / VIDA_MAX
-            bx_, by_ = cx_ * CELDA + CELDA // 2 - 14, cy_ * CELDA - 22
+            bx_, by_ = cx_ * CELDA + CELDA // 2 - 14, cy_ * CELDA - 38
             pygame.draw.rect(pantalla, (0, 0, 0), (bx_ - 1, by_ - 1, 30, 6), border_radius=2)
             pygame.draw.rect(pantalla, (50, 12, 12), (bx_, by_, 28, 4))
             _cb = (255, 60, 60) if frac_ < 0.35 else (80, 220, 90)
