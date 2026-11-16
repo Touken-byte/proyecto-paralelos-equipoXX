@@ -1673,6 +1673,28 @@ def _salpicar(s, ancho, alto):
         s.set_at((px_, py_), (max(0, min(255, c[0] + d)), max(0, min(255, c[1] + d)), max(0, min(255, c[2] + d))))
 
 
+def banner_emergencia(pantalla, est, fnt, x0, py):
+    # caja con triangulo de alerta, nivel, cuenta regresiva e Ignis reducido
+    niv = est["nivel"]
+    col = {"inicial": (120, 255, 160), "avanzada": (255, 200, 80), "critica": (255, 80, 80)}[niv]
+    fondo = {"inicial": (22, 66, 38), "avanzada": (84, 56, 10), "critica": (96, 18, 18)}[niv]
+    r = pygame.Rect(x0 + 6, py - 4, PANEL_W - 18, 46)
+    pygame.draw.rect(pantalla, fondo, r, border_radius=8)
+    pygame.draw.rect(pantalla, col, r, 2, border_radius=8)
+    tx, cy = r.x + 8, r.centery
+    pygame.draw.polygon(pantalla, col, [(tx + 11, cy - 10), (tx, cy + 8), (tx + 22, cy + 8)])
+    pygame.draw.line(pantalla, fondo, (tx + 11, cy - 4), (tx + 11, cy + 1), 2)
+    pygame.draw.rect(pantalla, fondo, (tx + 10, cy + 3, 2, 2))
+    pantalla.blit(fnt.render("EMERGENCIA", True, (255, 255, 255)), (r.x + 34, r.y + 7))
+    t2 = niv.upper()
+    if est["cuenta"] is not None:
+        t2 += "  " + str(max(0, est["cuenta"]) * TICK_MS["critica"] // 1000) + " s"
+    pantalla.blit(fnt.render(t2, True, col), (r.x + 34, r.y + 25))
+    s = pygame.Surface((80, 90), pygame.SRCALPHA)
+    dibujar_ignis(s, 40, 82, niv, pygame.time.get_ticks())
+    pantalla.blit(pygame.transform.scale(s, (40, 45)), (r.right - 44, r.bottom - 48))
+
+
 def marco_dorado(pantalla, rect, alpha=200):
     # caja oscura translucida con borde dorado y filete interior
     if alpha > 0:
@@ -4184,11 +4206,7 @@ def main():
             pantalla.blit(fuente.render("Riesgo de quema", True, (200, 200, 200)), (px, 244))
         py = 270
         col_n = {"inicial": (120, 255, 160), "avanzada": (255, 200, 80), "critica": (255, 80, 80)}[est["nivel"]]
-        pantalla.blit(fuente_p.render("EMERGENCIA: " + est["nivel"].upper(), True, col_n), (px, py))
-        if est["cuenta"] is not None:
-            pantalla.blit(fuente_p.render("Cuenta regresiva: " + str(max(0, est["cuenta"]) * TICK_MS["critica"] // 1000) + " s",
-                                          True, (255, 120, 120)), (px, py + 20))
-        dibujar_ignis(pantalla, n * CELDA + PANEL_W - 45, py + 52, est["nivel"], pygame.time.get_ticks())
+        banner_emergencia(pantalla, est, fuente_p, n * CELDA, py)
         py += 50
         panel_resumen(pantalla, est, fuente_p, px, py)
         fa = est.get("ficha_act")
