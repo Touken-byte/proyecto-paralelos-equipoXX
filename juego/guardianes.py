@@ -656,7 +656,7 @@ def seleccionar_nivel(pantalla, fuente):
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for z, r in tab_rects.items():
                     if r.collidepoint(e.pos):
-                        sel = next(i for i, nv in enumerate(NIVELES) if nv["zona"] == z)
+                        sonar("ui_aceptar"); sel = next(i for i, nv in enumerate(NIVELES) if nv["zona"] == z)
                 for i, r in rects.items():
                     if r.collidepoint(e.pos):
                         if nivel_bloqueado(i):
@@ -670,13 +670,13 @@ def seleccionar_nivel(pantalla, fuente):
         pantalla.blit(t, t.get_rect(center=(w // 2, 40)))
         for z, r in tab_rects.items():
             act = (z == zona)
-            pygame.draw.rect(pantalla, (255, 87, 34) if act else (50, 62, 54), r, border_radius=6)
+            pygame.draw.rect(pantalla, (255, 120, 60) if act else (50, 62, 54), r, border_radius=6)
             s = f_nom.render(f"{z}. {ZONAS[z][0]}", True, (255, 255, 255) if act else (190, 190, 190))
             pantalla.blit(s, s.get_rect(center=r.center))
         for i, r in rects.items():
-            niv = NIVELES[i]
+            niv = NIVELES[i]; r = r.move(0, -2) if i == sel else r
             pygame.draw.rect(pantalla, (40, 52, 44), r, border_radius=8)
-            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (90, 90, 90), r, 3, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 90, 90), r, 3, border_radius=8)
             pantalla.blit(miniatura_nivel(niv, lado), (r.centerx - lado // 2, r.y + 10))
             nom = f_nom.render(niv["nombre"], True, (255, 255, 255))
             if nom.get_width() > cw - 8:
@@ -2210,9 +2210,9 @@ def cuadro_grande(pantalla, paginas, fuente, expr="normal"):
                 pygame.event.post(pygame.event.Event(pygame.QUIT))
                 return
             if e.type == pygame.KEYDOWN and e.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
-                i += 1
+                sonar("ui_mover"); i += 1
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
-                i += 1
+                sonar("ui_mover"); i += 1
         if i >= len(paginas):
             break
         quien, texto = paginas[i]
