@@ -1571,6 +1571,51 @@ def sonar(nombre):
         pass
 
 
+LLAMA_LOGO = ["......R.....",
+               ".....RR.....",
+               ".....ROR....",
+               "....RROOR...",
+               "...RROOOR.R.",
+               "..RROOYOORR.",
+               "..ROOYYYOOR.",
+               ".RROOYYYOOR.",
+               ".ROOYYYYYOOR",
+               ".ROOYYYYYOOR",
+               "..ROOYYYOOR.",
+               "...RROOORR.."]
+
+def llamas_logo(pantalla, f_tit, w, y):
+    """Dos llamas pixel a los lados del titulo, con vaiven suave."""
+    import math
+    pal = {"R": (200, 40, 20), "O": (255, 130, 30), "Y": (255, 230, 90)}
+    s = sprite_generico("llama_logo", LLAMA_LOGO, pal, 3)
+    mitad = f_tit.size("GUARDIANES DEL CHACO")[0] // 2
+    dy = int(2 * math.sin(pygame.time.get_ticks() / 250))
+    for lado in (-1, 1):
+        cx = w // 2 + lado * (mitad + 34)
+        pantalla.blit(s, (cx - s.get_width() // 2, y - s.get_height() // 2 + dy))
+
+def cortina(pantalla, dur=300):
+    """Cortina pixelada: bloques de 16x16 que se oscurecen en orden aleatorio (dur ms)."""
+    w, h = pantalla.get_size()
+    cols, filas = (w + 15) // 16, (h + 15) // 16
+    celdas = [(i % cols, i // cols) for i in range(cols * filas)]
+    random.Random(5).shuffle(celdas)
+    t0 = pygame.time.get_ticks()
+    reloj = pygame.time.Clock()
+    hecho = 0
+    while True:
+        f = min(1.0, (pygame.time.get_ticks() - t0) / dur)
+        hasta = int(len(celdas) * f)
+        for cx, cy in celdas[hecho:hasta]:
+            pantalla.fill((10, 14, 12), (cx * 16, cy * 16, 16, 16))
+        hecho = hasta
+        pygame.display.flip()
+        pygame.event.pump()
+        if f >= 1.0:
+            break
+        reloj.tick(60)
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
@@ -1715,7 +1760,7 @@ def menu_principal(pantalla, fuente):
             pygame.draw.circle(pantalla, (255, int(150 + 80 * _a), int(40 + 40 * _a)),
                                (int(_l[0] + math.sin(_tm * 0.8 + _l[2]) * 14), int(_l[1])), 2)
         centrado("GUARDIANES DEL CHACO", f_tit, (90, 30, 10), 63)
-        centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 60)
+        centrado("GUARDIANES DEL CHACO", f_tit, (255, 170, 60), 60); llamas_logo(pantalla, f_tit, w, 60)
         centrado("Gran Chaco boliviano - Tarija", f_sub, (230, 230, 230), 105)
         if ayuda:
             for k, linea in enumerate(ayuda_txt):
@@ -3405,7 +3450,7 @@ def main():
     reiniciar()
     n = est["n"]
     pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
-    ok_menu = menu_principal(pantalla, fuente)
+    ok_menu = menu_principal(pantalla, fuente); cortina(pantalla) if ok_menu else None
     if ok_menu:
         niv = nivel_actual()
         asegurar_motor(niv)
