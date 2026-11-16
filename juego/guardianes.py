@@ -912,7 +912,6 @@ MAQUETAS = {
     "Próximamente": ("Próximamente", [
         "Lo que viene después de esta versión:",
         "",
-        "Compartir resultados como imagen.",
         "Cámara inteligente y pantalla dividida.",
         "Más niveles, especies y contenido educativo."]),
 }
