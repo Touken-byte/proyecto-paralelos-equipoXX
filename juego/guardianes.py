@@ -2704,6 +2704,26 @@ def mover_fauna(est):
         else:
             pend.discard(i)
 
+def chillar_fauna(est):
+    """Un chillido por especie al pasar a asustado/aislado/herido; uno por tick y con pausa."""
+    ya = est.setdefault("chillaron", set())
+    sts = estados_fauna(est)
+    peso = {"herido": 3, "aislado": 2, "asustado": 1}
+    nuevos = []
+    for i, (a, st) in enumerate(zip(est["animales"], sts)):
+        if a[2] == "libre" and st in peso:
+            if i not in ya:
+                ya.add(i)
+                nuevos.append((peso[st], i))
+        else:
+            ya.discard(i)
+    if nuevos:
+        ahora = pygame.time.get_ticks()
+        if ahora - est.get("t_chillido", -99999) > 1500:
+            est["t_chillido"] = ahora
+            nuevos.sort(reverse=True)
+            sonar("chillido_" + est["animales"][nuevos[0][1]][3])
+
 def actualizar_emergencia(est):
     veg = est["estado"].count(1)
     quem = est["estado"].count(2)
@@ -3059,7 +3079,8 @@ def main():
                    "ui_mover", "ui_aceptar", "ui_volver", "ui_jugar", "ui_tienda", "ui_salir",
                    "pip_recoger", "pip_soltar", "hab_manguera", "hab_torre", "hab_botiquin", "hab_rastreo",
                    "hab_senal", "alerta_avanzada", "alerta_critica", "alerta_tic",
-                   "ui_notif", "ui_moneda", "amb_viento"):
+                   "ui_notif", "ui_moneda", "amb_viento",
+                   "chillido_jaguar", "chillido_loro", "chillido_tapir", "chillido_taitetu"):
             try:
                 sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
             except Exception:
@@ -3086,7 +3107,7 @@ def main():
         est["bx"], est["by"] = posicion_inicial(n, estado)
         est["refugio"] = (4, n - 14, 10, 10)
         est["vx"], est["vy"] = 4 + 5, n - 14 + 5
-        est["animales"] = crear_animales(n, estado, est["refugio"], animales_nivel(nivel_actual()))
+        est["animales"] = crear_animales(n, estado, est["refugio"], animales_nivel(nivel_actual())); est["chillaron"] = set()
         est["carga"] = None
         est["riesgo"] = None; est["ver_riesgo"] = False; est["info_vigia"] = []
         est.update(nivel="inicial", cuenta=None, evaluacion=None, ver_eval=False)
@@ -3329,7 +3350,7 @@ def main():
                 est["paso"] += PASOS_RONDA; est["ronda"] += 1
                 actualizar_emergencia(est)
                 est["msg"] = ""
-                mover_fauna(est)
+                mover_fauna(est); chillar_fauna(est)
                 desbloquear(est, "atlas:propagacion"); desbloquear(est, "guia:foco")
                 if est["nivel"] != "inicial":
                     desbloquear(est, "atlas:emergencia")

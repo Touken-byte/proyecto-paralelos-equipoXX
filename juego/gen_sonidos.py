@@ -164,6 +164,29 @@ def ui_notif():
 def ui_moneda():
     return _nota(1568.0, 1568.0, 0.05, 0.4, decay=3.0, arm=0.5) + _nota(2093.0, 2093.0, 0.05, 0.4, decay=3.0, arm=0.5) + _nota(2637.0, 2637.0, 0.22, 0.4, decay=4.0, arm=0.5)
 
+def _aspero(m, k, semilla):
+    # Anade ruido que decae: da textura rasposa a un tono
+    random.seed(semilla)
+    n = len(m)
+    return [x + random.uniform(-1, 1) * k * (1 - i / n) for i, x in enumerate(m)]
+
+def chillido_jaguar():
+    # Rugido grave y rasposo
+    return _aspero(_nota(140.0, 75.0, 0.55, 0.7, decay=2.0, arm=0.9), 0.25, 21)
+
+def chillido_loro():
+    # Graznido agudo en dos golpes
+    return (_nota(1800.0, 2600.0, 0.09, 0.4, decay=2.0, arm=0.3) + _silencio(0.03)
+            + _nota(2700.0, 1700.0, 0.16, 0.4, decay=2.5, arm=0.3))
+
+def chillido_tapir():
+    # Silbido nasal corto
+    return _nota(1200.0, 1700.0, 0.3, 0.4, decay=2.0, arm=0.6)
+
+def chillido_taitetu():
+    # Gruñido corto y seco
+    return _aspero(_nota(230.0, 150.0, 0.2, 0.55, decay=3.0, arm=0.8), 0.2, 22)
+
 def amb_viento():
     import random
     random.seed(11)
@@ -194,6 +217,8 @@ if __name__ == "__main__":
                     ("hab_torre", hab_torre), ("hab_botiquin", hab_botiquin), ("hab_rastreo", hab_rastreo),
                     ("hab_senal", hab_senal), ("alerta_avanzada", alerta_avanzada),
                     ("alerta_critica", alerta_critica), ("alerta_tic", alerta_tic),
-                    ("ui_notif", ui_notif), ("ui_moneda", ui_moneda), ("amb_viento", amb_viento)):
+                    ("ui_notif", ui_notif), ("ui_moneda", ui_moneda), ("amb_viento", amb_viento),
+                    ("chillido_jaguar", chillido_jaguar), ("chillido_loro", chillido_loro),
+                    ("chillido_tapir", chillido_tapir), ("chillido_taitetu", chillido_taitetu)):
         guardar("juego/sonidos/" + nom + ".wav", fn())
     print("OK: sonidos generados en juego/sonidos/")
