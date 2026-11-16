@@ -662,6 +662,7 @@ def seleccionar_nivel(pantalla, fuente):
                         if nivel_bloqueado(i):
                             aviso = "Nivel bloqueado: completa antes la zona anterior."
                         else:
+                            sonar("ui_aceptar")
                             return i
         zona = NIVELES[sel]["zona"]
         pantalla.blit(fondo_marca(w, h), (0, 0))
@@ -793,7 +794,7 @@ def seleccionar_modo_especial(pantalla, fuente):
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
                         sel = i
-                        elegido = i
+                        elegido = i; sonar("ui_aceptar")
         if elegido is not None and MODOS_ESP[elegido][2]:
             return MODOS_ESP[elegido][0]
         pantalla.blit(fondo_marca(w, h), (0, 0))
@@ -858,7 +859,7 @@ def seleccionar_modo(pantalla, fuente):
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
-                        r_ = elegir_dificultad_modo(pantalla, fuente, opciones[i][1])
+                        sonar("ui_aceptar"); r_ = elegir_dificultad_modo(pantalla, fuente, opciones[i][1])
                         if r_ == "salir":
                             return "salir"
                         if r_ is not None:
@@ -2806,7 +2807,7 @@ def seleccionar_dificultad(pantalla, fuente):
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
-                        return claves[i]
+                        sonar("ui_aceptar"); return claves[i]
         pantalla.blit(fondo_marca(w, h), (0, 0))
         t = f_tit.render("Dificultad del compañero", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 150)))
