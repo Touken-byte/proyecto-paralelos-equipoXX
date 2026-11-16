@@ -1967,7 +1967,74 @@ def dibujar_globo(pantalla, est, fnt):
     for k, l in enumerate(lineas):
         pantalla.blit(fnt.render(l, True, (240, 240, 240)), (x + 10, y + 6 + lh * (k + 1)))
 
-def cuadro_grande(pantalla, paginas, fuente):
+RET_BASE = {
+    "b": ["................",
+          "....RRRRRRRR....",
+          "...RRRRRRRRRR...",
+          "..RRRRRUURRRRR..",
+          "..UUUUUUUUUUUU..",
+          "...SSSSSSSSSS...",
+          "...SSSSSSSSSS...",
+          "...SSSSSSSSSS...",
+          "...SSSSSSSSSS...",
+          "...SSSSSSSSSS...",
+          "...SSSSSSSSSS...",
+          "...SSSSSSSSSS...",
+          "....SSSSSSSS....",
+          "..RRRRSSSSRRRR..",
+          ".RRRRRRRRRRRRRR.",
+          ".RRUURRRRRRUURR."],
+    "v": ["................",
+          "....HHHHHHHH....",
+          "...HHHHHHHHHH...",
+          "..HHHHHHHHHHHH..",
+          "..HHGGGGGGGGHH..",
+          "..HSSSSSSSSSSH..",
+          "..HSSSSSSSSSSH..",
+          "..HSSSSSSSSSSH..",
+          "..HSSSSSSSSSSH..",
+          "..HSSSSSSSSSSH..",
+          "..HSSSSSSSSSSH..",
+          "...HSSSSSSSSH...",
+          "....SSSSSSSS....",
+          "...GGWWSSWWGG...",
+          ".GGGWWWWWWWWGGG.",
+          ".GGGWWWWWWWWGGG."],
+}
+# Rasgos de cada expresion: (fila, columna) que se pintan de oscuro sobre la cara base
+RET_EXPR = {
+    "normal": [(6, 4), (6, 5), (6, 10), (6, 11), (8, 5), (9, 5), (8, 10), (9, 10),
+               (11, 6), (11, 7), (11, 8), (11, 9)],
+    "alegre": [(8, 4), (8, 5), (8, 6), (8, 9), (8, 10), (8, 11), (9, 4), (9, 6), (9, 9), (9, 11),
+               (11, 5), (11, 10), (12, 6), (12, 7), (12, 8), (12, 9)],
+    "preocupada": [(7, 4), (6, 5), (6, 6), (7, 11), (6, 10), (6, 9), (8, 5), (9, 5), (8, 10), (9, 10),
+                   (11, 6), (11, 7), (11, 8), (11, 9), (12, 5), (12, 10)],
+}
+
+def retrato(quien, expr="normal"):
+    """Retrato pixel 16x16 (x6 = 96 px) con la paleta y la skin equipada del personaje."""
+    pers = "bombero" if quien == "b" else "vet"
+    i = SKIN_ACTUAL.get(pers, 0)
+    if expr not in RET_EXPR:
+        expr = "normal"
+    pal = dict(PALETA_BOMBERO if quien == "b" else PALETA_VET)
+    pal["H"] = (90, 55, 35)
+    try:
+        pal.update(SKINS[pers][i][2])
+    except Exception:
+        pass
+    filas = [list(f) for f in RET_BASE["b" if quien == "b" else "v"]]
+    for fila, col in RET_EXPR[expr]:
+        filas[fila][col] = "K"
+    return sprite_generico(f"ret:{pers}:{i}:{expr}", ["".join(f) for f in filas], pal, 6)
+
+def expr_final(est):
+    """Expresion de los retratos en el dialogo final segun el resultado."""
+    if est.get("derrota"):
+        return "preocupada"
+    return "alegre" if (est.get("evaluacion") or {}).get("estrellas", 0) >= 2 else "normal"
+
+def cuadro_grande(pantalla, paginas, fuente, expr="normal"):
     """Cuadro de dialogo grande. paginas: lista de (quien, texto); quien: 'b', 'v' o None.
     Enter, espacio o clic avanzan. Bloquea mientras esta abierto (la partida queda en pausa)."""
     w, h = pantalla.get_size()
@@ -2007,7 +2074,7 @@ def cuadro_grande(pantalla, paginas, fuente):
             pygame.draw.rect(pantalla, (255, 170, 60) if es_b else (120, 220, 255), ret, 3, border_radius=6)
             ini = pygame.font.Font(None, 80).render("B" if es_b else "V", True,
                                                     (255, 170, 60) if es_b else (120, 220, 255))
-            pantalla.blit(ini, ini.get_rect(center=ret.center))
+            pantalla.blit(retrato(quien, expr.get(quien, "normal") if isinstance(expr, dict) else expr), ret); pygame.draw.rect(pantalla, (255, 170, 60) if es_b else (120, 220, 255), ret, 3, border_radius=6)
             nom = f_n.render("Bombero" if es_b else "Veterinaria", True,
                              (255, 170, 60) if es_b else (120, 220, 255))
             pantalla.blit(nom, (ret.right + 20, caja.y + 18))
@@ -2032,7 +2099,7 @@ def intro_nivel(pantalla, fuente, est):
            ("b", b)]
     if v:
         pag.append(("v", v))
-    cuadro_grande(pantalla, pag, fuente)
+    cuadro_grande(pantalla, pag, fuente, expr={"b": "alegre", "v": "normal"})
     est["tick"]["t_fin"] = pygame.time.get_ticks()
 
 def paginas_final(est):
@@ -2059,7 +2126,7 @@ def eventos_periodicos(est, pantalla, fuente):
         registrar_salon(est)
         pausa_prev = est["tick"]["pausa"]
         est["tick"]["pausa"] = True
-        cuadro_grande(pantalla, paginas_final(est), fuente)
+        cuadro_grande(pantalla, paginas_final(est), fuente, expr=expr_final(est))
         est["tick"]["pausa"] = pausa_prev
         return
     ahora = pygame.time.get_ticks()
