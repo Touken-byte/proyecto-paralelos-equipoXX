@@ -3092,8 +3092,20 @@ def actualizar_particulas(est, n, niv):
             if est_c[r] == 3 and random.random() < 0.15:
                 P.append([(r % n) * CELDA + random.randint(0, CELDA - 1), (r // n) * CELDA - 8,
                           wx * 0.1, 0.3, 0, random.randint(25, 45), "ceniza", 1])
+    if est.get("nivel") != "critica" and sum(1 for q in P if q[6] == "hoja") < 28 and random.random() < 0.25:
+        L = n * CELDA
+        if abs(wx) >= abs(wy):
+            hx = -4 if wx > 0 else L + 4
+            hy = random.uniform(0, L)
+        else:
+            hx = random.uniform(0, L)
+            hy = -4 if wy > 0 else L + 4
+        P.append([hx, hy, wx * 2.2 + 0.3 * (1 if wx >= 0 else -1), wy * 2.2, 0,
+                  random.randint(150, 260), "hoja", random.randint(0, 2)])
     for p in P:
         p[0] += p[2]; p[1] += p[3]; p[4] += 1
+        if p[6] == "hoja":
+            p[1] += math.sin(p[4] / 7.0 + p[7]) * 0.6
         if p[6] == "humo":
             p[7] = min(9, p[7] + 0.05)
     est["part"] = [p for p in P if p[4] < p[5]]
@@ -3118,6 +3130,9 @@ def dibujar_particulas(pantalla, est):
         elif tipo == "brasa":
             col = (255, int(60 + 150 * f), 20)
             pygame.draw.rect(pantalla, col, (int(x), int(y), 2, 2))
+        elif tipo == "hoja":
+            pygame.draw.rect(pantalla, ((90, 150, 60), (60, 120, 50), (170, 130, 60))[int(tam) % 3],
+                             (int(x), int(y), 2, 2))
         else:
             pygame.draw.rect(pantalla, (175, 175, 175), (int(x), int(y), 2, 2))
 
