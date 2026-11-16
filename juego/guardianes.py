@@ -2352,6 +2352,78 @@ def habilidad(est, tecla, desde_ia=False):
         if _s:
             _s.play()
 
+_ICONOS_HAB = {
+    "mochila": ((80, 170, 255), [
+        ".....AA.....", "....AAAA....", "....AAAA....", "...AAAAAA...",
+        "..AAAAAAAA..", "..AAWAAAAA..", "..AAWAAAAA..", "..AAAAAAAA..",
+        "..AAAAAAAA..", "...AAAAAA...", "....aaaa....", "............"]),
+    "cortafuego": ((170, 110, 60), [
+        "............", "AAAAA.AAAAAA", "AAAAA.AAAAAA", "............",
+        "AA.AAAAA.AAA", "AA.AAAAA.AAA", "............", "AAAAA.AAAAAA",
+        "AAAAA.AAAAAA", "............", "AA.AAAAA.AAA", "AA.AAAAA.AAA"]),
+    "manguera": ((190, 190, 200), [
+        "............", "............", "A...........", "AAAA....W..W",
+        "AAAAAAA.W.W.", "AAAAAAA..W..", "AAAAAAA.W.W.", "AAAA....W..W",
+        "A...........", "A...........", "AA..........", "AAA........."]),
+    "proteccion": ((255, 170, 60), [
+        "............", ".AAAAAAAAAA.", ".AAWWAAAAAA.", ".AAWAAAAAAA.",
+        ".AAAAAAAAAA.", ".AAAAAAAAAA.", "..AAAAAAAA..", "..AAAAAAAA..",
+        "...AAAAAA...", "....AAAA....", ".....AA.....", "............"]),
+    "torre": ((210, 170, 100), [
+        "....AAAA....", "....AWWA....", "....AAAA....", ".....AA.....",
+        "....AAAA....", "....A..A....", "...AA..AA...", "...A....A...",
+        "..AAAAAAAA..", "..A......A..", ".AAAAAAAAAA.", "............"]),
+    "botiquin": ((220, 50, 50), [
+        "....AAAA....", "....A..A....", "AAAAAAAAAAAA", "AAAAAWWAAAAA",
+        "AAAAAWWAAAAA", "AAAWWWWWWAAA", "AAAWWWWWWAAA", "AAAAAWWAAAAA",
+        "AAAAAWWAAAAA", "AAAAAAAAAAAA", "aaaaaaaaaaaa", "............"]),
+    "rastreo": ((160, 220, 120), [
+        "............", "..AA....AA..", ".AAAA..AAAA.", ".AAAA..AAAA.",
+        "..AA....AA..", "............", "....AAAA....", "...AAAAAA...",
+        "..AAAAAAAA..", "..AAAAAAAA..", "...AA..AA...", "............"]),
+    "senal": ((255, 220, 60), [
+        "....AAAA....", "....AAAA....", "....AAAA....", "....AAAA....",
+        "....AAAA....", "....AAAA....", ".....AA.....", "............",
+        ".....AA.....", "....AAAA....", ".....AA.....", "............"]),
+    "conocimiento": ((120, 200, 255), [
+        "............", "............", "....AAAA....", "..AAAAAAAA..",
+        ".AWWWKKWWWA.", "AWWWKKKKWWWA", "AWWWKKKKWWWA", ".AWWWKKWWWA.",
+        "..AAAAAAAA..", "....AAAA....", "............", "............"]),
+    "apoyo": ((240, 100, 140), [
+        "............", "..AAA..AAA..", ".AAAAAAAAAA.", ".AAWAAAAAAA.",
+        ".AAAAAAAAAA.", ".AAAAAAAAAA.", "..AAAAAAAA..", "...AAAAAA...",
+        "....AAAA....", ".....AA.....", "............", "............"]),
+    "rescate": ((120, 230, 120), [
+        "............", ".....AA.....", "....AAAA....", "...AAAAAA...",
+        "..AAAAAAAA..", ".AAAAAAAAAA.", "...AAAAAA...", "...AAKKAA...",
+        "...AAKKAA...", "...AAKKAA...", "............", "............"]),
+}
+# (prefijo del nombre en el panel, icono, clave de recarga en est, duracion de la recarga)
+_HAB_ICONO = (("Mochila", "mochila", None, 0), ("Cortafuegos", "cortafuego", "t_cf", CD_CORTAFUEGO_MS),
+              ("Manguera", "manguera", "t_mang", CD_MANGUERA_MS), ("Proteccion", "proteccion", "t_prot", CD_PROT_MS),
+              ("Torre", "torre", "t_torre", CD_TORRE_MS), ("Rescate", "rescate", None, 0),
+              ("Apoyo", "apoyo", "t_apoyo", CD_APOYO_MS), ("Botiquin", "botiquin", "t_boti", CD_BOTIQUIN_MS),
+              ("Rastreo", "rastreo", "t_rastreo", CD_RASTREO_MS), ("Senal", "senal", "t_senal", CD_SENAL_MS),
+              ("Conocimiento", "conocimiento", "t_conoc", CD_CONOC_MS))
+
+def dibujar_icono_hab(pantalla, nombre, est, x, y):
+    """Icono pixel 12x12 de la habilidad; el velo de recarga se recoge de arriba hacia abajo."""
+    for pref, clave, tk, cd in _HAB_ICONO:
+        if nombre.startswith(pref):
+            break
+    else:
+        return
+    col, mat = _ICONOS_HAB[clave]
+    pal = {"A": col, "a": tuple(int(c * 0.6) for c in col), "W": (245, 245, 245), "K": (30, 30, 30)}
+    pantalla.blit(sprite_generico("hab:" + clave, mat, pal, 1), (x, y + 1))
+    if tk and cd:
+        frac = 1.0 - (pygame.time.get_ticks() - est.get(tk, -99999)) / cd
+        if frac > 0:
+            alto = max(1, int(12 * min(1.0, frac)))
+            velo = pygame.Surface((12, alto), pygame.SRCALPHA)
+            velo.fill((10, 10, 20, 170))
+            pantalla.blit(velo, (x, y + 13 - alto))
+
 def dibujar_habilidades(pantalla, est, fnt):
     """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
     import math
@@ -3691,7 +3763,7 @@ def main():
             py += 22
             for nombre, activa in habs:
                 c = (230, 230, 230) if activa else (110, 110, 110)
-                pantalla.blit(fuente_p.render(("[x] " if activa else "[ ] ") + nombre, True, c), (px, py)); py += 18
+                dibujar_icono_hab(pantalla, nombre, est, px, py); pantalla.blit(fuente_p.render(nombre, True, c), (px + 16, py)); py += 18
             py += 10
         pantalla.blit(fuente_p.render("FAUNA", True, (255, 235, 190)), (px, py))
         pygame.draw.line(pantalla, (255, 140, 40), (px, py + 17), (px + PANEL_W - 24, py + 17))
