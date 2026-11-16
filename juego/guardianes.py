@@ -2308,10 +2308,7 @@ def imagen_resultados(est, ev):
     # Genera un PNG fijo de 640x400 con los resultados de la misión. Devuelve la ruta.
     import time
     W, H = 640, 400
-    s = pygame.Surface((W, H))
-    for y in range(H):
-        t = y / H
-        pygame.draw.line(s, (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)), (0, y), (W, y))
+    s = _degradado_tramado(W, H, lambda t: (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)))
     pygame.draw.rect(s, (255, 170, 60), (8, 8, W - 16, H - 16), 3, border_radius=10)
     f_tit, f_g, f_m, f_p = (pygame.font.Font(None, n) for n in (44, 34, 28, 22))
 
