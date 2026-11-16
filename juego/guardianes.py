@@ -118,6 +118,11 @@ def obtener_tiles():
             s.fill(claro, (1 + v % 2, 1, max(2, C // 2), max(2, C // 3)))
             s.set_at((1 + v % 2, 1), brillo)
             puntos(s, oscuro, [(v + 1, C // 2 + 1), (C - 2 - v, C // 2), (v, C - 2)])
+            if C >= 12:   # matas de pasto mas grandes a celda grande
+                for k in range(C // 3):
+                    gx, gy = (v * 5 + k * 7 + 3) % C, (k * 5 + v * 3 + 2) % (C - 2)
+                    s.fill(claro, (gx, gy, 1, 2))
+                    s.set_at((gx, gy), brillo)
             fila.append(s)
         veg.append(fila)
     _TILES["veg"] = veg
@@ -128,11 +133,17 @@ def obtener_tiles():
         puntos(s, (120, 200, 255), [(v, y), (v + 1, y), (v + 2, y)])
         puntos(s, (22, 118, 205), [(v + 3, y + 1), (v + 4, y + 1)])
         puntos(s, (225, 245, 255), [(C - 1 - v, y + 3), (v + 2, y + 5)])
+        if C >= 12:
+            s.fill((120, 200, 255), (v + 4, y + 7, 5, 1))
+            s.fill((22, 118, 205), (C - 8 - v, y + 10, 4, 1))
         agua.append(s)
         s = base((205, 160, 105))
         puntos(s, (172, 130, 84), [(v, 1), (C - 1 - v, C - 2)])
         puntos(s, (150, 175, 95), [(v + 2, 3), (v + 2, 4), (C - 1 - v, 1)])
         puntos(s, (224, 184, 130), [(C - 2 - v, 2)])
+        if C >= 12:
+            puntos(s, (172, 130, 84), [(v + 5, C // 2), (C - 4 - v, C // 2 + 2), (v + 2, C - 4)])
+            puntos(s, (150, 175, 95), [(C // 2 + v, 3), (C // 2 + v + 1, 3), (C // 2 + v, 4)])
         vacia.append(s)
         s = base((121, 85, 72))
         for yy in range(1, C, 2):
@@ -1726,14 +1737,19 @@ def decorar_mapa(sup, est, cubiertas):
 
     def poste(cx, cy):
         x0, y0 = cx * CELDA, cy * CELDA
-        sup.fill((96, 66, 38), (x0 + CELDA // 2 - 1, y0, 2, CELDA))
-        sup.set_at((x0 + CELDA // 2 - 1, y0), (170, 125, 75))
-        sup.fill((150, 108, 62), (x0, y0 + 2, CELDA, 1))
+        g = max(2, CELDA // 5)
+        xp = x0 + CELDA // 2 - g // 2
+        sup.fill((96, 66, 38), (xp, y0, g, CELDA))
+        sup.fill((170, 125, 75), (xp, y0, 1, 1 if CELDA < 12 else CELDA))
+        sup.fill((150, 108, 62), (x0, y0 + max(2, CELDA // 4), CELDA, max(1, CELDA // 8)))
 
     def tramo(cx, cy):
         x0, y0 = cx * CELDA, cy * CELDA
-        sup.fill((150, 108, 62), (x0, y0 + CELDA // 2 - 1, CELDA, 2))
-        sup.fill((96, 66, 38), (x0, y0 + CELDA // 2 + 1, CELDA, 1))
+        alt = max(2, CELDA // 8)
+        ys = (CELDA // 2 - 1,) if CELDA < 12 else (CELDA // 3 - 1, CELDA * 2 // 3 - 1)
+        for yy in ys:
+            sup.fill((150, 108, 62), (x0, y0 + yy, CELDA, alt))
+            sup.fill((96, 66, 38), (x0, y0 + yy + alt, CELDA, 1))
         sup.fill((96, 66, 38), (x0, y0 + 1, 1, CELDA - 2))
 
     ent = ry + rh // 2
@@ -1747,9 +1763,11 @@ def decorar_mapa(sup, est, cubiertas):
             tramo(k, ry + rh)
     if libre(rx - 2, ent - 1):
         x0, y0 = (rx - 2) * CELDA, (ent - 1) * CELDA
-        sup.fill((96, 66, 38), (x0 + CELDA // 2, y0 + 4, 1, CELDA - 4))
-        sup.fill((40, 28, 16), (x0, y0 + 1, CELDA, 4))
-        sup.fill((190, 150, 90), (x0 + 1, y0 + 2, CELDA - 2, 2))
+        ph = max(4, CELDA * 2 // 5)
+        gp = max(1, CELDA // 8)
+        sup.fill((96, 66, 38), (x0 + CELDA // 2 - gp // 2, y0 + ph, gp, CELDA - ph))
+        sup.fill((40, 28, 16), (x0, y0 + 1, CELDA, ph))
+        sup.fill((190, 150, 90), (x0 + 1, y0 + 2, CELDA - 2, ph - 2))
 
 
 def arbol3(sup, x0, y0, v):
@@ -1768,6 +1786,16 @@ def arbol3(sup, x0, y0, v):
     sup.set_at((cx - 3, cy - 4), (150, 215, 120))
     sup.set_at((cx + 2, cy + 2), (16, 48, 26))
     sup.set_at((cx - 2, cy + 3), (16, 48, 26))
+    if CELDA >= 12:   # racimos de hojas y tronco visible a celda grande
+        for k in range(9):
+            ox = ((k * 37 + v * 11) % (2 * r - 8)) - r + 4
+            oy = ((k * 53 + v * 7) % (2 * r - 10)) - r + 2
+            if ox * ox + oy * oy < (r - 4) ** 2:
+                col_k = (70 + 6 * v, 156 + 8 * v, 72) if k % 2 else (16, 48, 26)
+                pygame.draw.circle(sup, col_k, (cx + ox, cy + oy), max(2, r // 6))
+        sup.fill((90, 60, 35), (cx - 2, y0 + C3 - 9, 4, 9))
+        sup.fill((60, 40, 24), (cx + 1, y0 + C3 - 9, 1, 9))
+        sup.fill((120, 84, 50), (cx - 2, y0 + C3 - 9, 1, 9))
 
 
 def color_boton(activo):
@@ -3960,20 +3988,41 @@ def main():
                 x0, y0 = j * CELDA, i * CELDA
                 h2 = (((i * 40503) ^ (j * 9973)) >> 3) & 15
                 if s == 1 and idx not in cubiertas and h2 == 3:
-                    sup.fill((46, 92, 40), (x0 + 1, y0 + 2, CELDA - 2, CELDA - 3))
-                    sup.set_at((x0 + 2, y0 + 2), (110, 170, 90))
+                    if CELDA >= 12:
+                        pygame.draw.ellipse(sup, (28, 64, 30), (x0 + 1, y0 + 4, CELDA - 2, CELDA - 5))
+                        pygame.draw.ellipse(sup, (52, 108, 46), (x0 + 2, y0 + 4, CELDA - 5, CELDA - 8))
+                        sup.fill((110, 170, 90), (x0 + 4, y0 + 5, 3, 2))
+                        sup.set_at((x0 + 9, y0 + 6), (140, 200, 110))
+                    else:
+                        sup.fill((46, 92, 40), (x0 + 1, y0 + 2, CELDA - 2, CELDA - 3))
+                        sup.set_at((x0 + 2, y0 + 2), (110, 170, 90))
                 elif s == 0 and h2 == 5:
-                    sup.fill((80, 80, 78), (x0 + 1, y0 + CELDA - 2, CELDA - 2, 1))
-                    sup.fill((130, 130, 125), (x0 + 1, y0 + 2, CELDA - 2, CELDA - 4))
-                    sup.set_at((x0 + 1, y0 + 2), (178, 178, 172))
+                    if CELDA >= 12:
+                        pygame.draw.ellipse(sup, (70, 70, 68), (x0 + 1, y0 + CELDA - 6, CELDA - 2, 5))
+                        pygame.draw.ellipse(sup, (112, 112, 108), (x0 + 2, y0 + 4, CELDA - 4, CELDA - 8))
+                        pygame.draw.ellipse(sup, (152, 152, 146), (x0 + 4, y0 + 5, CELDA - 10, CELDA - 12))
+                        sup.set_at((x0 + 5, y0 + 6), (200, 200, 194))
+                    else:
+                        sup.fill((80, 80, 78), (x0 + 1, y0 + CELDA - 2, CELDA - 2, 1))
+                        sup.fill((130, 130, 125), (x0 + 1, y0 + 2, CELDA - 2, CELDA - 4))
+                        sup.set_at((x0 + 1, y0 + 2), (178, 178, 172))
                 elif s == 3 and h2 < 3:
-                    sup.fill((24, 20, 18), (x0 + CELDA // 2 - 1, y0 + 1, 2, CELDA - 1))
+                    _tw = max(2, CELDA // 6)
+                    sup.fill((24, 20, 18), (x0 + CELDA // 2 - _tw // 2, y0 + 1, _tw, CELDA - 1))
                     sup.set_at((x0 + 1, y0 + 2), (24, 20, 18))
                 if s == 1 and idx not in cubiertas and h2 in (7, 9, 11) and CELDA >= 6:
                     _fc = {7: (255, 150, 190), 9: (250, 250, 240), 11: (255, 225, 80)}[h2]
-                    sup.set_at((x0 + 2 + h2 % 3, y0 + 3), _fc)
-                    sup.set_at((x0 + 3 + h2 % 3, y0 + 3), _fc)
-                    sup.set_at((x0 + 2 + h2 % 3, y0 + 4), (40, 110, 50))
+                    if CELDA >= 12:
+                        fx_, fy_ = x0 + CELDA // 4 + (h2 % 3) * (CELDA // 6), y0 + CELDA // 4
+                        for ddx, ddy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                            sup.set_at((fx_ + ddx, fy_ + ddy), _fc)
+                        sup.set_at((fx_, fy_), (255, 225, 80) if h2 != 11 else (255, 250, 240))
+                        sup.fill((40, 110, 50), (fx_, fy_ + 2, 1, 3))
+                        sup.set_at((fx_ + 1, fy_ + 4), (70, 150, 70))
+                    else:
+                        sup.set_at((x0 + 2 + h2 % 3, y0 + 3), _fc)
+                        sup.set_at((x0 + 3 + h2 % 3, y0 + 3), _fc)
+                        sup.set_at((x0 + 2 + h2 % 3, y0 + 4), (40, 110, 50))
                 if s == 5:
                     for dj, di, rr in ((0, -1, (0, 0, CELDA, 1)), (0, 1, (0, CELDA - 1, CELDA, 1)),
                                        (-1, 0, (0, 0, 1, CELDA)), (1, 0, (CELDA - 1, 0, 1, CELDA))):
