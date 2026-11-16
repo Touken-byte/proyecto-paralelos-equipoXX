@@ -246,7 +246,50 @@ def con_sombras(pal):
 
 
 ANIMALES_SPR = {
-"O": (240, 150, 30), "K": (20, 20, 20), "H": (130, 225, 120)}),
+    "jaguar": ([
+        "......B.B...",
+        "..BHHBBBBBB.",
+        ".BHDBBDBBKBB",
+        "BBBBDBBBBBNN",
+        "BLLLLLLLLLB.",
+        ".BDBBDBBDBB.",
+        ".B.B....B.B.",
+        ".D.D....D.D.",
+    ], {"B": (225, 170, 40), "D": (40, 25, 10), "L": (245, 225, 170), "K": (20, 20, 20),
+        "H": (250, 205, 90), "N": (230, 120, 120)}),
+    "tapir": ([
+        "....BBBB....",
+        "..BHHBBBBBB.",
+        ".BBBWWWBBBKB",
+        "BBBBWWWBBBBB",
+        "BBBBBBBBBBDD",
+        ".BBHBBBBBBBD",
+        ".B.B....B.B.",
+        ".D.D....D.D.",
+    ], {"B": (110, 90, 80), "W": (235, 235, 235), "D": (60, 45, 40), "K": (20, 20, 20),
+        "H": (150, 128, 115)}),
+    "taitetu": ([
+        "...DDDDDD...",
+        "..DHDHDHDH..",
+        ".BBBBWWBBBBB",
+        "BBBBBWWBBBBK",
+        "BBBBBBBBBBBB",
+        ".BBBBBBBBBB.",
+        "..B.B..B.B..",
+        "..D.D..D.D..",
+    ], {"B": (80, 70, 60), "W": (220, 210, 180), "D": (45, 38, 32), "K": (20, 20, 20),
+        "H": (125, 112, 98)}),
+    "loro": ([
+        "....RRRR....",
+        "...RHRRRR...",
+        "...RRKRROO..",
+        ".GGGRRRRO...",
+        "GGGGGGGYY...",
+        "GGHGGHGGY...",
+        ".GGGGGGG....",
+        "..YY..KK....",
+    ], {"G": (60, 170, 70), "R": (220, 40, 40), "Y": (250, 210, 40),
+        "O": (240, 150, 30), "K": (20, 20, 20), "H": (130, 225, 120)}),
 }
 
 def sprite_animal(esp):
