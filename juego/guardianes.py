@@ -1220,7 +1220,7 @@ def dibujar_notif(pantalla, est, fnt, lado):
         return
     txt = fnt.render("Cuaderno: nueva ficha - " + act[0], True, (255, 255, 255))
     w = txt.get_width() + 20
-    x, y = lado - w - 10, lado - 40
+    x, y = lado[0] - w - 10, lado[1] - 40
     cuadro = pygame.Surface((w, 26), pygame.SRCALPHA)
     cuadro.fill((45, 25, 70, 225))
     pantalla.blit(cuadro, (x, y))
@@ -2189,7 +2189,7 @@ def _ajustar(texto, fnt, ancho):
         lineas.append(act)
     return lineas
 
-def dibujar_globo(pantalla, est, fnt):
+def dibujar_globo(pantalla, est, fnt, cam=(0, 0), vista=None):
     """Avanza la cola y dibuja el globo actual cerca del personaje que habla."""
     d = est["dlg"]
     ahora = pygame.time.get_ticks()
@@ -2213,14 +2213,14 @@ def dibujar_globo(pantalla, est, fnt):
     ancho = max([sn.get_width()] + [fnt.size(l)[0] for l in lineas]) + 20
     alto = 12 + lh * (len(lineas) + 1)
     cx, cy = (est["bx"], est["by"]) if es_b else (est["vx"], est["vy"])
-    px_, py_ = cx * CELDA + CELDA // 2, cy * CELDA
-    lim = est["n"] * CELDA
-    x = max(4, min(lim - ancho - 4, px_ - ancho // 2))
+    px_, py_ = cx * CELDA + CELDA // 2 - cam[0], cy * CELDA - cam[1]
+    limx, limy = vista if vista else (est["n"] * CELDA, est["n"] * CELDA)
+    x = max(4, min(limx - ancho - 4, px_ - ancho // 2))
     y = py_ - alto - 14
     abajo = y < 4
     if abajo:
         y = py_ + CELDA + 14
-    y = max(4, min(y, lim - alto - 4))
+    y = max(4, min(y, limy - alto - 4))
     rect = pygame.Rect(x, y, ancho, alto)
     pygame.draw.rect(pantalla, (45, 25, 70), rect, border_radius=6)
     pygame.draw.rect(pantalla, (200, 180, 240), rect, 2, border_radius=6)
@@ -2713,15 +2713,18 @@ def dibujar_icono_hab(pantalla, nombre, est, x, y):
             velo.fill((10, 10, 20, 170))
             pantalla.blit(velo, (x, y + 13 - alto))
 
-def dibujar_habilidades(pantalla, est, fnt):
+def dibujar_habilidades(pantalla, est, fnt, parte="todo", vista=None):
     """Anillos de las habilidades y alerta de zona prioritaria (refugio)."""
     import math
     ahora = pygame.time.get_ticks()
-    dibujar_fx(pantalla, est)
-    est["marcas"] = [m for m in est.get("marcas", []) if m[3] > ahora]
-    r = CELDA + 2 + int(2 * abs(math.sin(ahora / 200)))
-    for x, y, col, _ in est["marcas"]:
-        pygame.draw.circle(pantalla, col, (x * CELDA + CELDA // 2, y * CELDA + CELDA // 2), r, 2)
+    if parte in ("todo", "mundo"):
+        dibujar_fx(pantalla, est)
+        est["marcas"] = [m for m in est.get("marcas", []) if m[3] > ahora]
+        r = CELDA + 2 + int(2 * abs(math.sin(ahora / 200)))
+        for x, y, col, _ in est["marcas"]:
+            pygame.draw.circle(pantalla, col, (x * CELDA + CELDA // 2, y * CELDA + CELDA // 2), r, 2)
+    if parte == "mundo":
+        return
     if ahora - est.get("t_dref", -99999) > 500:
         est["t_dref"] = ahora
         n = est["n"]
@@ -2740,7 +2743,7 @@ def dibujar_habilidades(pantalla, est, fnt):
         est["alerta_ref"] = alerta
     if est.get("alerta_ref") and not est.get("ver_eval") and (ahora // 400) % 2 == 0:
         s = fnt.render(f"ALERTA: fuego a {est['d_ref']} celdas del refugio", True, (255, 255, 255))
-        caja = s.get_rect(center=(est["n"] * CELDA // 2, 18)).inflate(16, 8)
+        caja = s.get_rect(center=((vista[0] if vista else est["n"] * CELDA) // 2, 18)).inflate(16, 8)
         pygame.draw.rect(pantalla, (170, 30, 30), caja, border_radius=6)
         pygame.draw.rect(pantalla, (255, 200, 200), caja, 2, border_radius=6)
         pantalla.blit(s, s.get_rect(center=caja.center))
@@ -3156,6 +3159,45 @@ def tinte_emergencia(pantalla, est):
         _TINTE["sup"].fill((col[0], col[1], col[2], alfa))
         _TINTE["clave"] = clave
     pantalla.blit(_TINTE["sup"], (0, 0))
+
+CAM_ST = {"x": 0.0, "y": 0.0, "listo": False, "sup": None}
+
+def tam_vista(n):
+    # Tamano de la vista en pixeles. Sin VISTA muestra el mundo completo (igual que antes).
+    lado = n * CELDA
+    try:
+        k = int(os.environ.get("VISTA", "0"))
+    except ValueError:
+        k = 0
+    if k >= 20:
+        lado = min(lado, k * CELDA)
+    return lado, lado
+
+def superficie_mundo(n):
+    # Superficie donde se dibuja todo el mundo; la ventana solo muestra un recorte.
+    lado = n * CELDA
+    s = CAM_ST["sup"]
+    if s is None or s.get_size() != (lado, lado):
+        s = pygame.Surface((lado, lado))
+        CAM_ST["sup"] = s
+    return s
+
+def camara_actualizar(est, n, vw, vh):
+    # Camara compartida: sigue el punto medio de los dos personajes, suavizada y sin salir del mundo.
+    mundo_px = n * CELDA
+    max_x, max_y = max(0, mundo_px - vw), max(0, mundo_px - vh)
+    mx = (est["bx"] + est["vx"]) / 2 * CELDA + CELDA / 2
+    my = (est["by"] + est["vy"]) / 2 * CELDA + CELDA / 2
+    obj_x = max(0.0, min(float(max_x), mx - vw / 2))
+    obj_y = max(0.0, min(float(max_y), my - vh / 2))
+    if not CAM_ST["listo"]:
+        CAM_ST["x"], CAM_ST["y"], CAM_ST["listo"] = obj_x, obj_y, True
+    else:
+        CAM_ST["x"] += (obj_x - CAM_ST["x"]) * 0.2
+        CAM_ST["y"] += (obj_y - CAM_ST["y"]) * 0.2
+    CAM_ST["x"] = max(0.0, min(float(max_x), CAM_ST["x"]))
+    CAM_ST["y"] = max(0.0, min(float(max_y), CAM_ST["y"]))
+    return int(CAM_ST["x"]), int(CAM_ST["y"])
 
 def pajaros_ambiente(est):
     """Pajaros de fondo: suenan con el bosque sano y se apagan al llegar a 15% de perdida."""
@@ -3895,7 +3937,7 @@ def main():
 
     reiniciar()
     n = est["n"]
-    pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA))
+    pantalla = pygame.display.set_mode((tam_vista(n)[0] + PANEL_W, tam_vista(n)[1]))
     ok_menu = menu_principal(pantalla, fuente); cortina(pantalla) if ok_menu else None
     if ok_menu:
         niv = nivel_actual()
@@ -3904,7 +3946,7 @@ def main():
             CELDA = max(5, min(7, (ALTO_PANT["h"] - 72) // niv["n"]))
         reiniciar()
         n = est["n"]
-        pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA))
+        pantalla = pygame.display.set_mode((tam_vista(n)[0] + PANEL_W, tam_vista(n)[1]))
         pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
     if ok_menu:
         intro_nivel(pantalla, fuente, est); est["tick"]["t_fin"] = pygame.time.get_ticks()
@@ -3938,9 +3980,9 @@ def main():
                     if est.get("riesgo") is not None:
                         est["ver_riesgo"] = not est["ver_riesgo"]
                     else:
-                        pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA))
+                        pygame.draw.rect(pantalla, (30, 34, 40), (tam_vista(n)[0], 0, PANEL_W, tam_vista(n)[1]))
                         pantalla.blit(fuente.render("Vigia calculando...", True, (255, 220, 100)),
-                                      (n * CELDA + 10, 10))
+                                      (tam_vista(n)[0] + 10, 10))
                         pygame.display.flip()
                         try:
                             est["riesgo"], est["info_vigia"] = calcular_vigia(n)
@@ -4003,9 +4045,10 @@ def main():
                     est["tick"]["t_fin"] = 0     # depuracion: adelanta el siguiente tick
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
-                if my < n * CELDA and mx < n * CELDA:
+                _vw, _vh = tam_vista(n)
+                if my < _vh and mx < _vw:
                     tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
-                    cx, cy = mx // CELDA, my // CELDA
+                    cx, cy = (mx + int(CAM_ST["x"])) // CELDA, (my + int(CAM_ST["y"])) // CELDA
                     ahora_c = pygame.time.get_ticks()
                     if (cx - est["bx"]) ** 2 + (cy - est["by"]) ** 2 > ALCANCE ** 2:
                         est["msg"] = "Fuera de alcance: acércate con el bombero"
@@ -4118,6 +4161,10 @@ def main():
                 est["evaluacion"] = ev; est["ver_eval"] = True; est["derrota"] = True; est["final_pend"] = True
                 if "derrota" in sonidos:
                     sonidos["derrota"].play()
+        vista_w, vista_h = tam_vista(n)
+        lienzo_mundo = superficie_mundo(n)
+        pant_real = pantalla
+        pantalla = lienzo_mundo
         pantalla.fill((20, 20, 20))
         pantalla.blit(est["sup"], (0, 0))
         cuadro = pygame.time.get_ticks() // 110
@@ -4204,6 +4251,14 @@ def main():
             pygame.draw.rect(pantalla, _cb, (bx_, by_, int(28 * frac_), 4))
             if frac_ > 0:
                 pygame.draw.line(pantalla, tuple(min(255, c + 70) for c in _cb), (bx_, by_), (bx_ + max(0, int(28 * frac_) - 1), by_))
+        for tipo, x, y in est["pend"]:   # acciones pendientes (mundo)
+            col = (255, 255, 255) if tipo == "CORTAFUEGO" else (0, 255, 255)
+            pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
+        tinte_emergencia(pantalla, est)
+        dibujar_habilidades(pantalla, est, fuente_p, "mundo")
+        cam_x, cam_y = camara_actualizar(est, n, vista_w, vista_h)
+        pant_real.blit(pantalla, (0, 0), pygame.Rect(cam_x, cam_y, vista_w, vista_h))
+        pantalla = pant_real
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
         pass
         pass
@@ -4213,9 +4268,6 @@ def main():
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
         marco_dorado(pantalla, pygame.Rect(0, 0, max(txt_v.get_width(), txt_m.get_width(), txt_a.get_width()) + 14, 67)); pantalla.blit(txt_v, (6, 24)); pantalla.blit(txt_m, (6, 44))
         pantalla.blit(txt_a, (6, 4))
-        for tipo, x, y in est["pend"]:   # acciones pendientes de la ronda
-            col = (255, 255, 255) if tipo == "CORTAFUEGO" else (0, 255, 255)
-            pygame.draw.rect(pantalla, col, (x * CELDA, y * CELDA, CELDA, CELDA), 2)
         quemando, veg = est["estado"].count(2), est["estado"].count(1)
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
                   f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{tanque_max()}  "
@@ -4233,23 +4285,23 @@ def main():
             raise
         except Exception:
             pass
-        pajaros_ambiente(est); tinte_emergencia(pantalla, est); dibujar_habilidades(pantalla, est, fuente_p)
-        dibujar_globo(pantalla, est, fuente_p)
-        dibujar_notif(pantalla, est, fuente_p, n * CELDA)
+        pajaros_ambiente(est); dibujar_habilidades(pantalla, est, fuente_p, "hud", (vista_w, vista_h))
+        dibujar_globo(pantalla, est, fuente_p, (cam_x, cam_y), (vista_w, vista_h))
+        dibujar_notif(pantalla, est, fuente_p, (vista_w, vista_h))
         if est["msg"]:
             linea2 = est["msg"]
         elif quemando == 0:
             linea2 = f"Incendio controlado. Bosque conservado: {veg * 100 // est['veg0']}%  (R = reiniciar)"
         else:
             linea2 = "Izq: cortafuegos | Der: agua | P: ayuda y pausa"
-        _l1 = fuente.render(linea1, True, (255, 255, 255)); marco_dorado(pantalla, pygame.Rect(0, n * CELDA - 50, max(_l1.get_width(), fuente.size(linea2)[0]) + 14, 50)); pantalla.blit(_l1, (6, n * CELDA - 46))
-        _l2 = fuente.render(linea2, True, (200, 200, 200)); pantalla.blit(_l2, (6, n * CELDA - 24))
-        dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA); marco_dorado(pantalla, pygame.Rect(n * CELDA, 0, PANEL_W, n * CELDA), 0)
-        px = n * CELDA + 10
+        _l1 = fuente.render(linea1, True, (255, 255, 255)); marco_dorado(pantalla, pygame.Rect(0, vista_h - 50, max(_l1.get_width(), fuente.size(linea2)[0]) + 14, 50)); pantalla.blit(_l1, (6, vista_h - 46))
+        _l2 = fuente.render(linea2, True, (200, 200, 200)); pantalla.blit(_l2, (6, vista_h - 24))
+        dibujar_fondo_panel(pantalla, vista_w, PANEL_W, vista_h); marco_dorado(pantalla, pygame.Rect(vista_w, 0, PANEL_W, vista_h), 0)
+        px = vista_w + 10
         pantalla.blit(fuente.render("EL VIGIA", True, (90, 40, 10)), (px + 1, 11)); pantalla.blit(fuente.render("EL VIGIA", True, (255, 170, 60)), (px, 10)); pygame.draw.line(pantalla, (230, 170, 60), (px, min(32, 10 + fuente.get_height())), (px + PANEL_W - 70, min(32, 10 + fuente.get_height())), 2)
-        dibujar_icono_cuaderno(pantalla, n * CELDA + PANEL_W - 50, 8, fuente_p)
+        dibujar_icono_cuaderno(pantalla, vista_w + PANEL_W - 50, 8, fuente_p)
         if pygame.time.get_ticks() - AJ["t"] < 2500:
-            dibujar_barra_volumen(pantalla, n * CELDA - 170, 6)
+            dibujar_barra_volumen(pantalla, vista_w - 170, 6)
         pantalla.blit(fuente.render("V: mapa de riesgo", True, (200, 200, 200)), (px, 34))
         if est.get("riesgo") is None:
             pantalla.blit(fuente.render("(sin calcular)", True, (150, 150, 150)), (px, 62))
@@ -4266,12 +4318,12 @@ def main():
             pantalla.blit(fuente.render("Riesgo de quema", True, (200, 200, 200)), (px, 244))
         py = 270
         col_n = {"inicial": (120, 255, 160), "avanzada": (255, 200, 80), "critica": (255, 80, 80)}[est["nivel"]]
-        banner_emergencia(pantalla, est, fuente_p, n * CELDA, py)
+        banner_emergencia(pantalla, est, fuente_p, vista_w, py)
         py += 50
         panel_resumen(pantalla, est, fuente_p, px, py)
         fa = est.get("ficha_act")
         if fa and pygame.time.get_ticks() < fa[2]:
-            ancho_f = n * CELDA - 80
+            ancho_f = vista_w - 80
             partes = [("Conocimiento silvestre: " + fa[0], (255, 220, 100))]
             for lin in fa[1]:
                 partes += [(p_, (235, 235, 235)) for p_ in _ajustar(lin, fuente_p, ancho_f - 24)]
