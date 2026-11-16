@@ -2499,7 +2499,7 @@ def habilidad(est, tecla, desde_ia=False):
         _marcar(est, pos, (255, 230, 60), 6000)
         fx_nuevo(est, "onda", vx, vy, 1200, (255, 230, 60), 14)
         sonar("hab_senal")
-        est["msg"] = f"Señal de auxilio: {len(pos)} animales aislados marcados" if pos else "Señal de auxilio: sin animales aislados"
+        est["msg"] = (f"Señal de auxilio: {len(pos)} animales aislados marcados" if len(pos) != 1 else "Señal de auxilio: 1 animal aislado marcado") if pos else "Señal de auxilio: sin animales aislados"
     elif tecla == pygame.K_h:
         if estado_hab(est, "t_prot", CD_PROT_MS) != "listo":
             est["msg"] = "Protección térmica en recuperación"; return
