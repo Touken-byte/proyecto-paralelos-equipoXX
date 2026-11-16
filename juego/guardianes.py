@@ -870,7 +870,7 @@ def seleccionar_modo(pantalla, fuente):
         for i, r in enumerate(rects):
             rr = rect_boton(r, i == sel)
             pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
+            pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
             pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
             s = f_op.render(opciones[i][0], True, (255, 255, 255))
             pantalla.blit(s, s.get_rect(center=r.center))
@@ -1664,6 +1664,11 @@ def dibujar_fondo_panel(pantalla, x, ancho, alto):
     pantalla.blit(s, (x, 0))
 
 
+def color_boton(activo):
+    # relleno del boton: naranja claro si esta seleccionado
+    return (255, 120, 60) if activo else (38, 56, 44)
+
+
 def rect_boton(r, activo):
     # boton seleccionado: mas ancho y 2 px mas arriba
     if not activo:
@@ -1879,7 +1884,7 @@ def menu_principal(pantalla, fuente):
             for i, r in enumerate(rects):
                 rr = rect_boton(r, i == sel)
                 pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-                pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
+                pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
                 pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
                 centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery)
             centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
@@ -2814,7 +2819,7 @@ def seleccionar_dificultad(pantalla, fuente):
         for i, r in enumerate(rects):
             rr = rect_boton(r, i == sel)
             pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (38, 56, 44), rr, border_radius=8)
+            pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
             pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
             s = f_op.render(IA_NIVELES[claves[i]]["nombre"], True, (255, 255, 255))
             pantalla.blit(s, s.get_rect(center=r.center))
