@@ -3501,7 +3501,7 @@ def main():
     if os.environ.get("CELDA"):
         CELDA = max(3, min(8, int(os.environ["CELDA"])))
     else:   # ajusta el tamano de celda a la altura de la pantalla
-        ALTO_PANT["h"] = pygame.display.Info().current_h; CELDA = max(5, min(6, (ALTO_PANT["h"] - 110) // nivel_actual()["n"]))
+        ALTO_PANT["h"] = pygame.display.Info().current_h; CELDA = max(5, min(7, (ALTO_PANT["h"] - 72) // nivel_actual()["n"]))
     sonidos = {}
     try:   # si no hay audio, el juego sigue sin sonido
         pygame.mixer.init()
@@ -3639,16 +3639,16 @@ def main():
 
     reiniciar()
     n = est["n"]
-    pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
+    pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA))
     ok_menu = menu_principal(pantalla, fuente); cortina(pantalla) if ok_menu else None
     if ok_menu:
         niv = nivel_actual()
         asegurar_motor(niv)
         if not os.environ.get("CELDA"):
-            CELDA = max(5, min(6, (ALTO_PANT["h"] - 110) // niv["n"]))
+            CELDA = max(5, min(7, (ALTO_PANT["h"] - 72) // niv["n"]))
         reiniciar()
         n = est["n"]
-        pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA + 56))
+        pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA))
         pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
     if ok_menu:
         intro_nivel(pantalla, fuente, est); pantalla_pausa(pantalla, est, fuente, inicio=True); est["tick"]["t_fin"] = pygame.time.get_ticks()
@@ -3682,7 +3682,7 @@ def main():
                     if est.get("riesgo") is not None:
                         est["ver_riesgo"] = not est["ver_riesgo"]
                     else:
-                        pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA + 56))
+                        pygame.draw.rect(pantalla, (30, 34, 40), (n * CELDA, 0, PANEL_W, n * CELDA))
                         pantalla.blit(fuente.render("Vigia calculando...", True, (255, 220, 100)),
                                       (n * CELDA + 10, 10))
                         pygame.display.flip()
@@ -3988,9 +3988,9 @@ def main():
             linea2 = f"Incendio controlado. Bosque conservado: {veg * 100 // est['veg0']}%  (R = reiniciar)"
         else:
             linea2 = "Izq: cortafuegos | Der: agua | P: ayuda y pausa"
-        pantalla.blit(fuente.render(linea1, True, (255, 255, 255)), (10, n * CELDA + 6))
-        pantalla.blit(fuente.render(linea2, True, (200, 200, 200)), (10, n * CELDA + 30))
-        dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA + 56)
+        _l1 = fuente.render(linea1, True, (255, 255, 255)); pantalla.fill((0, 0, 0), _l1.get_rect(topleft=(6, n * CELDA - 46))); pantalla.blit(_l1, (6, n * CELDA - 46))
+        _l2 = fuente.render(linea2, True, (200, 200, 200)); pantalla.fill((0, 0, 0), _l2.get_rect(topleft=(6, n * CELDA - 24))); pantalla.blit(_l2, (6, n * CELDA - 24))
+        dibujar_fondo_panel(pantalla, n * CELDA, PANEL_W, n * CELDA)
         px = n * CELDA + 10
         pantalla.blit(fuente.render("EL VIGIA", True, (255, 170, 60)), (px, 10))
         dibujar_icono_cuaderno(pantalla, n * CELDA + PANEL_W - 50, 8, fuente_p)
