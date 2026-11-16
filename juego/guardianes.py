@@ -3651,7 +3651,7 @@ def main():
         pantalla = pygame.display.set_mode((n * CELDA + PANEL_W, n * CELDA))
         pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
     if ok_menu:
-        intro_nivel(pantalla, fuente, est); pantalla_pausa(pantalla, est, fuente, inicio=True); est["tick"]["t_fin"] = pygame.time.get_ticks()
+        intro_nivel(pantalla, fuente, est); est["tick"]["t_fin"] = pygame.time.get_ticks()
     if not ok_menu:
         pygame.quit()
         return
