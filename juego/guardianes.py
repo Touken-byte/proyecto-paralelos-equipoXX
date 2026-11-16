@@ -1547,6 +1547,16 @@ def dibujar_fondo_panel(pantalla, x, ancho, alto):
     pantalla.blit(s, (x, 0))
 
 
+def sonar(nombre):
+    """Reproduce un sonido de interfaz por el canal de efectos (no falla si no hay audio)."""
+    try:
+        s = AJ["snd"].get(nombre)
+        if s:
+            s.play()
+    except Exception:
+        pass
+
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
@@ -1602,20 +1612,25 @@ def menu_principal(pantalla, fuente):
                 elif e.key == pygame.K_RIGHT:
                     cambiar_volumen(0.1)
                 elif e.key == pygame.K_UP:
-                    sel = (sel - 1) % len(opciones)
+                    sel = (sel - 1) % len(opciones); sonar("ui_mover")
                 elif e.key == pygame.K_DOWN:
-                    sel = (sel + 1) % len(opciones)
+                    sel = (sel + 1) % len(opciones); sonar("ui_mover")
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                     accion = sel
             elif e.type == pygame.MOUSEMOTION:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
+                        if sel != i:
+                            sonar("ui_mover")
                         sel = i
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(rects):
                     if r.collidepoint(e.pos):
                         sel = i
                         accion = i
+        if accion is not None:
+            sonar({"Jugar": "ui_jugar", "Campaña": "ui_jugar", "Tienda": "ui_tienda",
+                   "Salir": "ui_salir"}.get(opciones[accion], "ui_aceptar"))
         if accion is not None and opciones[accion] in ("Jugar", "Campaña"):
             m = seleccionar_modo(pantalla, fuente)
             if m == "salir":
@@ -3010,7 +3025,8 @@ def main():
         cargar_ajustes()
         musica.play(loops=-1)
         sonidos["musica"] = musica
-        for _n in ("rescate", "recompensa", "derrota", "proteccion", "conocimiento", "fuego"):
+        for _n in ("rescate", "recompensa", "derrota", "proteccion", "conocimiento", "fuego",
+                   "ui_mover", "ui_aceptar", "ui_volver", "ui_jugar", "ui_tienda", "ui_salir"):
             try:
                 sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
             except Exception:
