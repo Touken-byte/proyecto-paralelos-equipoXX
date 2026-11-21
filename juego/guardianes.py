@@ -1033,20 +1033,20 @@ def equipar_skin(pers, i):
     refrescar_skins()
     return True, f"Equipada: {SKINS[pers][i][0]}"
 
+def sprite_chibi(pers, i):
+    # personajes chibi (juego/sprites_chibi.py): 33x51 y 39x51 px, escala 1; las skins recolorean por grupos
+    import sprites_chibi
+    nombre = pers if i == 0 else f"{pers}:{i}"
+    if nombre not in _SPRITES:
+        _SPRITES[nombre] = sprites_chibi.construir(pers, {} if i == 0 else SKINS[pers][i][2])
+    return nombre, _SPRITES[nombre]
+
+
 def sprite_personaje(pers, i=None):
     # devuelve (nombre_de_cache, sprite); el nombre incluye la skin para sprite_paso
     if i is None:
         i = SKIN_ACTUAL[pers]
-    if i == 0:
-        if pers == "bombero":
-            return "bombero", sprite_bombero()
-        return "vet", sprite_generico("vet", SPRITE_VET, PALETA_VET)
-    base, matriz = (PALETA_BOMBERO, SPRITE_BOMBERO) if pers == "bombero" else (PALETA_VET, SPRITE_VET)
-    pal = dict(base)
-    pal.update(SKINS[pers][i][2])
-    pal = con_sombras(pal)
-    nombre = f"{pers}:{i}"
-    return nombre, sprite_generico(nombre, matriz, pal)
+    return sprite_chibi(pers, i)
 
 refrescar_skins()
 
@@ -3864,9 +3864,9 @@ def sprite_paso(spr, nombre, lado=1):
     if clave not in _SPRITES:
         w, h = spr.get_size()
         s = spr.copy()
-        piernas = spr.subsurface((0, h - 2, w, 2)).copy()
-        s.fill((0, 0, 0, 0), (0, h - 2, w, 2))
-        s.blit(piernas, (2 * lado, h - 2))
+        piernas = spr.subsurface((8, h - 4, 16, 4)).copy()
+        s.fill((0, 0, 0, 0), (8, h - 4, 16, 4))
+        s.blit(piernas, (8 + 2 * lado, h - 4))
         _SPRITES[clave] = s
     return _SPRITES[clave]
 
@@ -4335,7 +4335,7 @@ def main():
                            ALCANCE * CELDA, 1)
         if pygame.time.get_ticks() < est.get("t_prot_fin", 0):
             pygame.draw.circle(pantalla, (255, 150, 0),
-                               (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA + CELDA // 2), 14, 3)
+                               (est["bx"] * CELDA + CELDA // 2, est["by"] * CELDA - 9), 26, 3)
         _t = pygame.time.get_ticks()
         for _k, _nom, _spr in (("b",) + sprite_personaje("bombero"),
                                ("v",) + sprite_personaje("vet")):
@@ -4354,7 +4354,7 @@ def main():
         salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
         for k_, (cx_, cy_) in (("b", (est["bx"], est["by"])), ("v", (est["vx"], est["vy"]))):
             frac_ = est["vida"][k_] / VIDA_MAX
-            bx_, by_ = cx_ * CELDA + CELDA // 2 - 14, cy_ * CELDA - 38
+            bx_, by_ = cx_ * CELDA + CELDA // 2 - 14, cy_ * CELDA - 52
             pygame.draw.rect(pantalla, (0, 0, 0), (bx_ - 1, by_ - 1, 30, 6), border_radius=2)
             pygame.draw.rect(pantalla, (50, 12, 12), (bx_, by_, 28, 4))
             _cb = (255, 60, 60) if frac_ < 0.35 else (80, 220, 90)
