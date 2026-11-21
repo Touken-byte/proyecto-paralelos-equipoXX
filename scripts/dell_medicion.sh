@@ -14,7 +14,7 @@ for h in $HILOS; do [ "$h" -le "$LOGICAS" ] && H_OK="$H_OK $h"; done
 HILOS=$(echo $H_OK); export HILOS
 echo "CPUs logicas del host: $LOGICAS -> CPUS_NODO=$CPUS_NODO HILOS=\"$HILOS\""
 NMAX=${NMAX:-2048}
-SIMS=${SIMS:-48}
+SIMS=${SIMS:-48}; export SIMS
 OUT=docs/resultados_dell
 mkdir -p $OUT docs/evidencias docs/graficas output bin data/maps
 chmod -R a+rwX output bin data docs 2>/dev/null
@@ -33,12 +33,12 @@ LC_ALL=C lscpu | grep -E "Model name|^CPU\(s\)|Thread|Core|Socket"; nproc; free 
 
 echo; echo "##### 3. COMPILACION #####"
 $X "cd /home/mpiuser/proyecto && F='-std=c++17 -O2 -Wall -Wextra -I src/common' &&
-  mpicxx \$F src/parallel/fire_mpi.cpp -o bin/fire_mpi &&
-  mpicxx \$F -fopenmp src/parallel/vigia_hibrido.cpp -o bin/vigia_hibrido && echo Compilacion OK"
+  mpicxx -DOMPI_SKIP_MPICXX \$F src/parallel/fire_mpi.cpp -o bin/fire_mpi &&
+  mpicxx -DOMPI_SKIP_MPICXX \$F -fopenmp src/parallel/vigia_hibrido.cpp -o bin/vigia_hibrido && echo Compilacion OK"
 
-echo; echo "##### 4. BENCHMARK OPENMP (puede tardar varios minutos) #####"
+echo; echo "##### 4. BENCHMARK COMPLETO: secuencial, OpenMP, MPI y Vigia (puede tardar varios minutos) #####"
 ./scripts/benchmark.sh | tee $OUT/benchmark_salida.txt
-cp output/benchmark.csv output/benchmark_resumen.csv $OUT/
+cp output/benchmark.csv output/benchmark_resumen.csv output/benchmark_mpi.csv output/benchmark_mpi_resumen.csv output/benchmark_vigia.csv output/benchmark_vigia_resumen.csv $OUT/
 
 echo; echo "##### 4b. BENCHMARK ESCALABILIDAD DEBIL (Gustafson) #####"
 ./scripts/benchmark_debil.sh | tee $OUT/benchmark_debil_salida.txt
@@ -52,27 +52,14 @@ for n in $SIZES; do
 done
 cat $OUT/memoria.txt
 
-echo; echo "##### 6. MPI (n=$NMAX, 100 pasos) #####"
-for np in 1 2 3 6; do
-  for r in $(seq 1 $REPS); do
-    $X "cd /home/mpiuser/proyecto && mpirun -np $np --bind-to none --hostfile infrastructure/hostfile --map-by node ./bin/fire_mpi --mapa data/maps/map_$NMAX.bin --pasos 100 | grep RESULT" | sed "s/^/rep=$r /"
-  done
-done | tee $OUT/mpi.txt
-
-echo; echo "##### 7. VIGIA (n=512, $SIMS simulaciones, 100 pasos) #####"
-for cfg in "1 1" "1 4" "3 1" "3 4"; do
-  set -- $cfg
-  for r in $(seq 1 $REPS); do
-    $X "cd /home/mpiuser/proyecto && mpirun -np $1 --bind-to none --hostfile infrastructure/hostfile --map-by node ./bin/vigia_hibrido --mapa data/maps/map_512.bin --sims $SIMS --pasos 100 --hilos $2 --salida output/vigia/riesgo_dell.pgm | grep RESULT" | sed "s/^/rep=$r /"
-  done
-done | tee $OUT/vigia.txt
-
-echo; echo "##### 8. IMAGENES Y ANALISIS #####"
+echo; echo "##### 6. IMAGENES Y ANALISIS #####"
 $X "cd /home/mpiuser/proyecto && ./bin/fire_seq --mapa data/maps/map_512.bin --pasos 100 --pgm-cada 50 --salida output/seq_512 > /dev/null"
 python3 scripts/pgm2png.py --montaje docs/evidencias/E09_mapa_incendio_dell.png output/seq_512/paso_0000.pgm output/seq_512/paso_0050.pgm output/seq_512/paso_0100.pgm
+cp output/vigia/riesgo.pgm output/vigia/riesgo_dell.pgm
 python3 scripts/heat2png.py output/vigia/riesgo_dell.pgm
 cp output/vigia/riesgo_dell.png docs/evidencias/E17_vigia_riesgo_dell.png
 python3 scripts/analisis.py $OUT/benchmark.csv docs/graficas | tee $OUT/analisis.txt
 python3 scripts/analisis_debil.py $OUT/benchmark_debil.csv docs/graficas | tee $OUT/analisis_debil.txt
+python3 scripts/analisis_mpi.py $OUT | tee $OUT/analisis_mpi.txt
 
 echo; echo "MEDICION TERMINADA. Resultados en $OUT/ y docs/graficas/"
