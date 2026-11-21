@@ -1196,7 +1196,7 @@ CUADERNO = [
                            "Solo se ayuda a animales heridos, quemados o inmovilizados.",
                            "Un animal silvestre asustado puede morder o arañar. No lo manipules sin protección ni sin orientación de un veterinario o de las autoridades ambientales."]),
         ("Reportar el foco", ["Informa dónde está el foco, qué se quema, hacia dónde va el viento y si hay personas o animales en peligro."]),
-        ("Después del incendio", ["No regreses hasta que las autoridades lo permitan: puede haber brasas ocultas y árboles inestables.",
+        ("Tras el incendio", ["No regreses hasta que las autoridades lo permitan: puede haber brasas ocultas y árboles inestables.",
                                   "Vigila la tos y la irritación de ojos. Revisa a los animales que vuelvan."]),
         ("Fuentes", ["Mayo Clinic, Ministerio de Sanidad de España (guía 2026), OMS, CDC, SAG de Chile, Bogotá, Gobierno de Aragón, eju.tv y Mongabay.",
                      "Ninguna fuente es boliviana: confirma con la Cruz Roja Boliviana o Defensa Civil.",
