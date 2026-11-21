@@ -16,8 +16,8 @@ mkdir -p bin output output/vigia
 FLAGS="-std=c++17 -O2 -Wall -Wextra -I src/common"
 g++ $FLAGS src/sequential/fire_seq.cpp -o bin/fire_seq || exit 1
 g++ $FLAGS -fopenmp src/parallel/fire_omp.cpp -o bin/fire_omp || exit 1
-mpicxx $FLAGS src/parallel/fire_mpi.cpp -o bin/fire_mpi || exit 1
-mpicxx $FLAGS -fopenmp src/parallel/vigia_hibrido.cpp -o bin/vigia_hibrido || exit 1
+mpicxx -DOMPI_SKIP_MPICXX $FLAGS src/parallel/fire_mpi.cpp -o bin/fire_mpi || exit 1
+mpicxx -DOMPI_SKIP_MPICXX $FLAGS -fopenmp src/parallel/vigia_hibrido.cpp -o bin/vigia_hibrido || exit 1
 
 CSV=output/benchmark.csv; CSVM=output/benchmark_mpi.csv; CSVV=output/benchmark_vigia.csv
 echo "modo,n,pasos,hilos,rep,tiempo_s,checksum" > $CSV
