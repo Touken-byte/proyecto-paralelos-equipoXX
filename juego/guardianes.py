@@ -1173,6 +1173,28 @@ CUADERNO = [
                                    "En emergencia crítica empieza una cuenta regresiva."]),
         ("Modalidades del motor", ["El motor existe en versión secuencial, OpenMP, MPI e híbrida (MPI + OpenMP).",
                                    "En cada ronda el juego usa la versión secuencial; el Vigía usa la híbrida."])]),
+    ("Primeros auxilios", [
+        ("Quemaduras leves", ["Aleja a la persona del fuego y enfría la zona con agua corriente. No uses hielo, mantequilla ni pasta dental.",
+                              "Mayo Clinic: agua fresca, no fría, unos 10 minutos; advierte que el agua fría puede empeorar la lesión.",
+                              "Guía del Ministerio de Sanidad de España: agua fría corriente de 20 a 30 minutos.",
+                              "Las dos fuentes no coinciden: aquí se muestran ambas y no se elige una.",
+                              "No revientes las ampollas y cubre con un apósito limpio."]),
+        ("Quemaduras graves", ["Si la quemadura es grande, profunda o está en cara, manos o genitales, pide ayuda médica.",
+                               "No retires la ropa pegada a la piel. Cubre con un paño limpio y húmedo.",
+                               "Si la persona respira mal o está inconsciente, busca atención de emergencia de inmediato."]),
+        ("Humo", ["Sal a un lugar con aire limpio. Si debes cruzar humo, cubre nariz y boca con un paño húmedo.",
+                  "Tos persistente, dolor de pecho o falta de aire después de respirar humo son motivo de consulta médica."]),
+        ("Evacuar", ["Sigue las indicaciones de las autoridades y no regreses a buscar objetos.",
+                     "Avisa a tus vecinos y aléjate en dirección contraria al viento."]),
+        ("Animal herido", ["Los animales sanos huyen solos del fuego: no hay que intervenirlos.",
+                           "Solo se ayuda a animales heridos, quemados o inmovilizados.",
+                           "Un animal silvestre asustado puede morder o arañar. No lo manipules sin protección ni sin orientación de un veterinario o de las autoridades ambientales."]),
+        ("Reportar el foco", ["Informa dónde está el foco, qué se quema, hacia dónde va el viento y si hay personas o animales en peligro."]),
+        ("Después del incendio", ["No regreses hasta que las autoridades lo permitan: puede haber brasas ocultas y árboles inestables.",
+                                  "Vigila la tos y la irritación de ojos. Revisa a los animales que vuelvan."]),
+        ("Fuentes", ["Mayo Clinic, Ministerio de Sanidad de España (guía 2026), OMS, CDC, SAG de Chile, Bogotá, Gobierno de Aragón, eju.tv y Mongabay.",
+                     "Ninguna fuente es boliviana: confirma con la Cruz Roja Boliviana o Defensa Civil.",
+                     "Esta sección es informativa y no reemplaza la atención médica."])]),
 ]
 
 # Claves estables de cada ficha (mismo orden que CUADERNO). Lo desbloqueado va a output/cuaderno.json.
@@ -1182,12 +1204,15 @@ CUAD_CLAVES = [
     ["manual:mochila", "manual:cortafuego", "manual:manguera", "manual:torre", "manual:termica",
      "manual:rescate", "manual:botiquin", "manual:rastreo", "manual:senal", "manual:apoyo", "manual:ia"],
     ["atlas:propagacion", "atlas:vigia", "atlas:emergencia", "atlas:motor"],
+    ["primeros:leves", "primeros:graves", "primeros:humo", "primeros:evacuar",
+     "primeros:animal", "primeros:reportar", "primeros:despues", "primeros:fuentes"],
 ]
 assert [len(c) for c in CUAD_CLAVES] == [len(s[1]) for s in CUADERNO]
 CUAD_PISTA = {"fauna": "Identifica a esta especie con Conocimiento silvestre (K) o rescátala.",
               "manual": "Usa esta herramienta en una partida para desbloquearla.",
               "guia": "Sigue jugando: se desbloquea con tu progreso.",
-              "atlas": "Sigue jugando: se desbloquea con tu progreso."}
+              "atlas": "Sigue jugando: se desbloquea con tu progreso.",
+              "primeros": "Sigue jugando: se desbloquea con tu progreso."}
 HAB_T = {pygame.K_g: "t_mang", pygame.K_t: "t_torre", pygame.K_h: "t_prot",
          pygame.K_z: "t_boti", pygame.K_x: "t_rastreo", pygame.K_q: "t_senal"}
 HAB_FICHA = {pygame.K_g: "manguera", pygame.K_t: "torre", pygame.K_h: "termica",
@@ -1266,6 +1291,15 @@ def cuaderno(pantalla, fuente):
     f_t = pygame.font.Font(None, 26)
     f_p = pygame.font.Font(None, 20)
     sec, ent = 0, 0
+    f_pest, sep_pest = f_s, 24
+    for _tam in (24, 22, 20, 18, 16):
+        _fp = pygame.font.Font(None, _tam)
+        _suma = sum(_fp.size(_nm)[0] for _nm, _ in CUADERNO)
+        _hueco = (w - 60 - 40 - _suma) // (len(CUADERNO) - 1)
+        f_pest = _fp
+        if _hueco >= 10:
+            sep_pest = min(24, _hueco); break
+        sep_pest = 10
     reloj = pygame.time.Clock()
     while True:
         for e in pygame.event.get():
@@ -1293,11 +1327,11 @@ def cuaderno(pantalla, fuente):
         pantalla.blit(t, t.get_rect(center=(w // 2, 68)))
         x = marco.x + 20
         for i, (nom, _) in enumerate(CUADERNO):
-            s = f_s.render(nom, True, (255, 255, 255) if i == sec else (150, 170, 150))
+            s = f_pest.render(nom, True, (255, 255, 255) if i == sec else (150, 170, 150))
             pantalla.blit(s, (x, 100))
             if i == sec:
                 pygame.draw.line(pantalla, (255, 170, 60), (x, 122), (x + s.get_width(), 122), 2)
-            x += s.get_width() + 24
+            x += s.get_width() + sep_pest
         fichas = CUADERNO[sec][1]
         lista = pygame.Rect(marco.x + 20, 140, 190, marco.h - 140 - 60)
         for i, (nom, _) in enumerate(fichas):
@@ -2795,6 +2829,7 @@ def habilidad(est, tecla, desde_ia=False):
         est["t_prot_fin"] = ahora + DUR_PROT_MS
         est["msg"] = "Protección térmica activa: cruza las llamas sin daño"
         decir(est, "b", "Traje térmico listo. Ahora sí puedo meterme al fuego.", "importante", "prot")
+        desbloquear(est, "primeros:leves"); desbloquear(est, "primeros:graves")
         _s = AJ["snd"].get("proteccion")
         if _s:
             _s.play()
@@ -4194,6 +4229,7 @@ def main():
         est["dlg"] = nuevo_dialogo(); est["salon_ok"] = False
         est["marcas"] = []; est["tratados"] = set(); est["alerta_ref"] = False; est["t_dref"] = -99999; est["pendientes"] = set(); est["t_prot"] = -99999; est["t_prot_fin"] = 0; est["t_conoc"] = -99999; est["ficha_act"] = None
         dialogos_inicio(est)
+        desbloquear(est, "primeros:fuentes")
         if os.environ.get("DIALOGO_PRUEBA"):   # solo para probar el sistema de globos
             decir(est, "b", "¡Buenos días, Yacuiba! Hoy el fuego se va a arrepentir de haber madrugado.", "ocasional")
             decir(est, "v", "Concéntrate. Hay animales que dependen de que no te pongas a bromear.", "importante")
@@ -4455,9 +4491,10 @@ def main():
                 actualizar_emergencia(est)
                 est["msg"] = ""
                 mover_fauna(est); chillar_fauna(est)
-                desbloquear(est, "atlas:propagacion"); desbloquear(est, "guia:foco")
+                desbloquear(est, "atlas:propagacion"); desbloquear(est, "guia:foco"); desbloquear(est, "primeros:reportar")
                 if est["nivel"] != "inicial":
                     desbloquear(est, "atlas:emergencia")
+                    desbloquear(est, "primeros:humo"); desbloquear(est, "primeros:evacuar"); desbloquear(est, "primeros:despues")
                 redibujar()
             tk["res"] = None; tk["t_fin"] = ahora
         if est.get("ia_rol", "veterinaria") == "bombero":
@@ -4495,7 +4532,7 @@ def main():
                 fx_nuevo(est, "estrellas", est["vx"], est["vy"], 1500, (255, 230, 60))
                 fx_nuevo(est, "corazones", est["vx"], est["vy"], 1700, (255, 90, 120))
                 fx_nuevo(est, "onda", est["vx"], est["vy"], 900, (120, 255, 160), 3)
-                desbloquear(est, "fauna:" + est["carga"][3]); desbloquear(est, "manual:rescate")
+                desbloquear(est, "fauna:" + est["carga"][3]); desbloquear(est, "manual:rescate"); desbloquear(est, "primeros:animal")
                 if "rescate" in sonidos:
                     sonidos["rescate"].play()
                 nsalvos = sum(1 for a in est["animales"] if a[2] == "salvo")
