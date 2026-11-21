@@ -1,0 +1,5 @@
+# Atajo para el Hito 3: permite `docker compose up --build` desde la raiz del repositorio.
+# Usa el mismo proyecto que los scripts (infrastructure), asi no hay contenedores duplicados.
+name: infrastructure
+include:
+  - infrastructure/docker-compose.yml
