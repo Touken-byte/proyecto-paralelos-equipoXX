@@ -2499,7 +2499,7 @@ RET_EXPR = {
                    (11, 6), (11, 7), (11, 8), (11, 9), (12, 5), (12, 10)],
 }
 
-def retrato(quien, expr="normal"):
+def retrato_pixel16(quien, expr="normal"):
     """Retrato pixel 16x16 (x6 = 96 px) con la paleta y la skin equipada del personaje."""
     pers = "bombero" if quien == "b" else "vet"
     i = SKIN_ACTUAL.get(pers, 0)
@@ -2515,6 +2515,89 @@ def retrato(quien, expr="normal"):
     for fila, col in RET_EXPR[expr]:
         filas[fila][col] = "K"
     return sprite_generico(f"ret:{pers}:{i}:{expr}", ["".join(f) for f in filas], pal, 6)
+
+_RET_CACHE = {}
+# Cabeza de cada chibi (filas 0-33, escala 1): columnas de ojos, cejas y boca para dibujar las expresiones.
+_RET_CABEZA = {
+    "bombero": {"alto": 34, "ojos": (10, 21), "cejas": ((9, 12), (19, 22)), "boca": (13, 18), "piel": (14, 28)},
+    "vet": {"alto": 34, "ojos": (11, 22), "cejas": ((10, 13), (20, 23)), "boca": (15, 18), "piel": (15, 28)},
+}
+_RET_ESC = 3
+
+def _ret_chibi(pers, i, expr):
+    # Cabeza del chibi (con su skin) ampliada x3 y con la expresion dibujada encima.
+    import sprites_chibi
+    d = _RET_CABEZA[pers]
+    cuerpo = sprites_chibi.construir(pers, {} if i == 0 else SKINS[pers][i][2])
+    cab = cuerpo.subsurface((0, 0, cuerpo.get_width(), d["alto"])).copy()
+    piel = tuple(cab.get_at(d["piel"]))[:3]
+    osc, rojo, ceja = (60, 28, 24), (150, 40, 50), (70, 35, 25)
+    c0, c1 = d["boca"]
+    if expr == "alegre":
+        for ox in d["ojos"]:
+            for dx in (0, 1):
+                cab.set_at((ox + dx, 28), osc)
+                cab.set_at((ox + dx, 29), piel)
+        for x in range(c0, c1 + 1):
+            for y in (30, 31):
+                cab.set_at((x, y), piel)
+        cab.set_at((c0, 30), osc); cab.set_at((c1, 30), osc)
+        for x in range(c0 + 1, c1):
+            cab.set_at((x, 31), rojo)
+    elif expr == "preocupada":
+        (a1, b1), (a2, b2) = d["cejas"]
+        for x in range(a1, b1 + 1):
+            cab.set_at((x, 23 if x >= b1 - 1 else 24), ceja)
+        for x in range(a2, b2 + 1):
+            cab.set_at((x, 23 if x <= a2 + 1 else 24), ceja)
+        for x in range(c0, c1 + 1):
+            for y in (30, 31):
+                cab.set_at((x, y), piel)
+        for x in range(c0 + 1, c1):
+            cab.set_at((x, 30), osc)
+        cab.set_at((c0, 31), osc); cab.set_at((c1, 31), osc)
+    return pygame.transform.scale(cab, (cab.get_width() * _RET_ESC, cab.get_height() * _RET_ESC))
+
+def retrato(quien, expr="normal"):
+    # Retrato del dialogo: la cabeza del chibi actual. Si algo falla, vuelve al retrato pixel viejo.
+    pers = "bombero" if quien == "b" else "vet"
+    i = SKIN_ACTUAL.get(pers, 0)
+    if expr not in RET_EXPR:
+        expr = "normal"
+    clave = (pers, i, expr)
+    img = _RET_CACHE.get(clave)
+    if img is None:
+        try:
+            img = _ret_chibi(pers, i, expr)
+        except Exception:
+            img = retrato_pixel16(quien, expr)
+        _RET_CACHE[clave] = img
+    return img
+
+_FONDO_RET = {}
+def fondo_retrato(es_b, w, h):
+    # Fondo del retrato: degradado con el color del personaje, brillo suave y borde fino.
+    clave = (es_b, w, h)
+    s = _FONDO_RET.get(clave)
+    if s is not None:
+        return s
+    base = (255, 170, 60) if es_b else (120, 220, 255)
+    top = (34, 20, 58)
+    bot = tuple(int(base[k] * 0.30 + top[k] * 0.55) for k in range(3))
+    s = pygame.Surface((w, h), pygame.SRCALPHA)
+    for y in range(h):
+        t = y / max(1, h - 1)
+        c = tuple(int(top[k] + (bot[k] - top[k]) * t) for k in range(3))
+        pygame.draw.line(s, c + (255,), (0, y), (w, y))
+    brillo = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.circle(brillo, base + (55,), (w // 2, h // 2 + 6), int(min(w, h) * 0.46))
+    s.blit(brillo, (0, 0))
+    pygame.draw.rect(s, tuple(int(c * 0.6) for c in base) + (255,), (4, 4, w - 8, h - 8), 1, border_radius=4)
+    mascara = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.rect(mascara, (255, 255, 255, 255), (0, 0, w, h), border_radius=6)
+    s.blit(mascara, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+    _FONDO_RET[clave] = s
+    return s
 
 def expr_final(est):
     """Expresion de los retratos en el dialogo final segun el resultado."""
@@ -2557,12 +2640,14 @@ def cuadro_grande(pantalla, paginas, fuente, expr="normal"):
         tx = caja.x + 24
         if quien:
             es_b = quien == "b"
-            ret = pygame.Rect(caja.x + 24, caja.y + 26, 96, 96)
-            pygame.draw.rect(pantalla, (30, 16, 50), ret, border_radius=6)
+            ret = pygame.Rect(caja.x + 24, caja.y + 22, 124, 112)
+            pantalla.blit(fondo_retrato(es_b, ret.w, ret.h), ret)
             pygame.draw.rect(pantalla, (255, 170, 60) if es_b else (120, 220, 255), ret, 3, border_radius=6)
             ini = pygame.font.Font(None, 80).render("B" if es_b else "V", True,
                                                     (255, 170, 60) if es_b else (120, 220, 255))
-            pantalla.blit(retrato(quien, expr.get(quien, "normal") if isinstance(expr, dict) else expr), ret); pygame.draw.rect(pantalla, (255, 170, 60) if es_b else (120, 220, 255), ret, 3, border_radius=6)
+            _im = retrato(quien, expr.get(quien, "normal") if isinstance(expr, dict) else expr)
+            pantalla.blit(_im, _im.get_rect(midbottom=(ret.centerx, ret.bottom - 4)))
+            pygame.draw.rect(pantalla, (255, 170, 60) if es_b else (120, 220, 255), ret, 3, border_radius=6)
             nom = f_n.render("Bombero" if es_b else "Veterinaria", True,
                              (255, 170, 60) if es_b else (120, 220, 255))
             pantalla.blit(nom, (ret.right + 20, caja.y + 18))
