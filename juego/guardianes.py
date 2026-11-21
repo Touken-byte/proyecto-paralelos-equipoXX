@@ -114,9 +114,13 @@ def obtener_tiles():
         fila = []
         for v in range(4):
             s = base(b)
-            s.fill(sombra, (0, C - 1, C, 1))
-            s.fill(claro, (1 + v % 2, 1, max(2, C // 2), max(2, C // 3)))
-            s.set_at((1 + v % 2, 1), brillo)
+            if C < 12:
+                s.fill(sombra, (0, C - 1, C, 1))
+                s.fill(claro, (1 + v % 2, 1, max(2, C // 2), max(2, C // 3)))
+                s.set_at((1 + v % 2, 1), brillo)
+            else:
+                puntos(s, sombra, [((v * 5 + 3) % C, (v * 3 + 1) % C), ((v * 7 + 9) % C, (v * 5 + 11) % C),
+                                   ((v * 3 + 12) % C, (v * 7 + 5) % C)])
             puntos(s, oscuro, [(v + 1, C // 2 + 1), (C - 2 - v, C // 2), (v, C - 2)])
             if C >= 12:   # matas de pasto mas grandes a celda grande
                 for k in range(C // 3):
@@ -149,12 +153,24 @@ def obtener_tiles():
         for yy in range(1, C, 2):
             s.fill((88, 60, 50), (0, yy, C, 1))
         puntos(s, (150, 112, 94), [(v, 0), (C - 1 - v, C - 1)])
+        if C >= 12:   # tierra removida: terrones
+            for k in range(3):
+                tx, ty = (v * 5 + k * 6 + 2) % (C - 3), (k * 5 + v * 3 + 3) % (C - 2)
+                s.fill((160, 120, 100), (tx, ty, 3, 1))
+                s.set_at((tx + 1, ty + 1), (70, 48, 40))
         cortafuego.append(s)
         s = base((45, 45, 45))
         puntos(s, (140, 50, 20), [(v, 2), (C - 1 - v, 4)])
         puntos(s, (255, 120, 30), [(v, 2)])
         puntos(s, (90, 88, 86), [(C - 2 - v, 1), (v + 1, C - 1)])
         puntos(s, (28, 28, 28), [(v + 2, 3), (C - 1 - v, 5)])
+        if C >= 12:   # ceniza, carbon y una brasa
+            for k in range(4):
+                gx, gy = (v * 3 + k * 5 + 1) % (C - 4), (k * 4 + v * 5 + 2) % (C - 3)
+                s.fill((70, 68, 66), (gx, gy, 3, 2))
+                s.set_at((gx + 1, gy), (105, 102, 98))
+            s.fill((100, 34, 14), (2 + v, C - 5, 4, 1))
+            s.set_at((3 + v, C - 5), (230, 90, 25))
         quemada.append(s)
         suelo_fuego.append(base((90, 20, 10)))
     _TILES[5], _TILES[0], _TILES[4], _TILES[3], _TILES[2] = agua, vacia, cortafuego, quemada, suelo_fuego
@@ -1772,8 +1788,141 @@ def decorar_mapa(sup, est, cubiertas):
         sup.fill((190, 150, 90), (x0 + 1, y0 + 2, CELDA - 2, ph - 2))
 
 
+_ARBOLES = {}
+_BORDES = {}
+
+
+def franja_irregular(sup, x0, y0, lado, cols, sem, d0=0):
+    # franja de pixeles con borde irregular sobre un lado de la celda (lado: 0 arriba, 1 abajo, 2 izquierda, 3 derecha)
+    C = CELDA
+    prob = (4, 2, 1)   # fila 0 siempre; fila 1 la mitad de los pixeles; fila 2 un cuarto
+    for idx, col in enumerate(cols):
+        d = d0 + idx
+        for k in range(C):
+            if idx > 0:
+                hh = (k * 374761393 + d * 668265263 + sem * 1103515245 + 12345) & 0xFFFFFFFF
+                hh = ((hh ^ (hh >> 13)) * 1274126177) & 0xFFFFFFFF
+                if ((hh ^ (hh >> 16)) & 3) >= prob[idx]:
+                    continue
+            if lado == 0:
+                p = (x0 + k, y0 + d)
+            elif lado == 1:
+                p = (x0 + k, y0 + C - 1 - d)
+            elif lado == 2:
+                p = (x0 + d, y0 + k)
+            else:
+                p = (x0 + C - 1 - d, y0 + k)
+            sup.set_at(p, col)
+
+
+def borde_sup(tipo, cols, lado, var, d0=0):
+    # franja ya dibujada (cacheada por celda, tipo, lado y variante)
+    clave = (CELDA, tipo, lado, var)
+    s = _BORDES.get(clave)
+    if s is None:
+        s = pygame.Surface((CELDA, CELDA), pygame.SRCALPHA)
+        franja_irregular(s, 0, 0, lado, cols, var * 5 + lado, d0)
+        _BORDES[clave] = s
+    return s
+
+
+def suavizar_bordes(sup, estado, n):
+    # a celda grande: bordes irregulares entre pasto, tierra, quemada y orilla del rio
+    if CELDA < 12:
+        return
+    C = CELDA
+    pasto = ((46, 118, 52), (60, 146, 62), (84, 170, 76))
+    ceniza = ((40, 34, 30), (62, 52, 42), (84, 66, 48))
+    espuma = ((214, 242, 255), (150, 214, 252))
+    mojado_p = ((26, 72, 44), (34, 90, 50))
+    mojado_t = ((150, 118, 80), (176, 142, 98))
+    for i in range(n):
+        for j in range(n):
+            s = estado[i * n + j]
+            if s == 2:
+                continue
+            x0, y0 = j * C, i * C
+            for lado, (di, dj) in enumerate(((-1, 0), (1, 0), (0, -1), (0, 1))):
+                ii, jj = i + di, j + dj
+                if not (0 <= ii < n and 0 <= jj < n):
+                    continue
+                t = estado[ii * n + jj]
+                if t == s:
+                    continue
+                var = (((i * 73856093) ^ (j * 19349663) ^ (lado * 83492791)) >> 6) & 3
+                if s in (0, 4) and t == 1:
+                    sup.blit(borde_sup("pasto", pasto, lado, var), (x0, y0))
+                elif s == 1 and t == 3:
+                    sup.blit(borde_sup("ceniza", ceniza, lado, var), (x0, y0))
+                elif s == 5:
+                    sup.blit(borde_sup("espuma", espuma, lado, var, 1), (x0, y0))
+                elif s == 1 and t == 5:
+                    sup.blit(borde_sup("mojado_p", mojado_p, lado, var, 1), (x0, y0))
+                elif s in (0, 3, 4) and t == 5:
+                    sup.blit(borde_sup("mojado_t", mojado_t, lado, var, 1), (x0, y0))
+
+
+def _dibujar_copa(spr, v, w):
+    # copa redonda de 6 lobulos; el tronco se pinta antes y queda debajo de la copa
+    C3 = CELDA * 3
+    e = lambda a: int(round(a * C3 / 48.0))
+    cx, cy = C3 // 2, e(21)
+    pygame.draw.ellipse(spr, (14, 40, 22), (e(4), e(40), e(40), e(7)))
+    spr.fill((84, 56, 32), (cx - e(3), e(33), e(6), e(12)))
+    spr.fill((58, 38, 22), (cx + e(1), e(33), e(2), e(12)))
+    spr.fill((120, 84, 50), (cx - e(3), e(33), max(1, e(1)), e(12)))
+    mid = (30 + 4 * v, 92 + 8 * v, 44 + 3 * v)
+    luz = (44 + 5 * v, 118 + 8 * v, 54 + 3 * v)
+    sombra = (20, 68 + 4 * v, 34)
+    sg = -1 if w else 1
+    for dx, dy, r in ((0, -9, 10), (-10, -3, 10), (10, -3, 10), (-10, 6, 9), (10, 6, 9), (0, 4, 12)):
+        px, py, rr = cx + sg * e(dx), cy + e(dy), e(r)
+        pygame.draw.circle(spr, (16, 48, 28), (px, py), rr + 1)
+        pygame.draw.circle(spr, mid, (px, py), rr)
+        pygame.draw.circle(spr, sombra, (px, py), rr, 2, draw_bottom_right=True)
+        pygame.draw.circle(spr, luz, (px - e(2), py - e(3)), max(2, rr - e(4)))
+        pygame.draw.circle(spr, (92, 172, 80), (px - e(3), py - e(4)), max(1, rr // 3))
+
+
+def _dibujar_pino(spr, v, w):
+    # pino conico de 3 pisos
+    C3 = CELDA * 3
+    e = lambda a: int(round(a * C3 / 48.0))
+    cx = C3 // 2
+    pygame.draw.ellipse(spr, (14, 40, 22), (e(6), e(41), e(36), e(6)))
+    spr.fill((84, 56, 32), (cx - e(2), e(38), e(4), e(8)))
+    spr.fill((58, 38, 22), (cx + e(1), e(38), max(1, e(1)), e(8)))
+    oscuro = (10, 42, 32)
+    mid = (22 + 3 * v, 84 + 5 * v, 60 + 3 * v)
+    luz = (34 + 4 * v, 112 + 6 * v, 78 + 3 * v)
+    umbra = (16, 62 + 3 * v, 46)
+    for ap, base, hw in ((19, 42, 19), (10, 31, 15), (2, 20, 10)):   # de abajo hacia arriba
+        a, b, m = e(ap), e(base), e(hw)
+        pygame.draw.polygon(spr, oscuro, [(cx, a - 1), (cx + m + 1, b + 1), (cx - m - 1, b + 1)])
+        pygame.draw.polygon(spr, mid, [(cx, a), (cx + m, b), (cx - m, b)])
+        pygame.draw.polygon(spr, umbra if w else luz, [(cx, a), (cx, b), (cx - m, b)])
+        pygame.draw.polygon(spr, luz if w else umbra, [(cx, a), (cx + m, b), (cx, b)])
+        pygame.draw.line(spr, (80, 158, 108), (cx - 1, a + 2), (cx - m + e(3), b - 2))
+
+
 def arbol3(sup, x0, y0, v):
-    # arbol de 3x3 celdas: sombra, tronco y copa en 3 tonos con brillo
+    # celda < 12: dibujo anterior; si no, copa redonda o pino (sprites cacheados, elegidos por posicion)
+    if CELDA < 12:
+        return arbol3_viejo(sup, x0, y0, v)
+    gi, gj = y0 // CELDA // 3, x0 // CELDA // 3
+    h = (gi * 5 + gj * 7 + gi * gj) % 10
+    tipo = "pino" if h < 4 else "copa"
+    clave = (CELDA, tipo, v, h % 2)
+    spr = _ARBOLES.get(clave)
+    if spr is None:
+        spr = pygame.Surface((CELDA * 3, CELDA * 3), pygame.SRCALPHA)
+        (_dibujar_pino if tipo == "pino" else _dibujar_copa)(spr, v, h % 2)
+        _ARBOLES[clave] = spr
+    sup.blit(spr, (x0, y0))
+
+
+def arbol3_viejo(sup, x0, y0, v):
+    # (celda < 12) arbol de 3x3 celdas: sombra, tronco y copa en 3 tonos con brillo
     C3 = CELDA * 3
     cx = x0 + C3 // 2
     r = C3 // 2 - 2
@@ -3957,7 +4106,7 @@ def main():
         for i in range(n):
             for j in range(n):
                 s = estado[i * n + j]
-                var = (i * 7 + j * 13) % 4
+                var = (((i * 73856093) ^ (j * 19349663)) >> 7) & 3
                 if s == 1:
                     t = T["veg"][min(2, fuel[i * n + j] // 86)][var]
                 else:
@@ -3969,10 +4118,11 @@ def main():
                 sup.blit(t, (j * CELDA, i * CELDA))
                 if s == 1:
                     h = (((i * 73856093) ^ (j * 19349663)) >> 4) & 7
-                    if h < 2:
+                    if CELDA < 12 and h < 2:
                         sup.fill((9, 12, 6), (j * CELDA, i * CELDA, CELDA, CELDA), special_flags=pygame.BLEND_RGB_ADD)
-                    elif h == 7:
+                    elif CELDA < 12 and h == 7:
                         sup.fill((9, 12, 6), (j * CELDA, i * CELDA, CELDA, CELDA), special_flags=pygame.BLEND_RGB_SUB)
+        suavizar_bordes(sup, estado, n)
         # V11: decorados (arboles 2x2, arbustos, rocas, troncos quemados, orilla del rio)
         C2 = CELDA * 2
         cubiertas = set()
