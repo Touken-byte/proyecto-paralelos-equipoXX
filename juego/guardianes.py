@@ -2392,7 +2392,7 @@ def dibujar_globo(pantalla, est, fnt, cam=(0, 0), vista=None):
     ancho = max([sn.get_width()] + [fnt.size(l)[0] for l in lineas]) + 20
     alto = 12 + lh * (len(lineas) + 1)
     cx, cy = (est["bx"], est["by"]) if es_b else (est["vx"], est["vy"])
-    px_, py_ = cx * CELDA + CELDA // 2 - cam[0], cy * CELDA - cam[1]
+    px_, py_ = camara_a_pantalla(cx * CELDA + CELDA // 2, cy * CELDA, cam)
     limx, limy = vista if vista else (est["n"] * CELDA, est["n"] * CELDA)
     x = max(4, min(limx - ancho - 4, px_ - ancho // 2))
     y = py_ - alto - 14
@@ -3368,13 +3368,42 @@ def superficie_mundo(n):
 def camara_actualizar(est, n, vw, vh):
     # Camara compartida: sigue el punto medio de los dos personajes, suavizada y sin salir del mundo.
     mundo_px = n * CELDA
-    max_x, max_y = max(0, mundo_px - vw), max(0, mundo_px - vh)
+    # zoom: se aleja por pasos cuando los dos personajes ya no caben (con histeresis para que no parpadee)
+    dx = abs(est["bx"] - est["vx"]) * CELDA + ZOOM_MARGEN_X
+    dy = abs(est["by"] - est["vy"]) * CELDA + ZOOM_MARGEN_Y
+
+    def cabe(k, f):
+        z = ZOOM_NIVELES[k]
+        return ((mundo_px <= vw / z or dx <= vw / z * f) and
+                (mundo_px <= vh / z or dy <= vh / z * f))
+
+    k = CAM_ST.get("nivel", 0)
+    while k < len(ZOOM_NIVELES) - 1 and not cabe(k, ZOOM_CABE_SALIR):
+        k += 1
+    if k > 0 and cabe(k - 1, ZOOM_CABE_ENTRAR):
+        k -= 1
+    CAM_ST["nivel"] = k
+    z_obj = ZOOM_NIVELES[k]
+    if not CAM_ST["listo"] or "z" not in CAM_ST:
+        z = z_obj
+    else:
+        z = CAM_ST["z"] + (z_obj - CAM_ST["z"]) * 0.18
+        if abs(z_obj - z) < 0.004:
+            z = z_obj
+    CAM_ST["z"] = z
+    sw = min(mundo_px, int(round(vw / z)))
+    sh = min(mundo_px, int(round(vh / z)))
+    dw = vw if sw < mundo_px else min(vw, int(round(mundo_px * z)))
+    dh = vh if sh < mundo_px else min(vh, int(round(mundo_px * z)))
+    CAM_ST["sw"], CAM_ST["sh"], CAM_ST["dw"], CAM_ST["dh"] = sw, sh, dw, dh
+    CAM_ST["ox"], CAM_ST["oy"] = (vw - dw) // 2, (vh - dh) // 2
+    max_x, max_y = max(0, mundo_px - sw), max(0, mundo_px - sh)
     mx = (est["bx"] + est["vx"]) / 2 * CELDA + CELDA / 2
     my = (est["by"] + est["vy"]) / 2 * CELDA + CELDA / 2
     if pygame.time.get_ticks() < CAM_ST.get("libre_hasta", 0):   # mirando otra zona desde el minimapa
         mx, my = CAM_ST["libre"]
-    obj_x = max(0.0, min(float(max_x), mx - vw / 2))
-    obj_y = max(0.0, min(float(max_y), my - vh / 2))
+    obj_x = max(0.0, min(float(max_x), mx - sw / 2))
+    obj_y = max(0.0, min(float(max_y), my - sh / 2))
     if not CAM_ST["listo"]:
         CAM_ST["x"], CAM_ST["y"], CAM_ST["listo"] = obj_x, obj_y, True
     else:
@@ -3383,6 +3412,81 @@ def camara_actualizar(est, n, vw, vh):
     CAM_ST["x"] = max(0.0, min(float(max_x), CAM_ST["x"]))
     CAM_ST["y"] = max(0.0, min(float(max_y), CAM_ST["y"]))
     return int(CAM_ST["x"]), int(CAM_ST["y"])
+
+ZOOM_NIVELES = (1.0, 0.75, 0.5)   # zoom de la camara: 100%, 75% y 50%
+ZOOM_MARGEN_X = 120; ZOOM_MARGEN_Y = 140   # px que deben sobrar alrededor de los dos personajes
+ZOOM_CABE_SALIR = 0.9; ZOOM_CABE_ENTRAR = 0.75   # histeresis: se aleja pasando 90%, se acerca bajo 75%
+COLOR_BANDAS_VISTA = (10, 14, 12)   # fondo donde la vista es mas ancha o alta que el mapa
+FLECHA_MARGEN = 30                  # distancia al borde de la vista de la flecha del companero
+
+
+def camara_blit(destino, mundo, vw, vh, cx, cy):
+    # Dibuja en la ventana lo que ve la camara (con zoom); lo que queda fuera del mapa es fondo oscuro.
+    sw, sh = CAM_ST.get("sw", vw), CAM_ST.get("sh", vh)
+    dw, dh = CAM_ST.get("dw", vw), CAM_ST.get("dh", vh)
+    ox, oy = CAM_ST.get("ox", 0), CAM_ST.get("oy", 0)
+    W, H = mundo.get_size()
+    cx, cy = max(0, min(cx, W - sw)), max(0, min(cy, H - sh))
+    if (sw, sh) == (dw, dh):
+        destino.blit(mundo, (ox, oy), pygame.Rect(cx, cy, sw, sh))
+        return
+    if dw < vw or dh < vh:
+        destino.fill(COLOR_BANDAS_VISTA, (0, 0, vw, vh))
+    parte = mundo.subsurface(pygame.Rect(cx, cy, sw, sh))
+    destino.blit(pygame.transform.scale(parte, (dw, dh)), (ox, oy))
+
+
+def camara_a_pantalla(wx, wy, cam):
+    # pixel de mundo -> pixel de la ventana (con zoom)
+    z = CAM_ST.get("z", 1.0)
+    return (int(round((wx - cam[0]) * z)) + CAM_ST.get("ox", 0),
+            int(round((wy - cam[1]) * z)) + CAM_ST.get("oy", 0))
+
+
+def camara_a_mundo(mx, my):
+    # pixel de la ventana -> pixel de mundo (con zoom)
+    z = CAM_ST.get("z", 1.0)
+    return ((mx - CAM_ST.get("ox", 0)) / z + int(CAM_ST["x"]),
+            (my - CAM_ST.get("oy", 0)) / z + int(CAM_ST["y"]))
+
+
+def camara_en_mundo(mx, my):
+    # True si el pixel de la ventana cae sobre el mapa (no sobre las bandas oscuras)
+    ox, oy = CAM_ST.get("ox", 0), CAM_ST.get("oy", 0)
+    return (ox <= mx < ox + CAM_ST.get("dw", 10 ** 6)) and (oy <= my < oy + CAM_ST.get("dh", 10 ** 6))
+
+
+def dibujar_flechas_companero(pantalla, est, fnt, vw, vh, cam):
+    # Flecha en el borde de la vista, con el color del personaje, cuando ese personaje queda fuera de cuadro.
+    import math
+    hechas = []
+    for k, col, ini in (("b", (255, 140, 40), "B"), ("v", (90, 220, 130), "V")):
+        sx, sy = camara_a_pantalla(est[k + "x"] * CELDA + CELDA // 2, est[k + "y"] * CELDA + CELDA // 2 - 12, cam)
+        if 10 <= sx <= vw - 10 and 10 <= sy <= vh - 10:
+            continue
+        dxv, dyv = sx - vw / 2, sy - vh / 2
+        t = min((vw / 2 - FLECHA_MARGEN) / abs(dxv) if dxv else 1e9,
+                (vh / 2 - FLECHA_MARGEN) / abs(dyv) if dyv else 1e9)
+        px, py = vw / 2 + dxv * t, vh / 2 + dyv * t
+        if px < 396 and py < 82:
+            py = 82            # no tapar el cuadro de datos de arriba
+        if px < 636 and py > vh - 62:
+            py = vh - 62       # ni la barra de estado de abajo
+        a = math.atan2(dyv, dxv)
+        ux, uy = math.cos(a), math.sin(a)
+        nx, ny = -uy, ux
+        for ext, col_f in ((3, (0, 0, 0)), (0, col)):
+            tip = (px + ux * (25 + ext), py + uy * (25 + ext))
+            b1 = (px + ux * (11 - ext) + nx * (9 + ext), py + uy * (11 - ext) + ny * (9 + ext))
+            b2 = (px + ux * (11 - ext) - nx * (9 + ext), py + uy * (11 - ext) - ny * (9 + ext))
+            pygame.draw.polygon(pantalla, col_f, [tip, b1, b2])
+        pygame.draw.circle(pantalla, (0, 0, 0), (int(px), int(py)), 15)
+        pygame.draw.circle(pantalla, col, (int(px), int(py)), 13)
+        t_i = fnt.render(ini, True, (20, 20, 20))
+        pantalla.blit(t_i, (int(px) - t_i.get_width() // 2, int(py) - t_i.get_height() // 2))
+        hechas.append(ini)
+    return hechas
+
 
 MINI = {"sup": None, "fuego": None, "S": 0, "img": None}
 
@@ -3425,7 +3529,7 @@ def dibujar_minimapa(pantalla, est, n, px, py, vista_w, vista_h, cam, fnt):
         pantalla.fill(col, (x - 1, y - 1, 4, 4))
     f = S / (n * CELDA)
     pygame.draw.rect(pantalla, (255, 255, 255),
-                     (r.x + int(cam[0] * f), r.y + int(cam[1] * f), max(3, int(vista_w * f)), max(3, int(vista_h * f))), 1)
+                     (r.x + int(cam[0] * f), r.y + int(cam[1] * f), max(3, int(CAM_ST.get("sw", vista_w) * f)), max(3, int(CAM_ST.get("sh", vista_h) * f))), 1)
     pygame.draw.rect(pantalla, (230, 170, 60), r.inflate(2, 2), 1)
 
 def mini_clic(mx, my, n):
@@ -4306,9 +4410,10 @@ def main():
                 _vw, _vh = tam_vista(n)
                 if CAM_ST.get("mini") is not None and CAM_ST["mini"].collidepoint(mx, my):
                     mini_clic(mx, my, n)
-                elif my < _vh and mx < _vw:
+                elif my < _vh and mx < _vw and camara_en_mundo(mx, my):
                     tipo = "CORTAFUEGO" if e.button == 1 else "APAGAR"
-                    cx, cy = (mx + int(CAM_ST["x"])) // CELDA, (my + int(CAM_ST["y"])) // CELDA
+                    _wx, _wy = camara_a_mundo(mx, my)
+                    cx, cy = int(_wx // CELDA), int(_wy // CELDA)
                     ahora_c = pygame.time.get_ticks()
                     if (cx - est["bx"]) ** 2 + (cy - est["by"]) ** 2 > ALCANCE ** 2:
                         est["msg"] = "Fuera de alcance: acércate con el bombero"
@@ -4517,8 +4622,9 @@ def main():
         tinte_emergencia(pantalla, est)
         dibujar_habilidades(pantalla, est, fuente_p, "mundo")
         cam_x, cam_y = camara_actualizar(est, n, vista_w, vista_h)
-        pant_real.blit(pantalla, (0, 0), pygame.Rect(cam_x, cam_y, vista_w, vista_h))
+        camara_blit(pant_real, pantalla, vista_w, vista_h, cam_x, cam_y)
         pantalla = pant_real
+        dibujar_flechas_companero(pantalla, est, fuente_p, vista_w, vista_h, (cam_x, cam_y))
         txt_v = fuente.render(f"Vida  Bombero {est['vida']['b']}  Veterinaria {est['vida']['v']}", True, (255, 255, 255))
         pass
         pass
