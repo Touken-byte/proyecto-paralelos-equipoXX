@@ -494,6 +494,8 @@ def correr_ronda(paso, pendientes):
 MODO = {"ia": "veterinaria"}   # quien controla la IA: "veterinaria", "bombero" o None (dos jugadores)
 
 MODO_ESP = {"id": None}         # modo especial activo: None (campaña), "record", ...
+MARGEN_VISTA_X = 80    # px que se restan al ancho para el dock de Ubuntu y el borde
+MARGEN_VISTA_Y = 110   # px que se restan al alto para la barra superior y la de titulo
 ALTO_PANT = {"h": 768, "w": 1366}          # alto del escritorio, para calcular CELDA por nivel
 _MINIATURAS = {}
 _MAPAS_LISTOS = {"ok": False}
@@ -3202,8 +3204,8 @@ def tam_vista(n):
         k = 0
     if k >= 20:
         return min(mundo, k * CELDA), min(mundo, k * CELDA)
-    return (min(mundo, max(200, ALTO_PANT["w"] - PANEL_W)),
-            min(mundo, max(200, ALTO_PANT["h"] - 72)))
+    return (min(mundo, max(200, ALTO_PANT["w"] - PANEL_W - MARGEN_VISTA_X)),
+            min(mundo, max(200, ALTO_PANT["h"] - MARGEN_VISTA_Y)))
 
 def superficie_mundo(n):
     # Superficie donde se dibuja todo el mundo; la ventana solo muestra un recorte.
