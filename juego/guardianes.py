@@ -3041,9 +3041,9 @@ def ia_hab_bombero(est, fuegos):
     cerca = [f for f in fuegos if (f[0] - bx) ** 2 + (f[1] - by) ** 2 <= MANGUERA_R ** 2]
     if len(cerca) < minimo:
         return False
-    t0 = est["t_mang"]
+    t0 = est.get("t_mang")
     habilidad(est, pygame.K_g, desde_ia=True)
-    return est["t_mang"] != t0
+    return est.get("t_mang") != t0
 
 def ia_hab_vet(est):
     """Botiquin y senal de auxilio de la IA, segun el nivel."""
