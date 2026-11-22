@@ -1154,8 +1154,6 @@ CUADERNO = [
                                     "Recuperación: 20 s."]),
         ("Rescate (E)", ["Recoge o suelta un animal cercano.",
                          "Llévalo al refugio (zona verde) para ponerlo a salvo."]),
-        ("Botiquín (Z)", ["Atiende a un animal herido, aislado o asustado que esté cerca.",
-                          "Recuperación: 8 s."]),
         ("Rastreo animal (X)", ["Marca los animales que hay cerca de la veterinaria.",
                                 "Recuperación: 10 s."]),
         ("Señal de auxilio (Q)", ["Marca los animales aislados.",
@@ -1163,7 +1161,7 @@ CUADERNO = [
         ("Apoyo al bombero (F)", ["Si la veterinaria está a 2 celdas o menos, le da +2 de agua y +15 de vida.",
                                   "Recuperación: 15 s."]),
         ("Compañero IA", ["En solitario, la IA controla al otro personaje. Elegirás su dificultad antes de jugar.",
-                          "Asistente: prioriza apoyarte. Equilibrado: usa manguera (bombero) y botiquín (veterinaria).",
+                          "Asistente: prioriza apoyarte. Equilibrado: usa la manguera (bombero).",
                           "Experto: además usa la señal de auxilio y prioriza lo que amenaza el refugio."])]),
     ("Atlas de incendios", [
         ("Propagación del fuego", ["El fuego avanza más rápido en la dirección del viento.",
@@ -1203,7 +1201,7 @@ CUAD_CLAVES = [
     ["fauna:tapir", "fauna:jaguar", "fauna:taitetu", "fauna:loro"],
     ["guia:causas", "guia:foco", "guia:cortafuegos"],
     ["manual:mochila", "manual:cortafuego", "manual:manguera", "manual:torre", "manual:termica",
-     "manual:rescate", "manual:botiquin", "manual:rastreo", "manual:senal", "manual:apoyo", "manual:ia"],
+     "manual:rescate", "manual:rastreo", "manual:senal", "manual:apoyo", "manual:ia"],
     ["atlas:propagacion", "atlas:vigia", "atlas:emergencia", "atlas:motor"],
     ["primeros:leves", "primeros:graves", "primeros:humo", "primeros:evacuar",
      "primeros:animal", "primeros:reportar", "primeros:despues", "primeros:fuentes"],
@@ -1215,9 +1213,9 @@ CUAD_PISTA = {"fauna": "Identifica a esta especie con Conocimiento silvestre (K)
               "atlas": "Sigue jugando: se desbloquea con tu progreso.",
               "primeros": "Sigue jugando: se desbloquea con tu progreso."}
 HAB_T = {pygame.K_g: "t_mang", pygame.K_t: "t_torre", pygame.K_h: "t_prot",
-         pygame.K_z: "t_boti", pygame.K_x: "t_rastreo", pygame.K_q: "t_senal"}
+         pygame.K_x: "t_rastreo", pygame.K_q: "t_senal"}
 HAB_FICHA = {pygame.K_g: "manguera", pygame.K_t: "torre", pygame.K_h: "termica",
-             pygame.K_z: "botiquin", pygame.K_x: "rastreo", pygame.K_q: "senal"}
+             pygame.K_x: "rastreo", pygame.K_q: "senal"}
 CUADERNO_RUTA = "output/cuaderno.json"
 NOTIF_MS = 6000
 
@@ -2068,7 +2066,7 @@ def menu_principal(pantalla, fuente):
         "Veterinaria: E recoge o suelta un animal. Llévalos al refugio (zona verde).",
         "Meta: apagar el incendio y conservar el mayor bosque posible.",
         "M: silenciar la música.  |  O: ajustes de audio  |  N: Cuaderno (pausa).",
-        "Bombero: G manguera, T torre.  Veterinaria: Z botiquín, X rastreo, Q señal de auxilio.",
+        "Bombero: G manguera, T torre.  Veterinaria: X rastreo, Q señal de auxilio, K conocimiento silvestre.",
         "Menú: Modos especiales, Tienda (skins con EcoMonedas) y dificultad de la IA en solitario.",
         "Pulsa cualquier tecla para volver.",
     ]
@@ -2830,7 +2828,7 @@ def _marcar(est, celdas, color, dur):
     est.setdefault("marcas", []).extend((x, y, color, fin) for x, y in celdas)
 
 def habilidad(est, tecla, desde_ia=False):
-    """G manguera, T torre (bombero); Z botiquin, X rastreo, Q senal de auxilio (veterinaria)."""
+    """G manguera, T torre (bombero); X rastreo, Q senal de auxilio (veterinaria)."""
     if est.get("ver_eval") or est.get("derrota"):
         return
     ahora = pygame.time.get_ticks()
@@ -2873,21 +2871,6 @@ def habilidad(est, tecla, desde_ia=False):
         fx_nuevo(est, "onda", bx, by, 900, (255, 140, 0), TORRE_R)
         sonar("hab_torre")
         est["msg"] = f"Torre de vigilancia: {len(fuegos)} focos en un radio de {TORRE_R} celdas"
-    elif tecla == pygame.K_z:
-        if estado_hab(est, "t_boti", CD_BOTIQUIN_MS) != "listo":
-            est["msg"] = "Botiquín en recuperación"; return
-        sts = estados_fauna(est)
-        cerca = [i for i, (a, st) in enumerate(zip(est["animales"], sts))
-                 if a[2] == "libre" and st in ("herido", "aislado", "asustado")
-                 and (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= BOTIQUIN_R ** 2]
-        if not cerca:
-            est["msg"] = "Botiquín: no hay animales en peligro cerca"; return
-        est.setdefault("tratados", set()).add(cerca[0])
-        est["t_boti"] = ahora
-        sonar("hab_botiquin")
-        est["msg"] = "Botiquín: animal atendido"
-        _a = est["animales"][cerca[0]]
-        fx_nuevo(est, "cura", _a[0], _a[1], 900, (80, 230, 120))
     elif tecla == pygame.K_x:
         if estado_hab(est, "t_rastreo", CD_RASTREO_MS) != "listo":
             est["msg"] = "Rastreo en recuperación"; return
@@ -2991,7 +2974,7 @@ _ICONOS_HAB = {
 _HAB_ICONO = (("Mochila", "mochila", None, 0), ("Cortafuegos", "cortafuego", "t_cf", CD_CORTAFUEGO_MS),
               ("Manguera", "manguera", "t_mang", CD_MANGUERA_MS), ("Proteccion", "proteccion", "t_prot", CD_PROT_MS),
               ("Torre", "torre", "t_torre", CD_TORRE_MS), ("Rescate", "rescate", None, 0),
-              ("Apoyo", "apoyo", "t_apoyo", CD_APOYO_MS), ("Botiquin", "botiquin", "t_boti", CD_BOTIQUIN_MS),
+              ("Apoyo", "apoyo", "t_apoyo", CD_APOYO_MS),
               ("Rastreo", "rastreo", "t_rastreo", CD_RASTREO_MS), ("Senal", "senal", "t_senal", CD_SENAL_MS),
               ("Conocimiento", "conocimiento", "t_conoc", CD_CONOC_MS))
 
@@ -3195,9 +3178,9 @@ IA_PESO_REFUGIO = 1.0      # Experto: peso de la cercania al refugio al elegir f
 IA_NIVELES = {
     "asistente": dict(nombre="Asistente", apoyo_agua=4, apoyo_vida=80, mang_min=None, hab_vet=(),
                       desc="Te apoya a ti: ataca los focos cercanos a ti y te cuida más seguido."),
-    "equilibrado": dict(nombre="Equilibrado", apoyo_agua=2, apoyo_vida=60, mang_min=3, hab_vet=(pygame.K_z,),
-                        desc="Combina ayuda y decisiones propias. Usa manguera y botiquín."),
-    "experto": dict(nombre="Experto", apoyo_agua=2, apoyo_vida=60, mang_min=2, hab_vet=(pygame.K_z, pygame.K_q),
+    "equilibrado": dict(nombre="Equilibrado", apoyo_agua=2, apoyo_vida=60, mang_min=3, hab_vet=(),
+                        desc="Combina ayuda y decisiones propias. Usa la manguera."),
+    "experto": dict(nombre="Experto", apoyo_agua=2, apoyo_vida=60, mang_min=2, hab_vet=(pygame.K_q,),
                     desc="Prioriza lo que amenaza el refugio y a los animales en peligro."),
 }
 MODO.setdefault("dif", "equilibrado")
@@ -3233,17 +3216,11 @@ def ia_hab_bombero(est, fuegos):
     return est.get("t_mang") != t0
 
 def ia_hab_vet(est):
-    """Botiquin y senal de auxilio de la IA, segun el nivel."""
+    """Senal de auxilio de la IA, segun el nivel."""
     usa = ia_param("hab_vet")
     if not usa:
         return
     vx, vy = est["vx"], est["vy"]
-    if pygame.K_z in usa and estado_hab(est, "t_boti", CD_BOTIQUIN_MS) == "listo":
-        sts = estados_fauna(est)
-        if any(a[2] == "libre" and st in ("herido", "aislado", "asustado")
-               and (a[0] - vx) ** 2 + (a[1] - vy) ** 2 <= BOTIQUIN_R ** 2
-               for a, st in zip(est["animales"], sts)):
-            habilidad(est, pygame.K_z, desde_ia=True)
     if pygame.K_q in usa and estado_hab(est, "t_senal", CD_SENAL_MS) == "listo":
         if "aislado" in estados_fauna(est):
             habilidad(est, pygame.K_q, desde_ia=True)
@@ -3862,7 +3839,7 @@ PAUSA_TABS = ["Controles", "Habilidades", "Fauna", "Audio"]
 PAUSA_CTRL = [
     ("BOMBERO", [("Flechas", "moverse"), ("Clic izquierdo", "cortafuegos"), ("Clic derecho", "mochila de agua"),
                  ("G", "manguera de presion"), ("T", "torre de vigilancia"), ("H", "proteccion termica")]),
-    ("VETERINARIA", [("W A S D", "moverse"), ("E", "recoger o soltar un animal"), ("Z", "botiquin"),
+    ("VETERINARIA", [("W A S D", "moverse"), ("E", "recoger o soltar un animal"),
                      ("X", "rastreo animal"), ("Q", "senal de auxilio"), ("K", "conocimiento silvestre"),
                      ("F", "apoyo al bombero")]),
     ("GENERAL", [("V", "mapa de riesgo (El Vigia)"), ("P", "pausa y ayuda"), ("O", "ajustes de audio"),
@@ -3878,7 +3855,6 @@ PAUSA_HAB = [
                  ("Torre", "Torre de vigilancia (T)", "Marca los focos que hay alrededor del bombero.", "t_torre")]),
     ("VETERINARIA", [("Rescate", "Rescate (E)", "Recoge o suelta un animal cercano. Llevalo al refugio.", None),
                      ("Apoyo", "Apoyo al bombero (F)", "A 2 celdas o menos le da +2 de agua y +15 de vida.", "apoyo"),
-                     ("Botiquin", "Botiquin (Z)", "Atiende a un animal herido, aislado o asustado.", "t_boti"),
                      ("Rastreo", "Rastreo animal (X)", "Marca los animales que hay cerca.", "t_rastreo"),
                      ("Senal", "Senal de auxilio (Q)", "Marca los animales aislados.", "t_senal"),
                      ("Conocimiento", "Conocimiento silvestre (K)", "Identifica al animal cercano y abre su ficha.", "t_conoc")]),
@@ -3898,7 +3874,7 @@ def _recarga_pausa(est, clave):
         return estado_cortafuego(est)
     if clave == "apoyo":
         return estado_apoyo(est)
-    cd = {"t_mang": CD_MANGUERA_MS, "t_prot": CD_PROT_MS, "t_torre": CD_TORRE_MS, "t_boti": CD_BOTIQUIN_MS,
+    cd = {"t_mang": CD_MANGUERA_MS, "t_prot": CD_PROT_MS, "t_torre": CD_TORRE_MS,
           "t_rastreo": CD_RASTREO_MS, "t_senal": CD_SENAL_MS, "t_conoc": CD_CONOC_MS}[clave]
     return estado_hab(est, clave, cd)
 
@@ -4027,7 +4003,7 @@ def pantalla_pausa(pantalla, est, fuente, inicio=False):
 _PANEL_ICONOS = (
     ("BOMBERO", (("Mochila", "D", None), ("Cortafuegos", "I", "t_cf"), ("Manguera", "G", "t_mang"),
                  ("Proteccion", "H", "t_prot"), ("Torre", "T", "t_torre"))),
-    ("VETERINARIA", (("Rescate", "E", None), ("Apoyo", "F", "t_apoyo"), ("Botiquin", "Z", "t_boti"),
+    ("VETERINARIA", (("Rescate", "E", None), ("Apoyo", "F", "t_apoyo"),
                      ("Rastreo", "X", "t_rastreo"), ("Senal", "Q", "t_senal"), ("Conocimiento", "K", "t_conoc"))),
 )
 
@@ -4566,7 +4542,7 @@ def main():
                     ciclo = ["veterinaria", "bombero", None]
                     est["ia_rol"] = ciclo[(ciclo.index(est.get("ia_rol", "veterinaria")) + 1) % 3]
                     est["msg"] = ("IA controla: " + est["ia_rol"]) if est["ia_rol"] else "Sin IA: dos jugadores"
-                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_h, pygame.K_k, pygame.K_z, pygame.K_x, pygame.K_q):
+                elif e.key in (pygame.K_g, pygame.K_t, pygame.K_h, pygame.K_k, pygame.K_x, pygame.K_q):
                     _t0 = est.get(HAB_T.get(e.key))
                     habilidad(est, e.key)
                     if e.key in HAB_T and est.get(HAB_T[e.key]) != _t0:
