@@ -2598,11 +2598,12 @@ def expr_final(est):
         return "preocupada"
     return "alegre" if (est.get("evaluacion") or {}).get("estrellas", 0) >= 2 else "normal"
 
-def cuadro_grande(pantalla, paginas, fuente, expr="normal"):
+def cuadro_grande(pantalla, paginas, fuente, expr="normal", fondo=None):
     """Cuadro de dialogo grande. paginas: lista de (quien, texto); quien: 'b', 'v' o None.
     Enter, espacio o clic avanzan. Bloquea mientras esta abierto (la partida queda en pausa)."""
     w, h = pantalla.get_size()
-    fondo = pantalla.copy()
+    if fondo is None:
+        fondo = pantalla.copy()
     f_n = pygame.font.Font(None, 30)
     f_t = pygame.font.Font(None, 28)
     f_p = pygame.font.Font(None, 22)
@@ -2665,7 +2666,7 @@ def intro_nivel(pantalla, fuente, est):
            ("b", b)]
     if v:
         pag.append(("v", v))
-    cuadro_grande(pantalla, pag, fuente, expr={"b": "alegre", "v": "normal"})
+    cuadro_grande(pantalla, pag, fuente, expr={"b": "alegre", "v": "normal"}, fondo=fondo_intro(pantalla, est))
     est["tick"]["t_fin"] = pygame.time.get_ticks()
 
 def paginas_final(est):
@@ -3113,6 +3114,107 @@ def imagen_resultados(est, ev, s=None):
     ruta = os.path.join(COMPARTIR_DIR, nombre)
     pygame.image.save(s, ruta)
     return ruta
+
+def fondo_intro(pantalla, est):
+    # Fondo de la intro: el mapa elegido, borroso y oscurecido (si falla, la pantalla tal cual).
+    w, h = pantalla.get_size()
+    sup = est.get("sup")
+    if sup is None:
+        return pantalla.copy()
+    try:
+        sw, sh = sup.get_size()
+        esc = max(w / sw, h / sh)
+        zoom = pygame.transform.smoothscale(sup, (int(sw * esc) + 1, int(sh * esc) + 1))
+        zx, zy = (zoom.get_width() - w) // 2, (zoom.get_height() - h) // 2
+        vista = zoom.subsurface((zx, zy, w, h)).copy()
+        pq = pygame.transform.smoothscale(vista, (max(1, w // 14), max(1, h // 14)))
+        borrosa = pygame.transform.smoothscale(pq, (w, h))
+        velo = pygame.Surface((w, h), pygame.SRCALPHA)
+        velo.fill((8, 14, 10, 120))
+        borrosa.blit(velo, (0, 0))
+        return borrosa
+    except Exception:
+        return pantalla.copy()
+
+def puede_siguiente(est):
+    # Se pasa de nivel con 2 estrellas o mas (y sin derrota). El corazon del incendio no tiene siguiente.
+    ev = est.get("evaluacion") or {}
+    return (not est.get("derrota") and ev.get("estrellas", 0) >= 2
+            and MODO_ESP["id"] != "corazon" and NIVEL_SEL["i"] + 1 < len(NIVELES))
+
+def dibujar_botones_fin(pantalla, est, fnt, caja):
+    # Botones del panel final. Devuelve [(rect, accion)] para los clics.
+    acc = [("Reintentar (R)", "reintentar"), ("Menú (Esc)", "menu")]
+    if puede_siguiente(est):
+        acc.insert(0, ("Siguiente (Enter)", "siguiente"))
+    gap = 16
+    bw = (caja.w - gap * (len(acc) - 1)) // len(acc)
+    mp = pygame.mouse.get_pos()
+    res = []
+    for k, (txt, a) in enumerate(acc):
+        r = pygame.Rect(caja.x + k * (bw + gap), caja.bottom + 44, bw, 38)
+        pygame.draw.rect(pantalla, (0, 0, 0), r.move(0, 3), border_radius=8)
+        pygame.draw.rect(pantalla, (255, 87, 34) if (r.collidepoint(mp) or a == "siguiente") else (45, 66, 52), r, border_radius=8)
+        pygame.draw.rect(pantalla, (255, 200, 120), r, 2, border_radius=8)
+        t = fnt.render(txt, True, (255, 255, 255))
+        pantalla.blit(t, t.get_rect(center=r.center))
+        res.append((r, a))
+    return res
+
+def menu_pausa(pantalla):
+    # Menu con salida (Esc en partida). Devuelve None (continuar), "menu" o "salir".
+    w, h = pantalla.get_size()
+    fondo = pantalla.copy()
+    f_t = pygame.font.Font(None, 48)
+    f_o = pygame.font.Font(None, 34)
+    f_p = pygame.font.Font(None, 22)
+    ops = [("Continuar", None), ("Volver al menú principal", "menu"), ("Salir del juego", "salir")]
+    rects = [pygame.Rect(w // 2 - 190, h // 2 - 60 + i * 66, 380, 50) for i in range(len(ops))]
+    sel = 0
+    reloj = pygame.time.Clock()
+    while True:
+        elegido = False
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_p):
+                    sonar("ui_volver")
+                    return None
+                elif e.key == pygame.K_UP:
+                    sel = (sel - 1) % len(ops); sonar("ui_mover")
+                elif e.key == pygame.K_DOWN:
+                    sel = (sel + 1) % len(ops); sonar("ui_mover")
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                    elegido = True
+            elif e.type == pygame.MOUSEMOTION:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                for i, r in enumerate(rects):
+                    if r.collidepoint(e.pos):
+                        sel = i; elegido = True
+        if elegido:
+            sonar("ui_aceptar")
+            return ops[sel][1]
+        pantalla.blit(fondo, (0, 0))
+        velo = pygame.Surface((w, h), pygame.SRCALPHA)
+        velo.fill((0, 0, 0, 170))
+        pantalla.blit(velo, (0, 0))
+        t = f_t.render("PAUSA", True, (255, 170, 60))
+        pantalla.blit(t, t.get_rect(center=(w // 2, h // 2 - 110)))
+        for i, (txt, _) in enumerate(ops):
+            r = rects[i]
+            pygame.draw.rect(pantalla, (0, 0, 0), r.move(0, 3), border_radius=8)
+            pygame.draw.rect(pantalla, (255, 87, 34) if i == sel else (45, 66, 52), r, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), r, 2, border_radius=8)
+            s = f_o.render(txt, True, (255, 255, 255))
+            pantalla.blit(s, s.get_rect(center=r.center))
+        v = f_p.render("Arriba/Abajo: elegir   Enter: aceptar   Esc: continuar", True, (200, 190, 150))
+        pantalla.blit(v, v.get_rect(center=(w // 2, h // 2 + 160)))
+        pygame.display.flip()
+        reloj.tick(30)
 
 def vista_imagen_resultados(pantalla, est, ev):
     # Muestra la imagen antes de guardarla. G, Enter o el boton Guardar la guardan; Esc, I o Cerrar salen.
@@ -4479,6 +4581,32 @@ def main():
     if not ok_menu:
         pygame.quit()
         return
+    def empezar_partida():
+        # Prepara motor, mapa, ventana e intro del nivel elegido (al pasar de nivel o al volver del menu).
+        nonlocal pantalla, n
+        global CELDA
+        niv = nivel_actual()
+        asegurar_motor(niv)
+        if not os.environ.get("CELDA"):
+            CELDA = CELDA_BASE
+        reiniciar()
+        n = est["n"]
+        pantalla = pygame.display.set_mode((tam_vista(n)[0] + PANEL_W, tam_vista(n)[1]))
+        pygame.display.set_caption("Guardianes del Chaco - " + niv["nombre"])
+        intro_nivel(pantalla, fuente, est)
+        est["tick"]["t_fin"] = pygame.time.get_ticks()
+        est["ia_rol"] = MODO["ia"]
+
+    def ir_al_menu():
+        # Vuelve al menu principal sin cerrar el juego; si se elige jugar, empieza la partida nueva.
+        nonlocal corriendo
+        pygame.display.set_caption("Guardianes del Chaco")
+        if menu_principal(pantalla, fuente):
+            cortina(pantalla)
+            empezar_partida()
+        else:
+            corriendo = False
+
     est["ia_rol"] = MODO["ia"]
     corriendo = True
     while corriendo:
@@ -4487,7 +4615,16 @@ def main():
                 corriendo = False
             elif e.type == pygame.KEYDOWN:
                 if e.key == pygame.K_ESCAPE:
-                    corriendo = False
+                    if est.get("ver_eval") and est.get("evaluacion"):
+                        est["accion_fin"] = "menu"
+                    else:
+                        _pp = est["tick"]["pausa"]
+                        est["tick"]["pausa"] = True
+                        _r = menu_pausa(pantalla)
+                        est["tick"]["pausa"] = _pp
+                        est["tick"]["t_fin"] = pygame.time.get_ticks()
+                        if _r:
+                            est["accion_fin"] = _r
                 elif e.key == pygame.K_e:
                     if est["carga"] is None:
                         for a in est["animales"]:
@@ -4517,9 +4654,8 @@ def main():
                             est["msg"] = ""
                         except Exception as ex:
                             est["msg"] = "Error del Vigia: " + str(ex)
-                elif e.key == pygame.K_c:
-                    if not est["derrota"]:
-                        est["ver_eval"] = False
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER) and est.get("ver_eval") and est.get("evaluacion") and puede_siguiente(est):
+                    est["accion_fin"] = "siguiente"
                 elif e.key == pygame.K_i and est.get("ver_eval") and est.get("evaluacion"):
                     _r = vista_imagen_resultados(pantalla, est, est["evaluacion"])
                     if _r and _r != "salir":
@@ -4567,6 +4703,11 @@ def main():
                     est["tick"]["t_fin"] = pygame.time.get_ticks()
                 elif e.key == pygame.K_RETURN:
                     est["tick"]["t_fin"] = 0     # depuracion: adelanta el siguiente tick
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and est.get("ver_eval") and est.get("evaluacion"):
+                for _rb, _ab in est.get("fin_btns", []):
+                    if _rb.collidepoint(e.pos):
+                        est["accion_fin"] = _ab
+                        break
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button in (1, 3):
                 mx, my = e.pos
                 _vw, _vh = tam_vista(n)
@@ -4599,6 +4740,16 @@ def main():
                         if tipo in sonidos:
                             sonidos[tipo].play()
 
+        _af = est.pop("accion_fin", None)
+        if _af == "salir":
+            corriendo = False
+        elif _af == "reintentar":
+            reiniciar()
+        elif _af == "siguiente" and puede_siguiente(est):
+            NIVEL_SEL["i"] += 1
+            empezar_partida()
+        elif _af == "menu":
+            ir_al_menu()
         ahora = pygame.time.get_ticks()
         tk = est["tick"]
         if tk["res"] is None:
@@ -4873,7 +5024,7 @@ def main():
                       "Focos activos: " + str(ev["focos"]),
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]) + est.get("monedas_txt", ""),
-                      "C = continuar   R = reiniciar   I = ver imagen"]
+                      "I = ver imagen"]
             if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
                 lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío", "corazon": "El corazón del incendio"}[MODO_ESP["id"]]]
@@ -4886,6 +5037,7 @@ def main():
             for k, t in enumerate(lineas):
                 pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
                               (80, 135 + 28 * k))
+            est["fin_btns"] = dibujar_botones_fin(pantalla, est, fuente_p, _caja)
             _im = est.get("img_msg")
             if _im and _im[0] == id(ev):
                 _ti = fuente.render(_im[1], True, (120, 230, 120))
