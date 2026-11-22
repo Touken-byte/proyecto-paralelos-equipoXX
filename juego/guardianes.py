@@ -5062,8 +5062,34 @@ def _logo3d_letras(d):
         letras.append((s, izq + W // 2, arr + H // 2))
     return letras
 
+_LOGO_FX = {}
+
+def _logo_fx(w, h):
+    veil = pygame.Surface((w, h))
+    veil.fill((4, 6, 14))
+    tinte = pygame.Surface((w, h), pygame.SRCALPHA)
+    for y in range(0, h, 2):
+        u = y / float(h)
+        tinte.fill((255, int(70 + 40 * (1 - u)), 12, int(30 + 170 * u * u)), (0, y, w, 2))
+    return dict(veil=veil, tinte=tinte)
+
+def _logo_llamas(pantalla, t, k, w, h):
+    # Llamas en pixel que suben desde el borde inferior.
+    import math
+    fw = max(6, w // 110)
+    for i in range(w // fw + 1):
+        x = i * fw
+        n = math.sin(t / 180.0 + i * 0.9) + 0.6 * math.sin(t / 110.0 + i * 2.3) + math.sin(t / 320.0 + i * 0.31)
+        alto = int(h * (0.05 + 0.17 * (n + 2.6) / 5.2) * k) // fw * fw
+        if alto <= 0:
+            continue
+        pantalla.fill((215, 55, 10), (x, h - alto, fw, alto))
+        pantalla.fill((255, 150, 20), (x, h - alto * 7 // 10, fw, alto * 7 // 10))
+        pantalla.fill((255, 226, 90), (x, h - alto * 4 // 10, fw, alto * 4 // 10))
+
 def dibujar_logo(pantalla, t):
-    # Logo 3D: HUD ambar, letras extruidas que llegan una a una, barrido de luz, linea con rombo y texto.
+    # Logo 3D en secuencia: una letra por golpe (0,45 s + 0,4 s cada una), se juntan a los 2,7 s,
+    # golpe a los 3,3 s y el bosque se incendia hasta el fundido. Sincronizado con intro_logo.wav.
     import math
     w, h = pantalla.get_size()
     d = _LOGO_CACHE.get((w, h))
@@ -5072,87 +5098,95 @@ def dibujar_logo(pantalla, t):
     L = _LOGO3D.get((w, h))
     if L is None:
         L = _LOGO3D[(w, h)] = _logo3d_letras(d)
+    fxd = _LOGO_FX.get((w, h))
+    if fxd is None:
+        fxd = _LOGO_FX[(w, h)] = _logo_fx(w, h)
     b, o, x0, y0 = d["b"], d["o"], d["x0"], d["y0"]
-    cx0, cy0 = w // 2, y0 + (9 * b) // 2
-    amb = (255, 170, 30)
+    cx = w // 2
+    cy0 = y0 + (9 * b) // 2
+    T0, PASO, VUELO, T_JUNTAR, DUR_J, T_GOLPE = 450, 400, 380, 2700, 600, 3300
+    GAP, SS = 1.2, 0.9
     def tenue(c, k):
         return tuple(max(0, min(255, int(v * k))) for v in c)
-    pantalla.fill((6, 5, 12))
-    kg = max(0.0, min(1.0, (t - 1200) / 1200.0))
-    if kg > 0:
-        d["glow"].set_alpha(int(230 * kg * (0.85 + 0.15 * math.sin(t / 260.0))))
+    def escalar(s, sc, sq):
+        if abs(sc - 1.0) < 0.005 and sq == 1.0:
+            return s
+        return pygame.transform.scale(s, (max(2, int(s.get_width() * sc * sq)), max(2, int(s.get_height() * sc))))
+    # Fondo: bosque del menu, oscuro al principio y rojizo con fuego al final
+    _dibujar_fondo_chaco(pantalla, t)
+    if t < T_JUNTAR:
+        av = 255 - 105 * min(1.0, t / 400.0)
+    else:
+        av = 150 - 110 * min(1.0, (t - T_JUNTAR) / 900.0)
+    fxd["veil"].set_alpha(int(av))
+    pantalla.blit(fxd["veil"], (0, 0))
+    kf = max(0.0, min(1.0, (t - 3200) / 900.0))
+    if kf > 0:
+        fxd["tinte"].set_alpha(int(210 * kf * (0.85 + 0.15 * math.sin(t / 150.0))))
+        pantalla.blit(fxd["tinte"], (0, 0))
+        _logo_llamas(pantalla, t, kf, w, h)
+        d["glow"].set_alpha(int(230 * kf * (0.85 + 0.15 * math.sin(t / 260.0))))
         pantalla.blit(d["glow"], (0, 0))
-    kf = min(1.0, t / 500.0)
-    for bx, by, vel, ph, sz, col in d["brasas"]:
-        a = kf * (0.55 + 0.45 * math.sin(t / 280.0 + ph))
-        x = bx + math.sin(t / 700.0 + ph) * 10
-        y = (by - vel * t * 0.045) % (h + 20) - 10
-        if sz >= 5 and a > 0.5:
-            pantalla.blit(_logo_brillo(sz, col), (int(x) - sz, int(y) - sz))
-        pantalla.fill(tuple(int(v * a) for v in col), (int(x), int(y), sz, sz))
-    # HUD: anillos giratorios tipo reactor
-    if t > 150:
-        ka = min(1.0, (t - 150) / 600.0) * (0.75 + 0.25 * math.sin(t / 240.0))
-        for rad, vel, gr, n in ((int(b * 8.5), 0.0011, 3, 4), (int(b * 10.5), -0.0008, 2, 6)):
-            rect = pygame.Rect(cx0 - rad, cy0 - rad, 2 * rad, 2 * rad)
-            seg = 2 * math.pi / n
-            for k in range(n):
-                a0 = (t * vel + k * seg) % (2 * math.pi)
-                pygame.draw.arc(pantalla, tenue(amb, 0.55 * ka), rect, a0, a0 + seg * 0.62, gr)
-    # HUD: esquinas del marco y linea de escaneo
-    bx0, bx1 = x0 - 3 * b, d["xf"] + 3 * b
-    by0, by1 = y0 - 2 * b, y0 + 13 * b
-    kb = max(0.0, min(1.0, (t - 200) / 500.0))
-    if kb > 0:
-        ln = int(2.2 * b * kb)
-        for px, py, sx_, sy_ in ((bx0, by0, 1, 1), (bx1, by0, -1, 1), (bx0, by1, 1, -1), (bx1, by1, -1, -1)):
-            pygame.draw.line(pantalla, tenue(amb, 0.9), (px, py), (px + sx_ * ln, py), 3)
-            pygame.draw.line(pantalla, tenue(amb, 0.9), (px, py), (px, py + sy_ * ln), 3)
-    ts = (t - 250) / 1300.0
-    if 0.0 <= ts <= 1.0:
-        ys = int(by0 + ts * 15 * b)
-        for k in range(7):
-            pantalla.fill(tenue((255, 200, 80), (1 - k / 7.0) * 0.8 * (1 - ts * 0.5)), (bx0, ys - k * 3, bx1 - bx0, 2))
-    # Letras 3D: llegan una a una girando y acercandose
-    DUR = 560
+        for bx, by, vel, ph, sz, col in d["brasas"]:
+            a = kf * (0.55 + 0.45 * math.sin(t / 280.0 + ph))
+            x = bx + math.sin(t / 700.0 + ph) * 10
+            y = (by - vel * t * 0.045) % (h + 20) - 10
+            if sz >= 5 and a > 0.5:
+                pantalla.blit(_logo_brillo(sz, col), (int(x) - sz, int(y) - sz))
+            pantalla.fill(tuple(int(v * a) for v in col), (int(x), int(y), sz, sz))
+    # Letras: llegan una a una, quedan separadas en zigzag y luego se juntan
     dirs = ((-1, -0.5), (0, -1), (1, -0.5), (-1, 0.6), (0, 1), (1, 0.6))
     dist = w * 0.55
-    def pose(li, pp, fx, fy):
-        e = 1 - (1 - pp) ** 3
-        q = 1 - e
-        return 1 + 1.2 * q * q, max(0.1, math.cos(q * 1.5)), fx + dirs[li][0] * dist * q * q, fy + dirs[li][1] * dist * 0.6 * q * q
-    for li, (surf, fx, fy) in enumerate(L):
-        t0 = 350 + li * 300
-        p = (t - t0) / float(DUR)
+    for li, (surf, fx_, fy_) in enumerate(L):
+        t_imp = T0 + li * PASO
+        p = (t - (t_imp - VUELO)) / float(VUELO)
         if p <= 0:
             continue
-        if p >= 1.0:
-            pantalla.blit(surf, surf.get_rect(center=(fx, fy)))
+        sxp = cx + (fx_ - cx) * GAP
+        syp = fy_ + (b * 1.6 if li % 2 == 0 else -b * 1.6)
+        if t >= T_JUNTAR:
+            tg = min(1.0, (t - T_JUNTAR) / float(DUR_J))
+            e = tg * tg * (3 - 2 * tg)
+            px, py, sc = sxp + (fx_ - sxp) * e, syp + (fy_ - syp) * e, SS + (1 - SS) * e
         else:
+            px, py, sc = sxp, syp, SS
+        dt = t - t_imp
+        if p < 1.0:
             for gz in (3, 2, 1, 0):
                 pp = p - gz * 0.07
                 if pp <= 0:
                     continue
-                sc, sx, cx_, cy_ = pose(li, pp, fx, fy)
-                im = pygame.transform.scale(surf, (max(2, int(surf.get_width() * sc * sx)), max(2, int(surf.get_height() * sc))))
-                im.set_alpha(int(255 * min(1.0, pp * 3) * (1.0 if gz == 0 else 0.22)))
-                pantalla.blit(im, im.get_rect(center=(int(cx_), int(cy_))))
-        tl = t - (t0 + DUR)
-        if 0 <= tl < 320:
-            k = tl / 320.0
-            fl = surf.copy()
+                q = (1 - pp) ** 3
+                im = escalar(surf, SS * (1 + 1.2 * q * q), max(0.1, math.cos(q * 1.5)))
+                alfa = int(255 * min(1.0, pp * 3) * (1.0 if gz == 0 else 0.22))
+                if alfa < 255:
+                    im = im.copy() if im is surf else im
+                    im.set_alpha(alfa)
+                cxx = px + dirs[li][0] * dist * q * q
+                cyy = py + dirs[li][1] * dist * 0.6 * q * q
+                pantalla.blit(im, im.get_rect(center=(int(cxx), int(cyy))))
+            continue
+        if 0 <= dt < 140 and t < T_JUNTAR:
+            py += int(5 * (1 - dt / 140.0)) * (1 if (t // 16) % 2 else -1)
+        im = escalar(surf, sc, 1.0)
+        if 0 <= dt < 320:
+            k = dt / 320.0
+            im = im.copy()
             v = int(150 * (1 - k))
-            fl.fill((v, v, int(v * 0.6)), special_flags=pygame.BLEND_RGB_ADD)
-            pantalla.blit(fl, fl.get_rect(center=(fx, fy)))
+            im.fill((v, v, int(v * 0.6)), special_flags=pygame.BLEND_RGB_ADD)
+        pantalla.blit(im, im.get_rect(center=(int(px), int(py))))
+        if 0 <= dt < 320:
+            k = dt / 320.0
             r = int(b * (1.5 + 5 * k))
-            pygame.draw.ellipse(pantalla, tenue((255, 200, 80), 1 - k), pygame.Rect(fx - r, fy + 3 * b - r // 3, 2 * r, 2 * r // 3), 2)
+            pygame.draw.ellipse(pantalla, tenue((255, 200, 80), 1 - k),
+                                pygame.Rect(int(px) - r, int(py + 3 * b * sc) - r // 3, 2 * r, 2 * r // 3), 2)
             for jj in range(6):
                 ang = jj * math.pi / 3 + li
                 rr = b * (1.2 + 4 * k)
                 s2 = max(1, int(b * 0.3 * (1 - k)))
-                pantalla.fill((255, 226, 120), (int(fx + math.cos(ang) * rr), int(fy + 3 * b + math.sin(ang) * rr * 0.5), s2, s2))
-    # Barrido de luz metalico sobre la cara de las letras
-    ks = (t - 2600) / 800.0
+                pantalla.fill((255, 226, 120), (int(px + math.cos(ang) * rr), int(py + 3 * b * sc + math.sin(ang) * rr * 0.5), s2, s2))
+    # Barrido de luz sobre el logo ya armado
+    ks = (t - 3400) / 600.0
     if 0.0 <= ks <= 1.0:
         x = x0 - 2 * b + ks * (d["cols"] * b + 6 * b)
         tmp = d["tmp"]
@@ -5161,43 +5195,39 @@ def dibujar_logo(pantalla, t):
         tmp.blit(d["relleno"], (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         pantalla.blit(tmp, (0, 0))
     # Linea con rombo
-    ku = max(0.0, min(1.0, (t - 2500) / 700.0))
+    ku = max(0.0, min(1.0, (t - 3450) / 550.0))
     if ku > 0:
-        cx, yl, th, sep = d["cx"], d["yl"], d["th"], 2 * b
+        cxl, yl, th, sep = d["cx"], d["yl"], d["th"], 2 * b
         largo = (d["xf"] - x0) / 2.0 - sep
         for lado in (-1, 1):
-            a_, b_ = sorted((cx + lado * sep, int(cx + lado * (sep + largo * ku))))
+            a_, b_ = sorted((cxl + lado * sep, int(cxl + lado * (sep + largo * ku))))
             pantalla.fill((0, 0, 0), (a_ - o, yl - o, b_ - a_ + 2 * o, th + 2 * o))
             pantalla.fill((255, 226, 90), (a_, yl, b_ - a_, th // 2))
             pantalla.fill((255, 160, 20), (a_, yl + th // 2, b_ - a_, th - th // 2))
         r = int(b * 1.6 * min(1.0, ku * 1.4))
         ym = yl + th // 2
         if r > 2:
-            pygame.draw.polygon(pantalla, (0, 0, 0), [(cx, ym - r - o), (cx + r + o, ym), (cx, ym + r + o), (cx - r - o, ym)])
-            pygame.draw.polygon(pantalla, (255, 170, 25), [(cx, ym - r), (cx + r, ym), (cx, ym + r), (cx - r, ym)])
+            pygame.draw.polygon(pantalla, (0, 0, 0), [(cxl, ym - r - o), (cxl + r + o, ym), (cxl, ym + r + o), (cxl - r - o, ym)])
+            pygame.draw.polygon(pantalla, (255, 170, 25), [(cxl, ym - r), (cxl + r, ym), (cxl, ym + r), (cxl - r, ym)])
             ri = r * 6 // 10
-            pygame.draw.polygon(pantalla, (255, 225, 90), [(cx, ym - ri), (cx + ri, ym), (cx, ym + ri), (cx - ri, ym)])
+            pygame.draw.polygon(pantalla, (255, 225, 90), [(cxl, ym - ri), (cxl + ri, ym), (cxl, ym + ri), (cxl - ri, ym)])
             rc = max(1, r * 3 // 10)
-            pygame.draw.polygon(pantalla, (255, 248, 190), [(cx, ym - rc), (cx + rc, ym), (cx, ym + rc), (cx - rc, ym)])
-    # Chispas tras el ultimo aterrizaje
-    tb = t - 2450
+            pygame.draw.polygon(pantalla, (255, 248, 190), [(cxl, ym - rc), (cxl + rc, ym), (cxl, ym + rc), (cxl - rc, ym)])
+    # Golpe al encajar: chispas, flash dorado y onda expansiva
+    tb = t - T_GOLPE
     if 0 < tb < 1400:
         k = 1 - tb / 1400.0
         for sx, sy, vx, vy, sz, col in d["chispas"]:
             s2 = max(1, int(sz * k))
             pantalla.fill(tuple(int(v * (0.4 + 0.6 * k)) for v in col),
                           (int(sx + vx * tb), int(sy + vy * tb + 0.0002 * tb * tb), s2, s2))
-    # Texto de sistema que se escribe solo
-    tt = (t - 2700) / 1000.0
-    if tt > 0:
-        txt = "SISTEMA EN LINEA"
-        n = int(len(txt) * min(1.0, tt))
-        try:
-            f = _fpx_menu(max(12, int(b * 0.85)))
-            s = f.render(txt[:n] + ("_" if (t // 250) % 2 and n < len(txt) else ""), False, tenue((255, 200, 80), 0.9))
-            pantalla.blit(s, s.get_rect(center=(w // 2, d["yl"] + 3 * b)))
-        except Exception:
-            pass
+    if 0 <= tb < 350:
+        k = tb / 350.0
+        v = int(110 * (1 - k))
+        pantalla.fill((v, int(v * 0.75), int(v * 0.25)), special_flags=pygame.BLEND_RGB_ADD)
+        r = int(w * 0.6 * k)
+        if r > 6:
+            pygame.draw.ellipse(pantalla, tenue((255, 200, 80), 1 - k), pygame.Rect(cx - r, cy0 - r // 2, 2 * r, r), 3)
     if t > LOGO_MS - 700:
         d["velo"].set_alpha(int(255 * min(1.0, (t - (LOGO_MS - 700)) / 700.0)))
         pantalla.blit(d["velo"], (0, 0))
