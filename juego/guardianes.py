@@ -1291,6 +1291,7 @@ def cuaderno(pantalla, fuente):
     f_p = pygame.font.Font(None, 20)
     sec, ent = 0, 0
     f_pest, sep_pest = f_s, 24
+    pest_rects, fila_rects, cerrar_r = [], [], pygame.Rect(0, 0, 0, 0)
     for _tam in (24, 22, 20, 18, 16):
         _fp = pygame.font.Font(None, _tam)
         _suma = sum(_fp.size(_nm)[0] for _nm, _ in CUADERNO)
@@ -1317,6 +1318,18 @@ def cuaderno(pantalla, fuente):
                     ent = (ent + 1) % len(CUADERNO[sec][1]); sonar("ui_mover")
                 elif e.key == pygame.K_UP:
                     ent = (ent - 1) % len(CUADERNO[sec][1]); sonar("ui_mover")
+            elif e.type == pygame.MOUSEWHEEL:
+                ent = (ent - e.y) % len(CUADERNO[sec][1]); sonar("ui_mover")
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                if cerrar_r.collidepoint(e.pos):
+                    sonar("ui_volver")
+                    return None
+                for _i, _r in enumerate(pest_rects):
+                    if _r.collidepoint(e.pos) and _i != sec:
+                        sec = _i; ent = 0; sonar("ui_mover")
+                for _i, _r in enumerate(fila_rects):
+                    if _r.collidepoint(e.pos) and _i < len(CUADERNO[sec][1]):
+                        ent = _i; sonar("ui_mover")
         pantalla.blit(fondo, (0, 0))
         marco = pygame.Rect(30, 30, w - 60, h - 60)
         pygame.draw.rect(pantalla, (0, 0, 0), marco.move(4, 5), border_radius=8)
@@ -1324,17 +1337,21 @@ def cuaderno(pantalla, fuente):
         pygame.draw.rect(pantalla, (255, 170, 60), marco, 3, border_radius=8)
         t = f_tit.render("CUADERNO DE GUARDIANES", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 68)))
+        pest_rects.clear()
         x = marco.x + 20
         for i, (nom, _) in enumerate(CUADERNO):
             s = f_pest.render(nom, True, (255, 255, 255) if i == sec else (150, 170, 150))
             pantalla.blit(s, (x, 100))
+            pest_rects.append(pygame.Rect(x - 5, 94, s.get_width() + 10, 30))
             if i == sec:
                 pygame.draw.line(pantalla, (255, 170, 60), (x, 122), (x + s.get_width(), 122), 2)
             x += s.get_width() + sep_pest
         fichas = CUADERNO[sec][1]
         lista = pygame.Rect(marco.x + 20, 140, 190, marco.h - 140 - 60)
+        fila_rects.clear()
         for i, (nom, _) in enumerate(fichas):
             r = pygame.Rect(lista.x, lista.y + i * 36, lista.w, 30)
+            fila_rects.append(r)
             pygame.draw.rect(pantalla, (255, 87, 34) if i == ent else (45, 66, 52), r, border_radius=6)
             _cl = CUAD_CLAVES[sec][i]
             _ab = _cl in CUAD["abiertas"]
@@ -1354,8 +1371,13 @@ def cuaderno(pantalla, fuente):
             for parte in _ajustar(linea, f_t, det.w - 28):
                 pantalla.blit(f_t.render(parte, True, (230, 230, 230)), (det.x + 14, yy)); yy += 28
             yy += 8
-        pie = f_p.render("Izq/Der: sección   Arriba/Abajo: ficha   Esc o N: cerrar", True, (200, 190, 150))
+        pie = f_p.render("Izq/Der o clic: sección   Arriba/Abajo o rueda: ficha   Esc: cerrar", True, (200, 190, 150))
         pantalla.blit(pie, pie.get_rect(center=(w // 2, marco.bottom - 24)))
+        cerrar_r = pygame.Rect(marco.right - 130, marco.bottom - 40, 110, 28)
+        pygame.draw.rect(pantalla, (255, 87, 34) if cerrar_r.collidepoint(pygame.mouse.get_pos()) else (45, 66, 52), cerrar_r, border_radius=6)
+        pygame.draw.rect(pantalla, (255, 200, 120), cerrar_r, 2, border_radius=6)
+        _tc = f_p.render("Cerrar (Esc)", True, (255, 255, 255))
+        pantalla.blit(_tc, _tc.get_rect(center=cerrar_r.center))
         pygame.display.flip()
         reloj.tick(30)
 
@@ -4537,6 +4559,199 @@ def voltear_sprite(spr, nombre):
     return _SPRITES[clave]
 
 
+_LOGO_LETRAS = {
+    "T": ["1111111", "1111111", "0011100", "0011100", "0011100", "0011100", "0011100", "0011100", "0011100"],
+    "O": ["0111110", "1111111", "1100011", "1100011", "1100011", "1100011", "1100011", "1111111", "0111110"],
+    "U": ["1100011", "1100011", "1100011", "1100011", "1100011", "1100011", "1100011", "1111111", "0111110"],
+    "K": ["1100011", "1100111", "1101110", "1111100", "1111000", "1111100", "1101110", "1100111", "1100011"],
+    "E": ["1111111", "1111111", "1100000", "1111110", "1111110", "1100000", "1100000", "1111111", "1111111"],
+    "N": ["1111011", "1111011", "1111011", "1101111", "1101111", "1101111", "1100111", "1100111", "1100111"],
+}
+LOGO_MS = 4800
+_LOGO_CACHE = {}
+_LOGO_CELDAS = {}
+_LOGO_BRILLO = {}
+
+def _logo_celda(b, flags, fila):
+    # Bloque de oro con bisel: borde claro arriba/izquierda, oscuro abajo/derecha y degradado por fila.
+    clave = (b, flags, fila)
+    s = _LOGO_CELDAS.get(clave)
+    if s is not None:
+        return s
+    k = fila / 8.0
+    base = (255, int(216 - 52 * k), int(52 - 30 * k))
+    hi = (255, min(255, base[1] + 38), min(255, base[2] + 90))
+    lo = (int(base[0] * 0.78), int(base[1] * 0.50), int(base[2] * 0.25))
+    s = pygame.Surface((b, b))
+    s.fill(base)
+    t = max(1, b // 4)
+    arriba, izq, abajo, der = flags
+    if arriba:
+        s.fill(hi, (0, 0, b, t))
+    if izq:
+        s.fill(hi, (0, 0, t, b))
+    if abajo:
+        s.fill(lo, (0, b - t, b, t))
+    if der:
+        s.fill(lo, (b - t, 0, t, b))
+    if arriba and izq:
+        s.fill((255, 248, 190), (0, 0, t, t))
+    _LOGO_CELDAS[clave] = s
+    return s
+
+def _logo_brillo(sz, col):
+    clave = (sz, col)
+    g = _LOGO_BRILLO.get(clave)
+    if g is None:
+        m = sz * 3
+        g = pygame.Surface((m, m), pygame.SRCALPHA)
+        g.fill(col + (30,), (0, 0, m, m))
+        g.fill(col + (60,), (sz // 2, sz // 2, sz * 2, sz * 2))
+        _LOGO_BRILLO[clave] = g
+    return g
+
+def _logo_datos(w, h):
+    import math, random
+    rnd = random.Random(11)
+    cols = 6 * 7 + 5
+    b = max(3, min(int(w * 0.80 / cols), int(h * 0.34 / 9)))
+    o = max(2, b // 3)
+    ex = max(2, b // 3)
+    x0 = (w - cols * b) // 2
+    y0 = int(h * 0.40) - (9 * b) // 2
+    ocupado = set()
+    for li, ch in enumerate("TOUKEN"):
+        for r, fila in enumerate(_LOGO_LETRAS[ch]):
+            for c, v in enumerate(fila):
+                if v == "1":
+                    ocupado.add((li * 8 + c, r))
+    celdas = []
+    for gx, gy in sorted(ocupado):
+        flags = ((gx, gy - 1) not in ocupado, (gx - 1, gy) not in ocupado,
+                 (gx, gy + 1) not in ocupado, (gx + 1, gy) not in ocupado)
+        tx, ty = x0 + gx * b, y0 + gy * b
+        celdas.append((tx, ty, flags, gy, tx + rnd.uniform(-0.55, 0.55) * w, ty + rnd.uniform(-0.55, 0.55) * h,
+                       (gx // 8) * 170 + rnd.uniform(0, 450)))
+    contorno = pygame.Surface((w, h), pygame.SRCALPHA)
+    relleno = pygame.Surface((w, h), pygame.SRCALPHA)
+    for tx, ty, flags, gy, sx, sy, dl in celdas:
+        contorno.fill((0, 0, 0, 255), (tx - o, ty - o, b + 2 * o, b + 2 * o + ex))
+    for tx, ty, flags, gy, sx, sy, dl in celdas:
+        contorno.fill((125, 58, 8, 255), (tx, ty + ex, b, b))
+        relleno.fill((255, 255, 255, 255), (tx, ty, b, b))
+    peq = pygame.Surface((max(2, w // 12), max(2, h // 12)), pygame.SRCALPHA)
+    peq.fill((255, 120, 20, 0))
+    for tx, ty, flags, gy, sx, sy, dl in celdas:
+        peq.fill((255, 120, 20, 255), (tx // 12 - 1, ty // 12 - 1, max(1, b // 12) + 3, max(1, b // 12) + 3))
+    glow = pygame.transform.smoothscale(peq, (max(2, w // 3), max(2, h // 3)))
+    glow = pygame.transform.smoothscale(glow, (w, h))
+    glow.blit(glow, (0, 0))
+    paleta = [(255, 120, 20), (255, 170, 30), (255, 215, 50), (220, 80, 10), (140, 50, 10)]
+    brasas = [(rnd.uniform(0, w), rnd.uniform(0, h), rnd.uniform(0.3, 1.0), rnd.uniform(0, 6.28),
+               max(2, int(b * rnd.choice((0.18, 0.22, 0.3, 0.4, 0.55)))), rnd.choice(paleta)) for _ in range(70)]
+    chispas = []
+    for _ in range(36):
+        c = rnd.choice(celdas)
+        ang = rnd.uniform(0, 6.2832)
+        vel = rnd.uniform(0.05, 0.22) * (w / 900.0)
+        chispas.append((c[0] + b / 2.0, c[1] + b / 2.0, math.cos(ang) * vel, math.sin(ang) * vel - 0.04,
+                        max(2, int(b * rnd.choice((0.2, 0.3, 0.4)))), rnd.choice(paleta[:3])))
+    velo = pygame.Surface((w, h))
+    velo.fill((6, 5, 12))
+    return dict(b=b, o=o, ex=ex, x0=x0, y0=y0, cols=cols, celdas=celdas, contorno=contorno, relleno=relleno,
+                glow=glow, brasas=brasas, chispas=chispas, velo=velo, tmp=pygame.Surface((w, h), pygame.SRCALPHA),
+                cx=w // 2, yl=y0 + 9 * b + ex + o + b, th=max(4, int(b * 0.55)), xf=x0 + cols * b)
+
+def dibujar_logo(pantalla, t):
+    # Logo animado: brasas, bloques que se arman con bisel, contorno y resplandor, franja de luz y linea con rombo.
+    import math
+    w, h = pantalla.get_size()
+    d = _LOGO_CACHE.get((w, h))
+    if d is None:
+        d = _LOGO_CACHE[(w, h)] = _logo_datos(w, h)
+    b, o, x0, y0 = d["b"], d["o"], d["x0"], d["y0"]
+    pantalla.fill((6, 5, 12))
+    kg = max(0.0, min(1.0, (t - 1500) / 900.0))
+    if kg > 0:
+        d["glow"].set_alpha(int(230 * kg * (0.85 + 0.15 * math.sin(t / 260.0))))
+        pantalla.blit(d["glow"], (0, 0))
+    kf = min(1.0, t / 500.0)
+    for bx, by, vel, ph, sz, col in d["brasas"]:
+        a = kf * (0.55 + 0.45 * math.sin(t / 280.0 + ph))
+        x = bx + math.sin(t / 700.0 + ph) * 10
+        y = (by - vel * t * 0.045) % (h + 20) - 10
+        if sz >= 5 and a > 0.5:
+            pantalla.blit(_logo_brillo(sz, col), (int(x) - sz, int(y) - sz))
+        pantalla.fill(tuple(int(v * a) for v in col), (int(x), int(y), sz, sz))
+    kc = max(0.0, min(1.0, (t - 1500) / 800.0))
+    if kc > 0:
+        d["contorno"].set_alpha(int(255 * kc))
+        pantalla.blit(d["contorno"], (0, 0))
+    for tx, ty, flags, gy, sx, sy, delay in d["celdas"]:
+        p = max(0.0, min(1.0, (t - delay) / 800.0))
+        if p <= 0:
+            continue
+        e = 1 - (1 - p) ** 3
+        s = _logo_celda(b, flags, gy)
+        s.set_alpha(int(255 * min(1.0, p * 2.5)))
+        pantalla.blit(s, (int(sx + (tx - sx) * e), int(sy + (ty - sy) * e)))
+    ks = (t - 2500) / 800.0
+    if 0.0 <= ks <= 1.0:
+        x = x0 - 2 * b + ks * (d["cols"] * b + 6 * b)
+        tmp = d["tmp"]
+        tmp.fill((255, 255, 255, 0))
+        pygame.draw.polygon(tmp, (255, 255, 255, 120), [(x, y0 - b), (x + 4 * b, y0 - b),
+                                                      (x + b, y0 + 10 * b), (x - 3 * b, y0 + 10 * b)])
+        tmp.blit(d["relleno"], (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+        pantalla.blit(tmp, (0, 0))
+    ku = max(0.0, min(1.0, (t - 2200) / 700.0))
+    if ku > 0:
+        cx, yl, th, sep = d["cx"], d["yl"], d["th"], 2 * b
+        largo = (d["xf"] - x0) / 2.0 - sep
+        for lado in (-1, 1):
+            a_, b_ = sorted((cx + lado * sep, int(cx + lado * (sep + largo * ku))))
+            pantalla.fill((0, 0, 0), (a_ - o, yl - o, b_ - a_ + 2 * o, th + 2 * o))
+            pantalla.fill((255, 226, 90), (a_, yl, b_ - a_, th // 2))
+            pantalla.fill((255, 160, 20), (a_, yl + th // 2, b_ - a_, th - th // 2))
+        r = int(b * 1.6 * min(1.0, ku * 1.4))
+        ym = yl + th // 2
+        if r > 2:
+            pygame.draw.polygon(pantalla, (0, 0, 0), [(cx, ym - r - o), (cx + r + o, ym), (cx, ym + r + o), (cx - r - o, ym)])
+            pygame.draw.polygon(pantalla, (255, 170, 25), [(cx, ym - r), (cx + r, ym), (cx, ym + r), (cx - r, ym)])
+            ri = r * 6 // 10
+            pygame.draw.polygon(pantalla, (255, 225, 90), [(cx, ym - ri), (cx + ri, ym), (cx, ym + ri), (cx - ri, ym)])
+            rc = max(1, r * 3 // 10)
+            pygame.draw.polygon(pantalla, (255, 248, 190), [(cx, ym - rc), (cx + rc, ym), (cx, ym + rc), (cx - rc, ym)])
+    tb = t - 2000
+    if 0 < tb < 1400:
+        k = 1 - tb / 1400.0
+        for sx, sy, vx, vy, sz, col in d["chispas"]:
+            s2 = max(1, int(sz * k))
+            pantalla.fill(tuple(int(v * (0.4 + 0.6 * k)) for v in col),
+                          (int(sx + vx * tb), int(sy + vy * tb + 0.0002 * tb * tb), s2, s2))
+    if t > LOGO_MS - 700:
+        d["velo"].set_alpha(int(255 * min(1.0, (t - (LOGO_MS - 700)) / 700.0)))
+        pantalla.blit(d["velo"], (0, 0))
+
+def logo_touken(pantalla):
+    # Introduccion con el logo. Cualquier tecla o clic la salta. Devuelve "salir" si se cierra la ventana.
+    if os.environ.get("SIN_LOGO"):
+        return None
+    t0 = pygame.time.get_ticks()
+    reloj = pygame.time.Clock()
+    while True:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                return "salir"
+            if e.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN):
+                return None
+        t = pygame.time.get_ticks() - t0
+        if t >= LOGO_MS:
+            return None
+        dibujar_logo(pantalla, t)
+        pygame.display.flip()
+        reloj.tick(60)
+
 def main():
     global CELDA
     os.makedirs("output", exist_ok=True)
@@ -4706,6 +4921,12 @@ def main():
     reiniciar()
     n = est["n"]
     pantalla = pygame.display.set_mode((tam_vista(n)[0] + PANEL_W, tam_vista(n)[1]))
+    try:
+        if logo_touken(pantalla) == "salir":
+            pygame.quit()
+            return
+    except Exception:
+        pass
     ok_menu = menu_principal(pantalla, fuente); cortina(pantalla) if ok_menu else None
     if ok_menu:
         niv = nivel_actual()
