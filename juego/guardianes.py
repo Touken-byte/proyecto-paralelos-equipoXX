@@ -2071,12 +2071,295 @@ def cortina(pantalla, dur=300):
             break
         reloj.tick(60)
 
-def _rects_menu(w, h, grupos, y0=140, pie=60, sep=8, gg=18):
+import math, random
+_CHACO_CACHE = {}
+_CHACO_ARBOLES = {}
+_CHACO_FIJOS = {}
+_ARBOL_DIM = {"redondo": (30, 40), "paraguas": (40, 30), "cactus": (16, 34), "borracho": (24, 42)}
+
+def _chaco_color_cielo(t):
+    # 0 = arriba, 1 = horizonte: azul verdoso oscuro -> rojo brasa -> naranja
+    pal = [(8, 16, 22), (14, 30, 30), (36, 36, 32), (98, 40, 20), (168, 66, 20), (214, 108, 30)]
+    x = t * (len(pal) - 1)
+    i = min(len(pal) - 2, int(x))
+    a, b, f = pal[i], pal[i + 1], x - i
+    return tuple(int(a[j] + (b[j] - a[j]) * f) for j in range(3))
+
+def _chaco_cielo(w, h, P):
+    # Cielo con dithering ordenado (a baja resolucion, luego se escala) y una luna.
+    W, H = w // P + 1, h // P + 1
+    lr = pygame.Surface((W, H))
+    N = 14
+    niv = [_chaco_color_cielo(k / (N - 1)) for k in range(N)]
+    bayer = ((0, 2), (3, 1))
+    for y in range(H):
+        pos = min(1.0, y / (0.80 * H)) * (N - 1)
+        lo = min(N - 2, int(pos))
+        fr = pos - lo
+        for x in range(W):
+            lr.set_at((x, y), niv[lo + 1] if fr > (bayer[y & 1][x & 1] + 0.5) / 4.0 else niv[lo])
+    mx, my = int(W * 0.80), int(H * 0.17)
+    pygame.draw.circle(lr, (226, 178, 126), (mx, my), 7)
+    for dx, dy in ((-2, -2), (2, 1), (-1, 3), (3, -3)):
+        pygame.draw.circle(lr, (200, 150, 104), (mx + dx, my + dy), 1)
+    return pygame.transform.scale(lr, (W * P, H * P))
+
+def _chaco_sierra(w, h, P, base, amp, col, semilla):
+    # Silueta de serrania (suma de senos) a baja resolucion. Devuelve (superficie, alturas por columna en px).
+    rnd = random.Random(semilla)
+    W, H = w // P + 1, h // P + 1
+    lr = pygame.Surface((W, H), pygame.SRCALPHA)
+    ph = [rnd.uniform(0, 6.28) for _ in range(3)]
+    tops = []
+    for x in range(W):
+        s = 0.5 * math.sin(0.021 * x + ph[0]) + 0.3 * math.sin(0.057 * x + ph[1]) + 0.2 * math.sin(0.13 * x + ph[2])
+        top = int(base * H - amp * H * (0.5 + 0.5 * s))
+        lr.fill(col, (x, top, 1, H - top))
+        tops.append(top * P)
+    return pygame.transform.scale(lr, (W * P, H * P)), tops
+
+def _chaco_arbol(tipo, k, col, rim, frame, sem):
+    # Arbol pixel art: se dibuja a baja resolucion y se escala k veces. frame (-2..2) = balanceo.
+    clave = (tipo, k, col, rim, frame, sem)
+    s = _CHACO_ARBOLES.get(clave)
+    if s is not None:
+        return s
+    W, H = _ARBOL_DIM[tipo]
+    lr = pygame.Surface((W, H), pygame.SRCALPHA)
+    rnd = random.Random(sem * 7 + len(tipo))
+    cx, base = W // 2, H - 1
+
+    def tronco(alto, ancho, doblar):
+        for y in range(alto):
+            u = y / float(max(1, alto))
+            dx = int(round(frame * doblar * u * u))
+            lr.fill(col, (cx - ancho // 2 + dx, base - y, ancho, 1))
+        return int(round(frame * doblar))
+
+    def bola(x, y, r):
+        pygame.draw.circle(lr, rim, (x, y - 1), r)
+        pygame.draw.circle(lr, col, (x, y), r)
+
+    if tipo == "redondo":
+        dx = tronco(17, 3, 1.0)
+        c0 = (cx + dx, base - 25)
+        bola(c0[0], c0[1], 9)
+        for _ in range(6):
+            bola(c0[0] + rnd.randint(-8, 8), c0[1] + rnd.randint(-7, 4), rnd.randint(5, 8))
+    elif tipo == "paraguas":
+        dx = tronco(14, 2, 1.0)
+        top = base - 14
+        for ex, ey, ew, eh in ((-18, -4, 36, 9), (-11, -9, 24, 8), (-19, -1, 14, 6), (6, -2, 14, 6)):
+            pygame.draw.ellipse(lr, rim, (cx + dx + ex, top + ey - 1, ew, eh))
+            pygame.draw.ellipse(lr, col, (cx + dx + ex, top + ey, ew, eh))
+    elif tipo == "cactus":
+        lr.fill(col, (cx - 1, base - 28, 3, 29))
+        lr.fill(col, (cx - 6, base - 15, 6, 2))
+        lr.fill(col, (cx - 6, base - 21, 2, 8))
+        lr.fill(col, (cx + 1, base - 19, 6, 2))
+        lr.fill(col, (cx + 5, base - 25, 2, 8))
+        for px, py in ((cx - 1, base - 28), (cx - 6, base - 21), (cx + 5, base - 25)):
+            lr.fill(rim, (px, py - 1, 2 if px != cx - 1 else 3, 1))
+    else:   # borracho (palo borracho): tronco en forma de botella y copa rala
+        alto = 20
+        for y in range(alto):
+            u = y / float(alto)
+            ancho = int(4 + 5 * math.sin(math.pi * min(1.0, u * 1.15)))
+            dx = int(round(frame * 0.8 * u * u))
+            lr.fill(col, (cx - ancho // 2 + dx, base - y, ancho, 1))
+        dx = int(round(frame * 0.8))
+        for ox, oy, r in ((-6, -26, 4), (0, -30, 5), (6, -26, 4), (-3, -23, 3), (4, -22, 3)):
+            bola(cx + dx + ox, base + oy + 4, r)
+    s = pygame.transform.scale(lr, (W * k, H * k))
+    _CHACO_ARBOLES[clave] = s
+    return s
+
+def _chaco_datos(w, h):
+    P = 4
+    rnd = random.Random(2026)
+    cielo = _chaco_cielo(w, h, P)
+    s1, tops1 = _chaco_sierra(w, h, P, 0.70, 0.10, (74, 40, 30), 5)
+    s2, tops2 = _chaco_sierra(w, h, P, 0.77, 0.08, (48, 32, 28), 9)
+    sierra = pygame.Surface((w, h), pygame.SRCALPHA)
+    sierra.blit(s1, (0, 0))
+    sierra.blit(s2, (0, 0))
+    glow = pygame.Surface((w, h), pygame.SRCALPHA)
+    y0, y1 = int(h * 0.42), int(h * 0.82)
+    for y in range(y0, h):
+        u = min(1.0, (y - y0) / float(y1 - y0))
+        glow.fill((255, 110, 20, int(130 * u * u)), (0, y, w, 1))
+    capas = []   # (velocidad, [(tipo, k, col, rim, sem, x, base, fase)])
+
+    def capa(vel, k, col, rim, base, paso, tipos, x_ini=-20):
+        lst, x = [], x_ini
+        while x < w + 40:
+            lst.append((rnd.choice(tipos), k, col, rim, rnd.randint(0, 3), x, int(base), rnd.uniform(0, 6.28)))
+            x += paso + rnd.randint(-paso // 3, paso // 3)
+        capas.append((vel, lst))
+    capa(0.55, 2, (34, 24, 22), (92, 50, 30), h * 0.80, 58, ["redondo", "paraguas", "redondo", "cactus", "borracho"])
+    capa(0.75, 3, (18, 25, 21), (70, 44, 28), h * 0.90, 104, ["redondo", "paraguas", "borracho", "cactus", "redondo"], 30)
+    cerca = []
+    for fx, tipo in ((0.05, "paraguas"), (0.19, "redondo"), (0.82, "redondo"), (0.95, "paraguas")):
+        cerca.append((tipo, 6, (7, 15, 11), (60, 36, 20), rnd.randint(0, 3), int(w * fx), h + 8, rnd.uniform(0, 6.28)))
+    capas.append((0.9, cerca))
+    estrellas = [(rnd.randint(0, w - 3), rnd.randint(0, int(h * 0.38)), rnd.uniform(0, 6.28)) for _ in range(46)]
+    llamas = [(rnd.randrange(8, len(tops1) - 8), rnd.uniform(0, 6.28)) for _ in range(12)]
+    pasto = [(rnd.randint(0, w), rnd.uniform(0, 6.28), rnd.randint(7, 16)) for _ in range(150)]
+    return dict(P=P, cielo=cielo, sierra=sierra, glow=glow, tops=tops1, capas=capas, estrellas=estrellas,
+                llamas=llamas, pasto=pasto)
+
+def _dibujar_fondo_chaco(pantalla, ms):
+    # Fondo animado: cielo, luna, serrania en llamas y tres capas de arboles que se mecen con el viento.
+    w, h = pantalla.get_size()
+    d = _CHACO_CACHE.get((w, h))
+    if d is None:
+        d = _CHACO_CACHE[(w, h)] = _chaco_datos(w, h)
+    t = ms / 1000.0
+    P = d["P"]
+    pantalla.blit(d["cielo"], (0, 0))
+    for x, y, ph in d["estrellas"]:
+        v = int(70 + 160 * max(0.0, math.sin(t * 1.6 + ph)))
+        pantalla.fill((v, v, int(v * 0.85)), (x, y, 2, 2))
+    d["glow"].set_alpha(int(215 + 40 * math.sin(t * 2.3)))
+    pantalla.blit(d["glow"], (0, 0))
+    pantalla.blit(d["sierra"], (0, 0))
+    for xi, ph in d["llamas"]:
+        base = d["tops"][xi]
+        for i in range(5):
+            alto = (2 if i in (0, 4) else (4 if i in (1, 3) else 6)) + int(3 * (0.5 + 0.5 * math.sin(t * 9 + ph + i * 2.1)))
+            pantalla.fill((255, 120, 20), (xi * P + i * P, base - alto * P, P, alto * P))
+            if alto > 4:
+                pantalla.fill((255, 214, 70), (xi * P + i * P, base - (alto - 2) * P, P, 2 * P))
+    racha = 0.65 + 0.35 * math.sin(t * 0.35)
+    for vel, lst in d["capas"]:
+        for tipo, k, col, rim, sem, x, base, ph in lst:
+            fr = int(round(2 * math.sin(ph + t * vel * 2.0) * racha)) if tipo != "cactus" else 0
+            s = _chaco_arbol(tipo, k, col, rim, fr, sem)
+            pantalla.blit(s, (x - s.get_width() // 2, base - s.get_height()))
+    sue = int(h * 0.955)
+    pantalla.fill((6, 12, 9), (0, sue, w, h - sue))
+    for x, ph, alto in d["pasto"]:
+        dx = int(round(2 * math.sin(t * 1.4 + ph) * racha))
+        pantalla.fill((6, 12, 9), (x, sue - alto // 2, 3, alto // 2 + 1))
+        pantalla.fill((10, 20, 14), (x + dx * 2, sue - alto, 3, alto // 2 + 1))
+
+ICONOS_MENU = {
+    "Jugar": ["0000000000", "0110000000", "0111100000", "0111111000", "0111111110", "0111111110", "0111111000", "0111100000", "0110000000", "0000000000"],
+    "Modos especiales": ["0000100000", "0000110000", "0001110000", "0001111000", "0011111100", "0111111110", "0111011110", "0111011110", "0011111100", "0001111000"],
+    "Centro de Análisis": ["0000000000", "0000000011", "0000000011", "0000110011", "0000110011", "1100110011", "1100110011", "1100110011", "1111111111", "0000000000"],
+    "Cuaderno de Guardianes": ["0111111110", "1011111101", "1011001101", "1011111101", "1011001101", "1011111101", "1011001101", "1011111101", "0111111110", "0000000000"],
+    "Salón de Guardianes": ["1111111111", "1011111101", "1011111101", "0011111100", "0001111000", "0000110000", "0000110000", "0001111000", "0011111100", "0000000000"],
+    "Tienda": ["0001111000", "0010000100", "0010000100", "0111111110", "0111111110", "0111111110", "0111111110", "0111111110", "0111111110", "0000000000"],
+    "Cómo jugar": ["0011111100", "0111001110", "0110000110", "0000001110", "0000011100", "0000111000", "0000110000", "0000000000", "0000110000", "0000110000"],
+    "Salir": ["0111110000", "0110000000", "0110010000", "0110011000", "0111111100", "0111111110", "0110011100", "0110011000", "0110010000", "0111110000"],
+    "lock": ["0011111100", "0110000110", "0110000110", "1111111111", "1111001111", "1111001111", "1111111111", "1111111111", "1111111111", "0000000000"],
+}
+TECLAS_MENU = ["1", "2", "3", "4", "5", "6", "7", "Esc"]
+# estilo de cada estado: base, bisel claro, bisel oscuro, texto, icono, sombra del icono
+_ESTILOS_BOTON = {
+    "normal": ((44, 70, 54), (95, 143, 108), (22, 36, 27), (255, 255, 255), (255, 200, 120), (58, 34, 8)),
+    "sel": ((224, 112, 44), (255, 200, 120), (138, 58, 16), (255, 255, 255), (255, 255, 255), (90, 34, 8)),
+    "pre": ((44, 70, 54), (22, 36, 27), (95, 143, 108), (255, 255, 255), (255, 200, 120), (58, 34, 8)),
+    "blo": ((38, 48, 42), (58, 70, 62), (24, 31, 27), (108, 122, 112), (108, 122, 112), (18, 23, 26)),
+}
+_PX_CACHE = {}
+_PX_FUENTES = {}
+
+def _fpx_menu(tam):
+    f = _PX_FUENTES.get(tam)
+    if f is None:
+        try:
+            f = pygame.font.Font(_RUTA_FUENTE, tam)
+        except Exception:
+            f = pygame.font.Font(None, tam)
+        _PX_FUENTES[tam] = f
+    return f
+
+def _escalon_px(s, x, y, w, h, col, pasos=1, e=3):
+    # Rectangulo con las esquinas cortadas en escalon (pixel art).
+    for k in range(pasos + 1):
+        a, v = (pasos - k) * e, k * e
+        s.fill(col, (x + a, y + v, w - 2 * a, h - 2 * v))
+
+def _icono_px(nombre, col, sombra, b):
+    clave = ("ic", nombre, col, sombra, b)
+    s = _PX_CACHE.get(clave)
+    if s is None:
+        m = ICONOS_MENU[nombre]
+        s = pygame.Surface((11 * b, 11 * b), pygame.SRCALPHA)
+        for y, fila in enumerate(m):
+            for x, v in enumerate(fila):
+                if v == "1":
+                    s.fill(sombra, ((x + 1) * b, (y + 1) * b, b, b))
+        for y, fila in enumerate(m):
+            for x, v in enumerate(fila):
+                if v == "1":
+                    s.fill(col, (x * b, y * b, b, b))
+        _PX_CACHE[clave] = s
+    return s
+
+def _dibujar_boton_px(pantalla, r, texto, sel, pres, bloq, idx, con_tecla=True):
+    # Boton pixel art: borde negro, bisel, icono, texto y tecla. Seleccionado sube 2 px; presionado se hunde 3 px.
+    est = "blo" if bloq else ("pre" if pres else ("sel" if sel else "normal"))
+    x, y, w, h = r.x, r.y, r.w, r.h
+    if est == "pre":
+        y += 3
+        h -= 3
+    elif est == "sel":
+        y -= 2
+    clave = ("bt", w, h, texto, est, idx, con_tecla)
+    s = _PX_CACHE.get(clave)
+    if s is None:
+        base, hi, lo, ct, ci, si = _ESTILOS_BOTON[est]
+        s = pygame.Surface((w, h), pygame.SRCALPHA)
+        _escalon_px(s, 0, 0, w, h, (0, 0, 0), 2)
+        _escalon_px(s, 3, 3, w - 6, h - 6, base, 1)
+        s.fill(hi, (6, 3, w - 12, 3))
+        s.fill(hi, (3, 6, 3, h - 12))
+        s.fill(lo, (6, h - 6, w - 12, 3))
+        s.fill(lo, (w - 6, 6, 3, h - 12))
+        b = max(2, min(3, (h - 14) // 11))
+        ic = _icono_px(texto if (texto in ICONOS_MENU and est != "blo") else "lock", ci, si, b)
+        s.blit(ic, (14, (h - ic.get_height()) // 2))
+        tam = max(12, min(28, int(h * 0.48)))
+        izq = 14 + ic.get_width() + 12
+        der = w - 14
+        if con_tecla:
+            tk = TECLAS_MENU[idx] if idx < len(TECLAS_MENU) else ""
+            kt = _fpx_menu(max(11, tam - 4)).render(tk, False, ci)
+            kw, kh = kt.get_size()
+            kx = w - 14 - kw - 10
+            s.fill((110, 46, 12) if est == "sel" else (20, 32, 25), (kx, (h - kh) // 2 - 3, kw + 10, kh + 6))
+            s.blit(kt, (kx + 5, (h - kh) // 2))
+            der = kx - 8
+        f = _fpx_menu(tam)
+        while f.size(texto)[0] > der - izq and tam > 11:
+            tam -= 1
+            f = _fpx_menu(tam)
+        tt = f.render(texto, False, ct)
+        ts = f.render(texto, False, si)
+        tx = izq if con_tecla else max(izq, (w - tt.get_width()) // 2)
+        ty = (h - tt.get_height()) // 2
+        s.blit(ts, (tx + 1, ty + 1))
+        s.blit(tt, (tx, ty))
+        _PX_CACHE[clave] = s
+    pantalla.blit(s, (x, y))
+
+def _cursor_px(pantalla, r, ms):
+    # Flecha pixel a la izquierda del boton seleccionado; se mueve 3 px al ritmo de un parpadeo.
+    u = 3
+    x = r.x - 26 + (u if (ms // 350) % 2 else 0)
+    y = r.centery - 3 * u - 2
+    for col, off in (((58, 34, 8), u), ((255, 210, 58), 0)):
+        for a, b, c, d in ((0, 0, 2, 6), (2, 1, 2, 4), (4, 2, 2, 2)):
+            pantalla.fill(col, (x + off + a * u, y + off + b * u, c * u, d * u))
+
+def _rects_menu(w, h, grupos, y0=132, pie=52, sep=8, gg=18):
     # Botones del menu: mismo ancho y alto, agrupados, con un hueco mayor entre grupos.
     n = sum(grupos)
     libre = h - y0 - pie - (len(grupos) - 1) * gg - (n - len(grupos)) * sep
-    bh = max(24, min(46, libre // n))
-    bw = max(200, min(360, w - 80))
+    bh = max(24, min(56, libre // n))
+    bw = max(240, min(560, w - 160))
     x = (w - bw) // 2
     out = []
     y = y0
@@ -2089,9 +2372,9 @@ def _rects_menu(w, h, grupos, y0=140, pie=60, sep=8, gg=18):
 
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
-    f_tit = pygame.font.Font(None, 72)
-    f_sub = pygame.font.Font(None, 30)
-    f_op = pygame.font.Font(None, 32)
+    f_tit = _fpx_menu(52)
+    f_sub = _fpx_menu(24)
+    f_op = _fpx_menu(24)
     opciones = ["Jugar", "Modos especiales", "Centro de Análisis", "Cuaderno de Guardianes",
                 "Salón de Guardianes", "Tienda", "Cómo jugar", "Salir"]
     ayuda_txt = [
@@ -2221,7 +2504,7 @@ def menu_principal(pantalla, fuente):
                 if pantalla_maqueta(pantalla, titulo_m, lineas_m) == "salir":
                     return False
 
-        pantalla.blit(fondo, (0, 0))
+        _dibujar_fondo_chaco(pantalla, pygame.time.get_ticks())
         import math
         _tm = pygame.time.get_ticks() / 1000.0
         for _l in luci:
@@ -2240,12 +2523,9 @@ def menu_principal(pantalla, fuente):
                 centrado(linea, fuente, (240, 240, 240), 160 + k * 34)
         else:
             for i, r in enumerate(rects):
-                rr = rect_boton(r, i == sel).move(0, 4 if i == _pres[0] else 0)
-                pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-                pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
-                pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
-                centrado(opciones[i], f_op, (140, 140, 140) if "bloqueada" in opciones[i] else (255, 255, 255), r.centery + (2 if i == _pres[0] else 0))
-            centrado("Flechas + Enter, o usa el ratón", fuente, (200, 200, 200), h - 40)
+                _dibujar_boton_px(pantalla, r, opciones[i], i == sel, i == _pres[0], "bloqueada" in opciones[i], i, False)
+            _cursor_px(pantalla, rects[sel], pygame.time.get_ticks())
+            centrado("Flechas + Enter, o usa el ratón", _fpx_menu(16), (150, 175, 160), h - 40)
         dibujar_barra_volumen(pantalla, 20, h - 46)
         pygame.display.flip()
         reloj.tick(30)
@@ -4777,6 +5057,15 @@ def logo_touken(pantalla):
         dibujar_logo(pantalla, t)
         pygame.display.flip()
         reloj.tick(60)
+
+def fondo_marca(w, h):
+    # Fondo del Chaco sin animacion para las pantallas de seleccion (reemplaza al anterior).
+    s = _CHACO_FIJOS.get((w, h))
+    if s is None:
+        s = pygame.Surface((w, h))
+        _dibujar_fondo_chaco(s, 0)
+        _CHACO_FIJOS[(w, h)] = s
+    return s
 
 def main():
     global CELDA
