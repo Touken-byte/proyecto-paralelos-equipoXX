@@ -938,11 +938,6 @@ MAQUETAS = {
         "Menor cantidad de rondas utilizadas.",
         "",
         "Estado: maqueta. Se actualizará al cerrar la evaluación de cada misión."]),
-    "Próximamente": ("Próximamente", [
-        "Lo que viene después de esta versión:",
-        "",
-        "Cámara inteligente y pantalla dividida.",
-        "Más niveles, especies y contenido educativo."]),
 }
 
 SALON_RUTA = "output/salon.json"
@@ -2061,8 +2056,8 @@ def menu_principal(pantalla, fuente):
     f_tit = pygame.font.Font(None, 72)
     f_sub = pygame.font.Font(None, 30)
     f_op = pygame.font.Font(None, 32)
-    opciones = ["Jugar", "Campaña", "Modos especiales", "Centro de Análisis", "Cuaderno de Guardianes",
-                "Salón de Guardianes", "Tienda", "Próximamente", "Cómo jugar", "Salir"]
+    opciones = ["Jugar", "Modos especiales", "Centro de Análisis", "Cuaderno de Guardianes",
+                "Salón de Guardianes", "Tienda", "Cómo jugar", "Salir"]
     ayuda_txt = [
         "Eres el bombero forestal de los Bosques de Yacuiba.",
         "Clic izquierdo: cortafuegos (frena el avance del fuego).",
@@ -2131,9 +2126,9 @@ def menu_principal(pantalla, fuente):
                         sel = i
                         _pres[0] = i; _pres[1] = pygame.time.get_ticks()
         if accion is not None:
-            sonar({"Jugar": "ui_jugar", "Campaña": "ui_jugar", "Tienda": "ui_tienda",
+            sonar({"Jugar": "ui_jugar", "Tienda": "ui_tienda",
                    "Salir": "ui_salir"}.get(opciones[accion], "ui_aceptar"))
-        if accion is not None and opciones[accion] in ("Jugar", "Campaña"):
+        if accion is not None and opciones[accion] == "Jugar":
             m = seleccionar_modo(pantalla, fuente)
             if m == "salir":
                 return False
@@ -3095,9 +3090,8 @@ COMPARTIR_DIR = "output/compartir"
 NOMBRES_MODO = {"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío",
                 "corazon": "El corazón del incendio"}
 
-def imagen_resultados(est, ev):
-    # Genera un PNG fijo de 640x400 con los resultados de la misión. Devuelve la ruta.
-    import time
+def render_imagen_resultados(est, ev):
+    # Dibuja la imagen fija de 640x400 con los resultados de la misión. Devuelve la Surface.
     W, H = 640, 400
     s = _degradado_tramado(W, H, lambda t: (int(15 + 60 * t), int(40 - 10 * t), int(25 + 20 * t)))
     pygame.draw.rect(s, (255, 170, 60), (8, 8, W - 16, H - 16), 3, border_radius=10)
@@ -3123,11 +3117,78 @@ def imagen_resultados(est, ev):
         big = pygame.transform.scale(spr, (spr.get_width() * 4, spr.get_height() * 4))
         s.blit(big, big.get_rect(center=(x, 255)))
     centrado("Simulación de incendios forestales - Chaco boliviano y Tarija", f_p, (190, 190, 190), 372)
+    return s
+
+def imagen_resultados(est, ev, s=None):
+    # Guarda el PNG de resultados (lo dibuja si no se le da la superficie). Devuelve la ruta.
+    import time
+    if s is None:
+        s = render_imagen_resultados(est, ev)
+    niv = nivel_actual()
     os.makedirs(COMPARTIR_DIR, exist_ok=True)
     nombre = niv["id"] + ("_" + MODO_ESP["id"] if MODO_ESP["id"] else "") + "_" + time.strftime("%Y%m%d-%H%M%S") + ".png"
     ruta = os.path.join(COMPARTIR_DIR, nombre)
     pygame.image.save(s, ruta)
     return ruta
+
+def vista_imagen_resultados(pantalla, est, ev):
+    # Muestra la imagen antes de guardarla. G, Enter o el boton Guardar la guardan; Esc, I o Cerrar salen.
+    # Devuelve la ruta si se guardo, None si no, "salir" si se cierra la ventana.
+    s = render_imagen_resultados(est, ev)
+    w, h = pantalla.get_size()
+    fondo = pantalla.copy()
+    f_b = pygame.font.Font(None, 30)
+    f_p = pygame.font.Font(None, 24)
+    esc = min(1.0, (w - 80) / s.get_width(), (h - 170) / s.get_height())
+    vista = s if esc >= 1.0 else pygame.transform.smoothscale(s, (int(s.get_width() * esc), int(s.get_height() * esc)))
+    marco = vista.get_rect(center=(w // 2, (h - 90) // 2 + 10))
+    b_g = pygame.Rect(0, 0, 230, 40); b_g.midtop = (w // 2 - 130, marco.bottom + 24)
+    b_c = pygame.Rect(0, 0, 230, 40); b_c.midtop = (w // 2 + 130, marco.bottom + 24)
+    ruta, msg = None, ""
+    reloj = pygame.time.Clock()
+    while True:
+        guardar = False
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
+                pygame.event.post(pygame.event.Event(pygame.QUIT))
+                return "salir"
+            if e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_g, pygame.K_RETURN, pygame.K_KP_ENTER):
+                    guardar = True
+                elif e.key in (pygame.K_ESCAPE, pygame.K_i, pygame.K_BACKSPACE):
+                    sonar("ui_volver")
+                    return ruta
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+                if b_g.collidepoint(e.pos):
+                    guardar = True
+                elif b_c.collidepoint(e.pos):
+                    sonar("ui_volver")
+                    return ruta
+        if guardar and ruta is None:
+            try:
+                ruta = imagen_resultados(est, ev, s)
+                msg = "Guardada: " + os.path.basename(ruta)
+                sonar("ui_aceptar")
+            except Exception as ex:
+                msg = "No se pudo guardar: " + str(ex)
+        pantalla.blit(fondo, (0, 0))
+        velo = pygame.Surface((w, h), pygame.SRCALPHA)
+        velo.fill((0, 0, 0, 190))
+        pantalla.blit(velo, (0, 0))
+        pygame.draw.rect(pantalla, (0, 0, 0), marco.inflate(16, 16).move(4, 5), border_radius=10)
+        pantalla.blit(vista, marco)
+        pygame.draw.rect(pantalla, (255, 170, 60), marco.inflate(10, 10), 3, border_radius=8)
+        for r, txt, activo in ((b_g, "Guardada" if ruta else "Guardar (G)", ruta is None), (b_c, "Cerrar (Esc)", True)):
+            pygame.draw.rect(pantalla, (0, 0, 0), r.move(0, 3), border_radius=8)
+            pygame.draw.rect(pantalla, (255, 87, 34) if activo else (60, 90, 70), r, border_radius=8)
+            pygame.draw.rect(pantalla, (255, 200, 120), r, 2, border_radius=8)
+            t = f_b.render(txt, True, (255, 255, 255))
+            pantalla.blit(t, t.get_rect(center=r.center))
+        if msg:
+            t = f_p.render(msg, True, (120, 230, 120) if ruta else (255, 120, 120))
+            pantalla.blit(t, t.get_rect(center=(w // 2, b_g.bottom + 22)))
+        pygame.display.flip()
+        reloj.tick(30)
 
 # IA del compañero: tres niveles (spec 9.3). Valores ajustables.
 IA_PESO_REFUGIO = 1.0      # Experto: peso de la cercania al refugio al elegir foco
@@ -4484,11 +4545,9 @@ def main():
                     if not est["derrota"]:
                         est["ver_eval"] = False
                 elif e.key == pygame.K_i and est.get("ver_eval") and est.get("evaluacion"):
-                    try:
-                        _ruta = imagen_resultados(est, est["evaluacion"])
-                        est["img_msg"] = (id(est["evaluacion"]), "Imagen guardada: " + os.path.basename(_ruta))
-                    except Exception as ex:
-                        est["img_msg"] = (id(est["evaluacion"]), "No se pudo guardar la imagen: " + str(ex))
+                    _r = vista_imagen_resultados(pantalla, est, est["evaluacion"])
+                    if _r and _r != "salir":
+                        est["img_msg"] = (id(est["evaluacion"]), "Imagen guardada: " + os.path.basename(_r))
                 elif e.key == pygame.K_r:
                     reiniciar()
                 elif e.key == pygame.K_m and "musica" in sonidos:
@@ -4838,7 +4897,7 @@ def main():
                       "Focos activos: " + str(ev["focos"]),
                       "Rondas usadas: " + str(ev["ronda"]),
                       "Puntuacion: " + str(ev["puntos"]) + est.get("monedas_txt", ""),
-                      "C = continuar   R = reiniciar   I = imagen"]
+                      "C = continuar   R = reiniciar   I = ver imagen"]
             if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
                 lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
                 lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío", "corazon": "El corazón del incendio"}[MODO_ESP["id"]]]
