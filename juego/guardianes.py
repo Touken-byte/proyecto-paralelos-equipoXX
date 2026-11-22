@@ -829,16 +829,13 @@ def seleccionar_modo_especial(pantalla, fuente):
         pantalla.blit(fondo_marca(w, h), (0, 0))
         t = f_tit.render("Modos especiales", True, (255, 170, 60))
         pantalla.blit(t, t.get_rect(center=(w // 2, 120)))
+        _ics = ("Jugar", "Modos especiales", "Centro de Análisis", "Salón de Guardianes")
         for i, r in enumerate(rects):
             ok = MODOS_ESP[i][2]
-            col = color_boton(True) if i == sel and ok else (90, 90, 90) if i == sel else (38, 56, 44)
-            rr = rect_boton(r, i == sel)
-            pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-            pygame.draw.rect(pantalla, col, rr, border_radius=8)
-            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel and ok else (90, 120, 95), rr, 2, border_radius=8)
-            s = f_op.render(MODOS_ESP[i][1] + ("" if ok else " (próximamente)"), True,
-                            (255, 255, 255) if ok else (150, 150, 150))
-            pantalla.blit(s, s.get_rect(center=r.center))
+            _dibujar_boton_px(pantalla, r, MODOS_ESP[i][1] + ("" if ok else " (próximamente)"),
+                              i == sel and ok, False, not ok, i, con_tecla=False, icono=_ics[i % len(_ics)])
+        if MODOS_ESP[sel][2]:
+            _cursor_px(pantalla, rects[sel], pygame.time.get_ticks())
         d = fuente.render(MODOS_ESP[sel][3], True, (230, 230, 230))
         pantalla.blit(d, d.get_rect(center=(w // 2, 200 + len(MODOS_ESP) * 80 + 20)))
         v = fuente.render("Arriba/Abajo: elegir   Enter: continuar   Esc: volver", True, (170, 170, 170))
@@ -4445,15 +4442,21 @@ def cambiar_volumen(delta, canal="mus"):
     guardar_ajustes()
 
 
-def dibujar_barra_volumen(pantalla, x, y, ancho=150):
+def _barra_vol(pantalla, x, y, ancho, texto, frac, activo=False, mute=False):
+    # Panel oscuro con texto y barra verde: el mismo aspecto en el inicio, los ajustes y la pausa.
     if AJ["f"] is None:
         AJ["f"] = pygame.font.Font(None, 20)
     pygame.draw.rect(pantalla, (20, 24, 28), (x - 6, y - 4, ancho + 12, 40), border_radius=6)
-    txt = "Silenciado" if AJ["mute"] else "Musica " + str(int(round(AJ["mus"] * 100))) + "%"
-    pantalla.blit(AJ["f"].render(txt, True, (235, 235, 235)), (x, y))
+    if activo:
+        pygame.draw.rect(pantalla, (255, 170, 60), (x - 6, y - 4, ancho + 12, 40), 2, border_radius=6)
+    pantalla.blit(AJ["f"].render(texto, True, (255, 200, 80) if activo else (235, 235, 235)), (x, y))
     pygame.draw.rect(pantalla, (70, 70, 70), (x, y + 20, ancho, 8), border_radius=4)
-    if not AJ["mute"]:
-        pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * AJ["mus"]), 8), border_radius=4)
+    if not mute:
+        pygame.draw.rect(pantalla, (120, 255, 160), (x, y + 20, int(ancho * frac), 8), border_radius=4)
+
+def dibujar_barra_volumen(pantalla, x, y, ancho=150):
+    txt = "Silenciado" if AJ["mute"] else "Musica " + str(int(round(AJ["mus"] * 100))) + "%"
+    _barra_vol(pantalla, x, y, ancho, txt, AJ["mus"], False, AJ["mute"])
 
 
 PAUSA_TABS = ["Controles", "Habilidades", "Fauna", "Audio"]
@@ -4567,12 +4570,7 @@ def _dibujar_pausa(pantalla, est, tab, sel, fondo, inicio):
         ancho = 300; x0 = marco.centerx - ancho // 2
         for i, (c, nom) in enumerate(canales):
             y = y0 + 20 + i * 64
-            col = (255, 200, 80) if i == sel else (220, 220, 220)
-            pantalla.blit(f_s.render(nom + "  " + str(int(round(AJ[c] * 100))) + "%", True, col), (x0, y))
-            pygame.draw.rect(pantalla, (70, 70, 70), (x0, y + 26, ancho, 10), border_radius=5)
-            if not AJ["mute"]:
-                pygame.draw.rect(pantalla, (120, 255, 160) if i == sel else (90, 190, 120),
-                                 (x0, y + 26, int(ancho * AJ[c]), 10), border_radius=5)
+            _barra_vol(pantalla, x0, y, ancho, nom + "  " + str(int(round(AJ[c] * 100))) + "%", AJ[c], i == sel, AJ["mute"])
         if AJ["mute"]:
             pantalla.blit(f_s.render("SILENCIADO (M)", True, (255, 120, 120)), (x0, y0 + 20 + 3 * 64))
     pie = "Tab o 1-4: pestanas   |   Esc, P o Enter: continuar" + ("   |   Audio: arriba/abajo canal, izq/der volumen, M silenciar" if tab == 3 else "")
@@ -4702,11 +4700,7 @@ def ajustes_audio(pantalla):
         ancho = 260; x0 = w // 2 - ancho // 2
         for i, (c, nom) in enumerate(canales):
             y = h // 2 - 70 + i * 55
-            col = (255, 200, 80) if i == sel else (220, 220, 220)
-            pantalla.blit(f_o.render(nom + "  " + str(int(round(AJ[c] * 100))) + "%", True, col), (x0, y))
-            pygame.draw.rect(pantalla, (70, 70, 70), (x0, y + 26, ancho, 10), border_radius=5)
-            if not AJ["mute"]:
-                pygame.draw.rect(pantalla, (120, 255, 160) if i == sel else (90, 190, 120), (x0, y + 26, int(ancho * AJ[c]), 10), border_radius=5)
+            _barra_vol(pantalla, x0, y, ancho, nom + "  " + str(int(round(AJ[c] * 100))) + "%", AJ[c], i == sel, AJ["mute"])
         if AJ["mute"]:
             m = f_o.render("SILENCIADO (M para activar)", True, (255, 120, 120))
             pantalla.blit(m, (w // 2 - m.get_width() // 2, h // 2 + 100))
