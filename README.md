@@ -118,7 +118,7 @@ Contenido:
   Bosques de Yacuiba, Serranía del Aguaragüe, Región de Tarija y El gran incendio.
 - Los animales no mueren: huyen o quedan pendientes de rescate.
 - Bombero: mochila de agua, cortafuegos, manguera (G), torre (T), protección térmica (H).
-- Veterinaria: rastreo (X), botiquín (Z), rescate (E), señal de auxilio (Q), conocimiento silvestre (K).
+- Veterinaria: rastreo (X), rescate (E), señal de auxilio (Q), conocimiento silvestre (K).
 - EcoMonedas, tienda y skins, estrellas, Salón de Guardianes y modos especiales
   (Supervivencia, Desafío, El corazón del incendio, Modo récord).
 - El Vigía (V): predicción Monte Carlo con mapa de riesgo. Centro de Análisis: compara
@@ -148,6 +148,12 @@ entre el juego y el motor está en `docs/INTERFAZ_MOTOR_JUEGO.md`.
 Motor secuencial, OpenMP, MPI e híbrido verificados por checksum; benchmark completo y
 reproducible con `./scripts/benchmark.sh`; juego completo con campaña, modos, IA, Cuaderno y
 Vigía. Informe final: `docs/informe-final-equipo01.pdf`.
+
+## Trabajo futuro (fuera del alcance del Hito 3)
+Ideas que no forman parte de esta entrega y se considerarían solo si el juego se despliega más allá del curso:
+- Botiquín de la veterinaria con barra de vida de los animales (se retiró del juego porque requería un modelo de daño de la fauna).
+- Más niveles, especies y contenido educativo (incluida una fuente boliviana verificada para la ficha de Cortafuegos).
+- Más skins y sombreros intercambiables.
 
 ## Evidencias
 Ver `docs/README_evidencias.md`.
