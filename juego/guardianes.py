@@ -848,8 +848,8 @@ def seleccionar_modo_especial(pantalla, fuente):
 
 def seleccionar_modo(pantalla, fuente):
     """Devuelve 'dos', 'veterinaria' o 'bombero' (rol que controla la IA), None si vuelve, 'salir' si cierra."""
-    f_tit = pygame.font.Font(None, 56)
-    f_op = pygame.font.Font(None, 36)
+    f_tit = _fpx_menu(40)
+    f_op = _fpx_menu(24)
     opciones = [("Dos jugadores", "dos",
                  "Veterinaria: W A S D y E.   Bombero: flechas y ratón."),
                 ("Solitario: soy el Bombero", "veterinaria",
@@ -857,7 +857,8 @@ def seleccionar_modo(pantalla, fuente):
                 ("Solitario: soy la Veterinaria", "bombero",
                  "W A S D y E. La IA controla al bombero.")]
     w, h = pantalla.get_size()
-    rects = [pygame.Rect(w // 2 - 260, 280 + i * 80, 520, 56) for i in range(len(opciones))]
+    bw = max(300, min(640, w - 160))
+    rects = [pygame.Rect((w - bw) // 2, 250 + i * 86, bw, 64) for i in range(len(opciones))]
     reloj = pygame.time.Clock()
     sel = 0
     while True:
@@ -894,18 +895,16 @@ def seleccionar_modo(pantalla, fuente):
                         if r_ is not None:
                             return r_
         pantalla.blit(fondo_marca(w, h), (0, 0))
-        t = f_tit.render("Elige el modo de juego", True, (255, 170, 60))
+        t = f_tit.render("Elige el modo de juego", False, (255, 170, 60))
+        t_s = f_tit.render("Elige el modo de juego", False, (90, 30, 10))
+        pantalla.blit(t_s, t_s.get_rect(center=(w // 2 + 3, 173)))
         pantalla.blit(t, t.get_rect(center=(w // 2, 170)))
         for i, r in enumerate(rects):
-            rr = rect_boton(r, i == sel)
-            pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-            pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
-            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
-            s = f_op.render(opciones[i][0], True, (255, 255, 255))
-            pantalla.blit(s, s.get_rect(center=r.center))
-        d = fuente.render(opciones[sel][2], True, (230, 230, 230))
-        pantalla.blit(d, d.get_rect(center=(w // 2, 280 + 3 * 80 + 20)))
-        v = fuente.render("Esc: volver", True, (170, 170, 170))
+            _dibujar_boton_px(pantalla, r, opciones[i][0], i == sel, False, False, i, False, ("dos", "bombero", "vet")[i])
+        _cursor_px(pantalla, rects[sel], pygame.time.get_ticks())
+        d = _fpx_menu(18).render(opciones[sel][2], False, (230, 230, 230))
+        pantalla.blit(d, d.get_rect(center=(w // 2, 250 + 3 * 86 + 18)))
+        v = _fpx_menu(16).render("Esc: volver", False, (150, 175, 160))
         pantalla.blit(v, v.get_rect(center=(w // 2, h - 40)))
         pygame.display.flip()
         reloj.tick(30)
@@ -2243,6 +2242,12 @@ def _dibujar_fondo_chaco(pantalla, ms):
         pantalla.fill((6, 12, 9), (x, sue - alto // 2, 3, alto // 2 + 1))
         pantalla.fill((10, 20, 14), (x + dx * 2, sue - alto, 3, alto // 2 + 1))
 
+ICONOS_EXTRA = {
+    "dos": ["0011000110", "0111101111", "0111101111", "0011000110", "0000000000", "0111101111", "1111111111", "1111111111", "1111111111", "0000000000"],
+    "bombero": ["0000000000", "0000110000", "0001111000", "0011111100", "0111111110", "0111001110", "0111001110", "1111111111", "1111111111", "0000000000"],
+    "vet": ["0000000000", "0001111000", "0001111000", "0001111000", "0111111110", "0111111110", "0001111000", "0001111000", "0001111000", "0000000000"],
+    "volver": ["0000000000", "0000100000", "0001100000", "0011111110", "0111111110", "0111111110", "0011111110", "0001100000", "0000100000", "0000000000"],
+}
 ICONOS_MENU = {
     "Jugar": ["0000000000", "0110000000", "0111100000", "0111111000", "0111111110", "0111111110", "0111111000", "0111100000", "0110000000", "0000000000"],
     "Modos especiales": ["0000100000", "0000110000", "0001110000", "0001111000", "0011111100", "0111111110", "0111011110", "0111011110", "0011111100", "0001111000"],
@@ -2285,7 +2290,7 @@ def _icono_px(nombre, col, sombra, b):
     clave = ("ic", nombre, col, sombra, b)
     s = _PX_CACHE.get(clave)
     if s is None:
-        m = ICONOS_MENU[nombre]
+        m = ICONOS_MENU[nombre] if nombre in ICONOS_MENU else ICONOS_EXTRA[nombre]
         s = pygame.Surface((11 * b, 11 * b), pygame.SRCALPHA)
         for y, fila in enumerate(m):
             for x, v in enumerate(fila):
@@ -2298,7 +2303,7 @@ def _icono_px(nombre, col, sombra, b):
         _PX_CACHE[clave] = s
     return s
 
-def _dibujar_boton_px(pantalla, r, texto, sel, pres, bloq, idx, con_tecla=True):
+def _dibujar_boton_px(pantalla, r, texto, sel, pres, bloq, idx, con_tecla=True, icono=None):
     # Boton pixel art: borde negro, bisel, icono, texto y tecla. Seleccionado sube 2 px; presionado se hunde 3 px.
     est = "blo" if bloq else ("pre" if pres else ("sel" if sel else "normal"))
     x, y, w, h = r.x, r.y, r.w, r.h
@@ -2307,7 +2312,7 @@ def _dibujar_boton_px(pantalla, r, texto, sel, pres, bloq, idx, con_tecla=True):
         h -= 3
     elif est == "sel":
         y -= 2
-    clave = ("bt", w, h, texto, est, idx, con_tecla)
+    clave = ("bt", w, h, texto, est, idx, con_tecla, icono)
     s = _PX_CACHE.get(clave)
     if s is None:
         base, hi, lo, ct, ci, si = _ESTILOS_BOTON[est]
@@ -2319,7 +2324,8 @@ def _dibujar_boton_px(pantalla, r, texto, sel, pres, bloq, idx, con_tecla=True):
         s.fill(lo, (6, h - 6, w - 12, 3))
         s.fill(lo, (w - 6, 6, 3, h - 12))
         b = max(2, min(3, (h - 14) // 11))
-        ic = _icono_px(texto if (texto in ICONOS_MENU and est != "blo") else "lock", ci, si, b)
+        _nic = "lock" if est == "blo" else (icono if icono else (texto if texto in ICONOS_MENU else "lock"))
+        ic = _icono_px(_nic, ci, si, b)
         s.blit(ic, (14, (h - ic.get_height()) // 2))
         tam = max(12, min(28, int(h * 0.48)))
         izq = 14 + ic.get_width() + 12
