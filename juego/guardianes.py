@@ -3675,6 +3675,55 @@ def dibujar_panel_final(pantalla, est, fuente, fuente_p, dt=None):
     else:
         centrado("I = ver imagen y guardarla", _fuente_fin(22), (200, 190, 150), pn.bottom - 18)
 
+def _estrellas_vivo_pos(x0):
+    return [(x0 + 26 + k * 30, 20) for k in range(3)]
+
+def dibujar_estrellas_vivo(pantalla, est, x0):
+    # Tres estrellas junto al HUD: se encienden al alcanzar cada puntaje (misma formula que evaluar).
+    import math
+    ahora = pygame.time.get_ticks()
+    st = est.get("estr_vivo")
+    if st is None or (st.get("clave") and est["ronda"] < st["clave"][0]):
+        st = est["estr_vivo"] = {"n": 0, "t": [None, None, None], "clave": None}
+    salvos = sum(1 for a in est["animales"] if a[2] == "salvo")
+    clave = (est["ronda"], salvos)
+    if st["clave"] != clave:
+        st["clave"] = clave
+        try:
+            n = max(0, min(3, int(evaluar(est)["estrellas"])))
+        except Exception:
+            n = st["n"]
+        if n > st["n"]:
+            for k in range(st["n"], n):
+                st["t"][k] = ahora
+            sonar("ui_moneda")
+        elif n < st["n"]:
+            for k in range(n, st["n"]):
+                st["t"][k] = None
+        st["n"] = n
+    try:
+        marco_dorado(pantalla, pygame.Rect(x0 + 6, 0, 102, 40))
+    except Exception:
+        pass
+    R = 11
+    for k, (cx, cy) in enumerate(_estrellas_vivo_pos(x0)):
+        t0 = st["t"][k]
+        if t0 is None:
+            dibujar_estrella(pantalla, cx, cy, R, False)
+            continue
+        dt = ahora - t0
+        kk = max(0.0, min(1.0, dt / 450.0))
+        Rk = int(R * (0.6 + 0.4 * kk) + R * 0.4 * math.sin(kk * math.pi))
+        dibujar_estrella(pantalla, cx, cy, Rk, True)
+        if dt < 650:
+            f = dt / 650.0
+            pygame.draw.circle(pantalla, (255, int(235 - 60 * f), int(140 - 100 * f)), (cx, cy), int(R * (0.8 + 2.2 * f)), 2)
+            for j in range(8):
+                ang = j * math.pi / 4 + 0.3
+                rr = R * (0.9 + 2.4 * f)
+                s = max(1, int(4 * (1 - f)))
+                pantalla.fill((255, 240, 150), (int(cx + math.cos(ang) * rr) - s // 2, int(cy + math.sin(ang) * rr) - s // 2, s, s))
+
 def vista_imagen_resultados(pantalla, est, ev):
     # Muestra la imagen antes de guardarla. G, Enter o el boton Guardar la guardan; Esc, I o Cerrar salen.
     # Devuelve la ruta si se guardo, None si no, "salir" si se cierra la ventana.
@@ -3795,13 +3844,15 @@ def ia_prioridad_animales(est, libres):
               if a[2] == "libre" and st in ("herido", "aislado", "asustado")]
     return riesgo or libres
 
+_ICO_DIF = {"asistente": "vet", "equilibrado": "dos", "experto": "bombero"}
+
 def seleccionar_dificultad(pantalla, fuente):
     """Devuelve la clave de dificultad, None si vuelve, 'salir' si cierra."""
-    f_tit = pygame.font.Font(None, 56)
-    f_op = pygame.font.Font(None, 36)
+    f_tit = _fpx_menu(40)
     w, h = pantalla.get_size()
     claves = list(IA_NIVELES)
-    rects = [pygame.Rect(w // 2 - 260, 220 + i * 80, 520, 56) for i in range(len(claves))]
+    bw = max(300, min(640, w - 160))
+    rects = [pygame.Rect((w - bw) // 2, 250 + i * 86, bw, 64) for i in range(len(claves))]
     sel = claves.index(MODO.get("dif")) if MODO.get("dif") in claves else 1
     reloj = pygame.time.Clock()
     while True:
@@ -3830,18 +3881,27 @@ def seleccionar_dificultad(pantalla, fuente):
                     if r.collidepoint(e.pos):
                         sonar("ui_aceptar"); return claves[i]
         pantalla.blit(fondo_marca(w, h), (0, 0))
-        t = f_tit.render("Dificultad del compañero", True, (255, 170, 60))
-        pantalla.blit(t, t.get_rect(center=(w // 2, 150)))
+        t = f_tit.render("Dificultad del compañero", False, (255, 170, 60))
+        t_s = f_tit.render("Dificultad del compañero", False, (90, 30, 10))
+        pantalla.blit(t_s, t_s.get_rect(center=(w // 2 + 3, 173)))
+        pantalla.blit(t, t.get_rect(center=(w // 2, 170)))
         for i, r in enumerate(rects):
-            rr = rect_boton(r, i == sel)
-            pygame.draw.rect(pantalla, (0, 0, 0), rr.move(0, 3), border_radius=8)
-            pygame.draw.rect(pantalla, color_boton(i == sel), rr, border_radius=8)
-            pygame.draw.rect(pantalla, (255, 200, 120) if i == sel else (90, 120, 95), rr, 2, border_radius=8)
-            s = f_op.render(IA_NIVELES[claves[i]]["nombre"], True, (255, 255, 255))
-            pantalla.blit(s, s.get_rect(center=r.center))
-        d = fuente.render(IA_NIVELES[claves[sel]]["desc"], True, (230, 230, 230))
-        pantalla.blit(d, d.get_rect(center=(w // 2, 220 + len(claves) * 80 + 20)))
-        v = fuente.render("Arriba/Abajo: elegir   Enter: continuar   Esc: volver", True, (170, 170, 170))
+            _ico = _ICO_DIF.get(claves[i])
+            _dibujar_boton_px(pantalla, r, IA_NIVELES[claves[i]]["nombre"], i == sel, False, False, i, False,
+                              _ico if _ico in ICONOS_MENU else None)
+        _cursor_px(pantalla, rects[sel], pygame.time.get_ticks())
+        f_d = _fpx_menu(18)
+        lin = _ajustar(IA_NIVELES[claves[sel]]["desc"], f_d, bw - 20)
+        y_d = 250 + 3 * 86 + 18
+        panel = pygame.Rect((w - bw) // 2 - 10, y_d - 14, bw + 20, 26 * len(lin) + 14)
+        velo = pygame.Surface(panel.size, pygame.SRCALPHA)
+        velo.fill((10, 14, 12, 205))
+        pantalla.blit(velo, panel)
+        pygame.draw.rect(pantalla, (90, 120, 95), panel, 1)
+        for k, l in enumerate(lin):
+            s = f_d.render(l, False, (235, 235, 235))
+            pantalla.blit(s, s.get_rect(center=(w // 2, y_d + 26 * k)))
+        v = _fpx_menu(16).render("Arriba/Abajo: elegir   Enter: continuar   Esc: volver", False, (150, 175, 160))
         pantalla.blit(v, v.get_rect(center=(w // 2, h - 40)))
         pygame.display.flip()
         reloj.tick(30)
@@ -4974,16 +5034,51 @@ def _logo_datos(w, h):
                 glow=glow, brasas=brasas, chispas=chispas, velo=velo, tmp=pygame.Surface((w, h), pygame.SRCALPHA),
                 cx=w // 2, yl=y0 + 9 * b + ex + o + b, th=max(4, int(b * 0.55)), xf=x0 + cols * b)
 
+_LOGO3D = {}
+
+def _logo3d_letras(d):
+    # Una Surface por letra: contorno negro, costado extruido que se oscurece y cara con bisel.
+    b, o, x0, y0 = d["b"], d["o"], d["x0"], d["y0"]
+    D = max(6, int(b * 0.7))
+    W, H = 7 * b + D + 2 * o + 2, 9 * b + D + 2 * o + 2
+    grupos = [[] for _ in range(6)]
+    for tx, ty, flags, gy, sx, sy, dl in d["celdas"]:
+        li = ((tx - x0) // b) // 8
+        grupos[li].append((tx - (x0 + li * 8 * b), ty - y0, flags, gy))
+    letras = []
+    for li, cel in enumerate(grupos):
+        s = pygame.Surface((W, H), pygame.SRCALPHA)
+        for k in range(D, -1, -1):
+            for lx, ly, flags, gy in cel:
+                s.fill((0, 0, 0, 255), (lx + k, ly + k, b + 2 * o, b + 2 * o))
+        for k in range(D, 0, -1):
+            u = k / float(D)
+            col = (int(150 - 92 * u), int(66 - 42 * u), int(8 - 2 * u), 255)
+            for lx, ly, flags, gy in cel:
+                s.fill(col, (o + lx + k, o + ly + k, b, b))
+        for lx, ly, flags, gy in cel:
+            s.blit(_logo_celda(b, flags, gy), (o + lx, o + ly))
+        izq, arr = x0 + li * 8 * b - o, y0 - o
+        letras.append((s, izq + W // 2, arr + H // 2))
+    return letras
+
 def dibujar_logo(pantalla, t):
-    # Logo animado: brasas, bloques que se arman con bisel, contorno y resplandor, franja de luz y linea con rombo.
+    # Logo 3D: HUD ambar, letras extruidas que llegan una a una, barrido de luz, linea con rombo y texto.
     import math
     w, h = pantalla.get_size()
     d = _LOGO_CACHE.get((w, h))
     if d is None:
         d = _LOGO_CACHE[(w, h)] = _logo_datos(w, h)
+    L = _LOGO3D.get((w, h))
+    if L is None:
+        L = _LOGO3D[(w, h)] = _logo3d_letras(d)
     b, o, x0, y0 = d["b"], d["o"], d["x0"], d["y0"]
+    cx0, cy0 = w // 2, y0 + (9 * b) // 2
+    amb = (255, 170, 30)
+    def tenue(c, k):
+        return tuple(max(0, min(255, int(v * k))) for v in c)
     pantalla.fill((6, 5, 12))
-    kg = max(0.0, min(1.0, (t - 1500) / 900.0))
+    kg = max(0.0, min(1.0, (t - 1200) / 1200.0))
     if kg > 0:
         d["glow"].set_alpha(int(230 * kg * (0.85 + 0.15 * math.sin(t / 260.0))))
         pantalla.blit(d["glow"], (0, 0))
@@ -4995,28 +5090,78 @@ def dibujar_logo(pantalla, t):
         if sz >= 5 and a > 0.5:
             pantalla.blit(_logo_brillo(sz, col), (int(x) - sz, int(y) - sz))
         pantalla.fill(tuple(int(v * a) for v in col), (int(x), int(y), sz, sz))
-    kc = max(0.0, min(1.0, (t - 1500) / 800.0))
-    if kc > 0:
-        d["contorno"].set_alpha(int(255 * kc))
-        pantalla.blit(d["contorno"], (0, 0))
-    for tx, ty, flags, gy, sx, sy, delay in d["celdas"]:
-        p = max(0.0, min(1.0, (t - delay) / 800.0))
+    # HUD: anillos giratorios tipo reactor
+    if t > 150:
+        ka = min(1.0, (t - 150) / 600.0) * (0.75 + 0.25 * math.sin(t / 240.0))
+        for rad, vel, gr, n in ((int(b * 8.5), 0.0011, 3, 4), (int(b * 10.5), -0.0008, 2, 6)):
+            rect = pygame.Rect(cx0 - rad, cy0 - rad, 2 * rad, 2 * rad)
+            seg = 2 * math.pi / n
+            for k in range(n):
+                a0 = (t * vel + k * seg) % (2 * math.pi)
+                pygame.draw.arc(pantalla, tenue(amb, 0.55 * ka), rect, a0, a0 + seg * 0.62, gr)
+    # HUD: esquinas del marco y linea de escaneo
+    bx0, bx1 = x0 - 3 * b, d["xf"] + 3 * b
+    by0, by1 = y0 - 2 * b, y0 + 13 * b
+    kb = max(0.0, min(1.0, (t - 200) / 500.0))
+    if kb > 0:
+        ln = int(2.2 * b * kb)
+        for px, py, sx_, sy_ in ((bx0, by0, 1, 1), (bx1, by0, -1, 1), (bx0, by1, 1, -1), (bx1, by1, -1, -1)):
+            pygame.draw.line(pantalla, tenue(amb, 0.9), (px, py), (px + sx_ * ln, py), 3)
+            pygame.draw.line(pantalla, tenue(amb, 0.9), (px, py), (px, py + sy_ * ln), 3)
+    ts = (t - 250) / 1300.0
+    if 0.0 <= ts <= 1.0:
+        ys = int(by0 + ts * 15 * b)
+        for k in range(7):
+            pantalla.fill(tenue((255, 200, 80), (1 - k / 7.0) * 0.8 * (1 - ts * 0.5)), (bx0, ys - k * 3, bx1 - bx0, 2))
+    # Letras 3D: llegan una a una girando y acercandose
+    DUR = 560
+    dirs = ((-1, -0.5), (0, -1), (1, -0.5), (-1, 0.6), (0, 1), (1, 0.6))
+    dist = w * 0.55
+    def pose(li, pp, fx, fy):
+        e = 1 - (1 - pp) ** 3
+        q = 1 - e
+        return 1 + 1.2 * q * q, max(0.1, math.cos(q * 1.5)), fx + dirs[li][0] * dist * q * q, fy + dirs[li][1] * dist * 0.6 * q * q
+    for li, (surf, fx, fy) in enumerate(L):
+        t0 = 350 + li * 300
+        p = (t - t0) / float(DUR)
         if p <= 0:
             continue
-        e = 1 - (1 - p) ** 3
-        s = _logo_celda(b, flags, gy)
-        s.set_alpha(int(255 * min(1.0, p * 2.5)))
-        pantalla.blit(s, (int(sx + (tx - sx) * e), int(sy + (ty - sy) * e)))
-    ks = (t - 2500) / 800.0
+        if p >= 1.0:
+            pantalla.blit(surf, surf.get_rect(center=(fx, fy)))
+        else:
+            for gz in (3, 2, 1, 0):
+                pp = p - gz * 0.07
+                if pp <= 0:
+                    continue
+                sc, sx, cx_, cy_ = pose(li, pp, fx, fy)
+                im = pygame.transform.scale(surf, (max(2, int(surf.get_width() * sc * sx)), max(2, int(surf.get_height() * sc))))
+                im.set_alpha(int(255 * min(1.0, pp * 3) * (1.0 if gz == 0 else 0.22)))
+                pantalla.blit(im, im.get_rect(center=(int(cx_), int(cy_))))
+        tl = t - (t0 + DUR)
+        if 0 <= tl < 320:
+            k = tl / 320.0
+            fl = surf.copy()
+            v = int(150 * (1 - k))
+            fl.fill((v, v, int(v * 0.6)), special_flags=pygame.BLEND_RGB_ADD)
+            pantalla.blit(fl, fl.get_rect(center=(fx, fy)))
+            r = int(b * (1.5 + 5 * k))
+            pygame.draw.ellipse(pantalla, tenue((255, 200, 80), 1 - k), pygame.Rect(fx - r, fy + 3 * b - r // 3, 2 * r, 2 * r // 3), 2)
+            for jj in range(6):
+                ang = jj * math.pi / 3 + li
+                rr = b * (1.2 + 4 * k)
+                s2 = max(1, int(b * 0.3 * (1 - k)))
+                pantalla.fill((255, 226, 120), (int(fx + math.cos(ang) * rr), int(fy + 3 * b + math.sin(ang) * rr * 0.5), s2, s2))
+    # Barrido de luz metalico sobre la cara de las letras
+    ks = (t - 2600) / 800.0
     if 0.0 <= ks <= 1.0:
         x = x0 - 2 * b + ks * (d["cols"] * b + 6 * b)
         tmp = d["tmp"]
         tmp.fill((255, 255, 255, 0))
-        pygame.draw.polygon(tmp, (255, 255, 255, 120), [(x, y0 - b), (x + 4 * b, y0 - b),
-                                                      (x + b, y0 + 10 * b), (x - 3 * b, y0 + 10 * b)])
+        pygame.draw.polygon(tmp, (255, 255, 255, 120), [(x, y0 - b), (x + 4 * b, y0 - b), (x + b, y0 + 10 * b), (x - 3 * b, y0 + 10 * b)])
         tmp.blit(d["relleno"], (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
         pantalla.blit(tmp, (0, 0))
-    ku = max(0.0, min(1.0, (t - 2200) / 700.0))
+    # Linea con rombo
+    ku = max(0.0, min(1.0, (t - 2500) / 700.0))
     if ku > 0:
         cx, yl, th, sep = d["cx"], d["yl"], d["th"], 2 * b
         largo = (d["xf"] - x0) / 2.0 - sep
@@ -5034,13 +5179,25 @@ def dibujar_logo(pantalla, t):
             pygame.draw.polygon(pantalla, (255, 225, 90), [(cx, ym - ri), (cx + ri, ym), (cx, ym + ri), (cx - ri, ym)])
             rc = max(1, r * 3 // 10)
             pygame.draw.polygon(pantalla, (255, 248, 190), [(cx, ym - rc), (cx + rc, ym), (cx, ym + rc), (cx - rc, ym)])
-    tb = t - 2000
+    # Chispas tras el ultimo aterrizaje
+    tb = t - 2450
     if 0 < tb < 1400:
         k = 1 - tb / 1400.0
         for sx, sy, vx, vy, sz, col in d["chispas"]:
             s2 = max(1, int(sz * k))
             pantalla.fill(tuple(int(v * (0.4 + 0.6 * k)) for v in col),
                           (int(sx + vx * tb), int(sy + vy * tb + 0.0002 * tb * tb), s2, s2))
+    # Texto de sistema que se escribe solo
+    tt = (t - 2700) / 1000.0
+    if tt > 0:
+        txt = "SISTEMA EN LINEA"
+        n = int(len(txt) * min(1.0, tt))
+        try:
+            f = _fpx_menu(max(12, int(b * 0.85)))
+            s = f.render(txt[:n] + ("_" if (t // 250) % 2 and n < len(txt) else ""), False, tenue((255, 200, 80), 0.9))
+            pantalla.blit(s, s.get_rect(center=(w // 2, d["yl"] + 3 * b)))
+        except Exception:
+            pass
     if t > LOGO_MS - 700:
         d["velo"].set_alpha(int(255 * min(1.0, (t - (LOGO_MS - 700)) / 700.0)))
         pantalla.blit(d["velo"], (0, 0))
@@ -5654,6 +5811,7 @@ def main():
         txt_a = fuente.render(f"Animales a salvo: {salvos}/{len(est['animales'])}", True, (255, 255, 255))
         marco_dorado(pantalla, pygame.Rect(0, 0, max(txt_v.get_width(), txt_m.get_width(), txt_a.get_width()) + 14, 67)); pantalla.blit(txt_v, (6, 24)); pantalla.blit(txt_m, (6, 44))
         pantalla.blit(txt_a, (6, 4))
+        dibujar_estrellas_vivo(pantalla, est, max(txt_v.get_width(), txt_m.get_width(), txt_a.get_width()) + 14)
         quemando, veg = est["estado"].count(2), est["estado"].count(1)
         linea1 = (f"Ronda {est['ronda']}  Paso {est['paso']}  En llamas {quemando}  "
                   f"Bosque {veg * 100 // est['veg0']}%  Agua {est['agua']}/{tanque_max()}  "
