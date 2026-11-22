@@ -2071,6 +2071,22 @@ def cortina(pantalla, dur=300):
             break
         reloj.tick(60)
 
+def _rects_menu(w, h, grupos, y0=140, pie=60, sep=8, gg=18):
+    # Botones del menu: mismo ancho y alto, agrupados, con un hueco mayor entre grupos.
+    n = sum(grupos)
+    libre = h - y0 - pie - (len(grupos) - 1) * gg - (n - len(grupos)) * sep
+    bh = max(24, min(46, libre // n))
+    bw = max(200, min(360, w - 80))
+    x = (w - bw) // 2
+    out = []
+    y = y0
+    for k in grupos:
+        for _ in range(k):
+            out.append(pygame.Rect(x, y, bw, bh))
+            y += bh + sep
+        y += gg - sep
+    return out
+
 def menu_principal(pantalla, fuente):
     # Pantalla de titulo. Devuelve True para jugar, False para salir.
     f_tit = pygame.font.Font(None, 72)
@@ -2097,8 +2113,7 @@ def menu_principal(pantalla, fuente):
     for y in range(h):
         t = y / h
         pygame.draw.line(fondo, (int(15 + 90 * t), int(40 - 10 * t), int(25 - 10 * t)), (0, y), (w, y))
-    paso = min(52, (h - 200) // len(opciones))
-    rects = [pygame.Rect(w // 2 - 150, 140 + i * paso, 300, paso - 8) for i in range(len(opciones))]
+    rects = _rects_menu(w, h, (2, 4, 2) if len(opciones) == 8 else (len(opciones),))
     reloj = pygame.time.Clock()
     sel = 0
     ayuda = False
@@ -3158,11 +3173,22 @@ def fondo_intro(pantalla, est):
     except Exception:
         return pantalla.copy()
 
+def _siguiente_libre(i):
+    # El nivel siguiente no esta bloqueado, contando el actual como completado.
+    if os.environ.get("CAMPANA_ABIERTA"):
+        return True
+    z = NIVELES[i + 1]["zona"]
+    if z <= 1:
+        return True
+    hechos = cargar_campana() | {NIVELES[i]["id"]}
+    return all(nv["id"] in hechos for nv in NIVELES if nv["zona"] == z - 1)
+
 def puede_siguiente(est):
     # Se pasa de nivel con 2 estrellas o mas (y sin derrota). El corazon del incendio no tiene siguiente.
     ev = est.get("evaluacion") or {}
     return (not est.get("derrota") and ev.get("estrellas", 0) >= 2
-            and MODO_ESP["id"] != "corazon" and NIVEL_SEL["i"] + 1 < len(NIVELES))
+            and MODO_ESP["id"] != "corazon" and NIVEL_SEL["i"] + 1 < len(NIVELES)
+            and _siguiente_libre(NIVEL_SEL["i"]))
 
 def dibujar_botones_fin(pantalla, est, fnt, caja):
     # Botones del panel final. Devuelve [(rect, accion)] para los clics.
@@ -4768,7 +4794,6 @@ def main():
         sonidos["APAGAR"] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "agua.wav"))
         musica = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, "musica.wav"))
         cargar_ajustes()
-        musica.play(loops=-1)
         sonidos["musica"] = musica
         for _n in ("rescate", "recompensa", "derrota", "proteccion", "conocimiento", "fuego",
                    "ui_mover", "ui_aceptar", "ui_volver", "ui_jugar", "ui_tienda", "ui_salir",
@@ -4776,12 +4801,12 @@ def main():
                    "hab_senal", "alerta_avanzada", "alerta_critica", "alerta_tic",
                    "ui_notif", "ui_moneda", "amb_viento",
                    "chillido_jaguar", "chillido_loro", "chillido_tapir", "chillido_taitetu",
-                   "amb_pajaros"):
+                   "amb_pajaros", "intro_logo"):
             try:
                 sonidos[_n] = pygame.mixer.Sound(os.path.join(DIR_SONIDOS, _n + ".wav"))
             except Exception:
                 pass
-        AJ["snd"] = sonidos; sonidos["amb_viento"].play(loops=-1) if "amb_viento" in sonidos else None
+        AJ["snd"] = sonidos
         aplicar_volumen()
     except Exception as ex:
         print("Aviso: sin audio (" + str(ex) + ")")
@@ -4921,12 +4946,35 @@ def main():
     reiniciar()
     n = est["n"]
     pantalla = pygame.display.set_mode((tam_vista(n)[0] + PANEL_W, tam_vista(n)[1]))
+    def _arrancar_audio():
+        try:
+            _m = sonidos.get("musica")
+            if _m:
+                _m.play(loops=-1)
+            _v = sonidos.get("amb_viento")
+            if _v:
+                _v.play(loops=-1)
+            aplicar_volumen()
+        except Exception:
+            pass
+    _intro = None if os.environ.get("SIN_LOGO") else sonidos.get("intro_logo")
+    try:
+        if _intro:
+            _intro.play()
+    except Exception:
+        pass
     try:
         if logo_touken(pantalla) == "salir":
             pygame.quit()
             return
     except Exception:
         pass
+    try:
+        if _intro:
+            _intro.fadeout(300)
+    except Exception:
+        pass
+    _arrancar_audio()
     ok_menu = menu_principal(pantalla, fuente); cortina(pantalla) if ok_menu else None
     if ok_menu:
         niv = nivel_actual()

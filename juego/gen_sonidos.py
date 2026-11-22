@@ -227,6 +227,55 @@ def amb_viento():
     pico = max(abs(x) for x in out) or 1.0
     return [x * 0.6 / pico for x in out]
 
+def intro_logo():
+    # Sonido de la intro (4,8 s), sincronizado con la animacion del logo.
+    random.seed(55)
+    dur = 4.8
+    n = int(TASA * dur)
+    out = [0.0] * n
+    prev = 0.0
+    for i in range(n):   # cama de brasas: ruido grave con entrada y salida suaves
+        t = i / TASA
+        prev += 0.04 * (random.uniform(-1, 1) - prev)
+        out[i] += prev * 0.5 * min(1.0, t / 0.5, (dur - t) / 0.7)
+    for _ in range(90):   # chasquidos de brasas
+        i0 = int(random.uniform(0.1, 4.6) * TASA)
+        ln = int(TASA * random.uniform(0.004, 0.015))
+        a = random.uniform(0.1, 0.35)
+        for k in range(ln):
+            if i0 + k < n:
+                out[i0 + k] += random.uniform(-1, 1) * a * (1 - k / ln) ** 2
+    prev = 0.0
+    a0, a1 = int(0.1 * TASA), int(2.1 * TASA)
+    for i in range(a0, a1):   # whoosh: las letras vuelan y se arman
+        u = (i - a0) / (a1 - a0)
+        prev += (0.03 + 0.5 * u * u) * (random.uniform(-1, 1) - prev)
+        out[i] += prev * 0.9 * u ** 2 * (1.0 if u < 0.9 else (1 - u) / 0.1)
+    i0, ln, fase = int(2.1 * TASA), int(0.7 * TASA), 0.0
+    for k in range(ln):   # golpe grave al terminar de armarse
+        u = k / ln
+        fase += 2 * math.pi * (75 - 45 * u) / TASA
+        out[i0 + k] += math.sin(fase) * (1 - u) ** 2 * 0.95 + random.uniform(-1, 1) * (1 - u) ** 8 * 0.4
+    for _ in range(40):   # chispas
+        i0 = int(random.uniform(2.0, 3.4) * TASA)
+        ln = int(TASA * random.uniform(0.01, 0.03))
+        f = random.uniform(1800, 4200)
+        a = random.uniform(0.08, 0.2)
+        for k in range(ln):
+            if i0 + k < n:
+                out[i0 + k] += math.sin(2 * math.pi * f * k / TASA) * a * (1 - k / ln) ** 2
+    i0, ln, fase = int(2.5 * TASA), int(0.8 * TASA), 0.0
+    for k in range(ln):   # barrido agudo de la franja de luz
+        u = k / ln
+        fase += 2 * math.pi * (500 + 2000 * u * u) / TASA
+        out[i0 + k] += math.sin(fase) * 0.22 * math.sin(math.pi * u)
+    i0, ln = int(2.8 * TASA), int(0.5 * TASA)
+    for k in range(ln):   # "tin" del rombo
+        u = k / ln
+        out[i0 + k] += math.sin(2 * math.pi * 1320 * k / TASA) * 0.25 * (1 - u) ** 3
+    pico = max(abs(x) for x in out) or 1.0
+    return [x * 0.85 / pico for x in out]
+
 if __name__ == "__main__":
     os.makedirs("juego/sonidos", exist_ok=True)
     guardar("juego/sonidos/agua.wav", agua())
@@ -244,4 +293,5 @@ if __name__ == "__main__":
                     ("chillido_tapir", chillido_tapir), ("chillido_taitetu", chillido_taitetu),
                     ("amb_pajaros", amb_pajaros)):
         guardar("juego/sonidos/" + nom + ".wav", fn())
+    guardar("juego/sonidos/intro_logo.wav", intro_logo())
     print("OK: sonidos generados en juego/sonidos/")
