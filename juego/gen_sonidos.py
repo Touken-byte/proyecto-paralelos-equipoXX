@@ -228,51 +228,60 @@ def amb_viento():
     return [x * 0.6 / pico for x in out]
 
 def intro_logo():
-    # Sonido de la intro (4,8 s), sincronizado con la animacion del logo.
+    # Sonido de la intro (4,8 s): un impacto por letra (T,O,U,K,E,N), whoosh al juntarse,
+    # golpe grave al encajar y fuego rugiendo hasta el fundido final.
     random.seed(55)
     dur = 4.8
     n = int(TASA * dur)
     out = [0.0] * n
+
+    def sumar(t0, muestras, g):
+        i0 = int(t0 * TASA)
+        for k, v in enumerate(muestras):
+            if 0 <= i0 + k < n:
+                out[i0 + k] += v * g
+
+    def ruido_filtrado(d, a_ini, a_fin, env):
+        ln, y, res = int(TASA * d), 0.0, []
+        for k in range(ln):
+            u = k / float(ln)
+            y += (a_ini + (a_fin - a_ini) * u) * (random.uniform(-1, 1) - y)
+            res.append(y * env(u))
+        return res
+
     prev = 0.0
-    for i in range(n):   # cama de brasas: ruido grave con entrada y salida suaves
+    for i in range(n):   # cama de brasas muy suave durante toda la intro
         t = i / TASA
         prev += 0.04 * (random.uniform(-1, 1) - prev)
-        out[i] += prev * 0.5 * min(1.0, t / 0.5, (dur - t) / 0.7)
-    for _ in range(90):   # chasquidos de brasas
-        i0 = int(random.uniform(0.1, 4.6) * TASA)
-        ln = int(TASA * random.uniform(0.004, 0.015))
-        a = random.uniform(0.1, 0.35)
-        for k in range(ln):
-            if i0 + k < n:
-                out[i0 + k] += random.uniform(-1, 1) * a * (1 - k / ln) ** 2
-    prev = 0.0
-    a0, a1 = int(0.1 * TASA), int(2.1 * TASA)
-    for i in range(a0, a1):   # whoosh: las letras vuelan y se arman
-        u = (i - a0) / (a1 - a0)
-        prev += (0.03 + 0.5 * u * u) * (random.uniform(-1, 1) - prev)
-        out[i] += prev * 0.9 * u ** 2 * (1.0 if u < 0.9 else (1 - u) / 0.1)
-    i0, ln, fase = int(2.1 * TASA), int(0.7 * TASA), 0.0
-    for k in range(ln):   # golpe grave al terminar de armarse
-        u = k / ln
-        fase += 2 * math.pi * (75 - 45 * u) / TASA
-        out[i0 + k] += math.sin(fase) * (1 - u) ** 2 * 0.95 + random.uniform(-1, 1) * (1 - u) ** 8 * 0.4
-    for _ in range(40):   # chispas
-        i0 = int(random.uniform(2.0, 3.4) * TASA)
-        ln = int(TASA * random.uniform(0.01, 0.03))
-        f = random.uniform(1800, 4200)
-        a = random.uniform(0.08, 0.2)
-        for k in range(ln):
-            if i0 + k < n:
-                out[i0 + k] += math.sin(2 * math.pi * f * k / TASA) * a * (1 - k / ln) ** 2
-    i0, ln, fase = int(2.5 * TASA), int(0.8 * TASA), 0.0
-    for k in range(ln):   # barrido agudo de la franja de luz
-        u = k / ln
-        fase += 2 * math.pi * (500 + 2000 * u * u) / TASA
-        out[i0 + k] += math.sin(fase) * 0.22 * math.sin(math.pi * u)
-    i0, ln = int(2.8 * TASA), int(0.5 * TASA)
-    for k in range(ln):   # "tin" del rombo
-        u = k / ln
-        out[i0 + k] += math.sin(2 * math.pi * 1320 * k / TASA) * 0.25 * (1 - u) ** 3
+        out[i] += prev * 0.12 * min(1.0, t / 0.5, (dur - t) / 0.7)
+    for k, f in enumerate((70, 78, 88, 98, 110, 123)):   # una letra cada 0,4 s
+        t_imp = 0.45 + k * 0.4
+        sumar(t_imp - 0.28, ruido_filtrado(0.28, 0.03, 0.4, lambda u: u * u), 0.35)   # vuela hacia la pantalla
+        ln, fase, imp = int(TASA * 0.5), 0.0, []
+        for m in range(ln):   # impacto grave de piedra
+            t = m / TASA
+            fase += 2 * math.pi * f * (1 + 1.5 * math.exp(-t * 30)) / TASA
+            imp.append(math.sin(fase) * math.exp(-t * 9) + random.uniform(-1, 1) * math.exp(-t * 60) * 0.6)
+        sumar(t_imp, imp, 0.8)
+        for _ in range(5):   # destello dorado tras cada golpe
+            f2, a, ln2 = random.uniform(2200, 4600), random.uniform(0.05, 0.12), int(TASA * random.uniform(0.012, 0.03))
+            sumar(t_imp + random.uniform(0.02, 0.18),
+                  [math.sin(2 * math.pi * f2 * m / TASA) * (1 - m / ln2) ** 2 for m in range(ln2)], a)
+    sumar(2.7, ruido_filtrado(0.6, 0.02, 0.5, lambda u: math.sin(math.pi * u) ** 1.5), 0.6)   # las letras se juntan
+    ln, fase, tam = int(TASA * 1.0), 0.0, []
+    for m in range(ln):   # golpe grave al encajar
+        u = m / ln
+        fase += 2 * math.pi * (55 + 25 * math.exp(-u * 12)) / TASA
+        tam.append(math.sin(fase) * math.exp(-u * 5) + random.uniform(-1, 1) * math.exp(-u * 40) * 0.3)
+    sumar(3.3, tam, 1.0)
+    sumar(3.2, ruido_filtrado(1.6, 0.04, 0.04, lambda u: min(1.0, u / 0.3) * (1 - max(0.0, (u - 0.55) / 0.45))), 2.0)   # rugido
+    for _ in range(70):   # crepitar del incendio
+        t0 = random.uniform(3.3, 4.5)
+        ln2, a = int(TASA * random.uniform(0.004, 0.02)), random.uniform(0.1, 0.4)
+        sumar(t0, [random.uniform(-1, 1) * (1 - m / ln2) ** 2 for m in range(ln2)], a)
+    sumar(3.5, [math.sin(2 * math.pi * 1320 * m / TASA) * (1 - m / (0.5 * TASA)) ** 3 for m in range(int(0.5 * TASA))], 0.2)
+    for m in range(int(TASA * 0.7)):   # fundido final
+        out[n - 1 - m] *= m / (0.7 * TASA)
     pico = max(abs(x) for x in out) or 1.0
     return [x * 0.85 / pico for x in out]
 
