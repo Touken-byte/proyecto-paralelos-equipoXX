@@ -3216,6 +3216,131 @@ def menu_pausa(pantalla):
         pygame.display.flip()
         reloj.tick(30)
 
+_FIN_FUENTES = {}
+def _fuente_fin(tam):
+    f = _FIN_FUENTES.get(tam)
+    if f is None:
+        f = _FIN_FUENTES[tam] = pygame.font.Font(None, tam)
+    return f
+
+def estrella_pts(cx, cy, R, r=None):
+    import math
+    r = R * 0.45 if r is None else r
+    return [(cx + (R if i % 2 == 0 else r) * math.cos(math.radians(-90 + i * 36)),
+             cy + (R if i % 2 == 0 else r) * math.sin(math.radians(-90 + i * 36))) for i in range(10)]
+
+def dibujar_estrella(pantalla, cx, cy, R, llena):
+    # Estrella de 5 puntas. Llena: dorada con facetas, borde y brillo. Vacia: solo contorno sobre fondo oscuro.
+    if llena:
+        pygame.draw.polygon(pantalla, (110, 62, 8), estrella_pts(cx, cy + 4, R))
+        pts = estrella_pts(cx, cy, R)
+        pygame.draw.polygon(pantalla, (255, 205, 60), pts)
+        for k in range(0, 10, 2):
+            pygame.draw.polygon(pantalla, (255, 226, 110), [(cx, cy), pts[k], pts[(k - 1) % 10]])
+            pygame.draw.polygon(pantalla, (238, 160, 24), [(cx, cy), pts[k], pts[k + 1]])
+        pygame.draw.polygon(pantalla, (150, 88, 8), pts, max(2, R // 14))
+        bx, by, s = int(cx - R * 0.28), int(cy - R * 0.22), max(3, R // 6)
+        pygame.draw.circle(pantalla, (255, 255, 235), (bx, by), s)
+        pygame.draw.circle(pantalla, (255, 255, 255), (bx, by), max(1, s // 2))
+    else:
+        pts = estrella_pts(cx, cy, R)
+        pygame.draw.polygon(pantalla, (26, 38, 30), pts)
+        pygame.draw.polygon(pantalla, (60, 76, 64), estrella_pts(cx, cy, R * 0.62), 1)
+        pygame.draw.polygon(pantalla, (120, 134, 122), pts, max(2, R // 14))
+
+def dibujar_panel_final(pantalla, est, fuente, fuente_p, dt=None):
+    # Panel de fin de mision a pantalla completa: titulo, estrellas, puntuacion, datos y botones.
+    import math
+    ev = est["evaluacion"]
+    w, h = pantalla.get_size()
+    ahora = pygame.time.get_ticks()
+    t0 = est.get("t_panel")
+    if t0 is None or t0[0] != id(ev):
+        t0 = est["t_panel"] = (id(ev), ahora)
+    if dt is None:
+        dt = ahora - t0[1]
+    derrota = bool(est.get("derrota"))
+    estrellas = ev.get("estrellas", 0)
+    cumplida = (not derrota) and estrellas >= 1
+    col = (120, 230, 140) if cumplida else (255, 110, 100)
+    velo = pygame.Surface((w, h), pygame.SRCALPHA)
+    velo.fill((4, 8, 6, 215))
+    pantalla.blit(velo, (0, 0))
+    mg = 28
+    pn = pygame.Rect(mg, mg, w - 2 * mg, h - 2 * mg)
+    pygame.draw.rect(pantalla, (0, 0, 0), pn.move(5, 6), border_radius=12)
+    pygame.draw.rect(pantalla, (20, 32, 25), pn, border_radius=12)
+    pygame.draw.rect(pantalla, (255, 170, 60), pn, 3, border_radius=12)
+    pygame.draw.rect(pantalla, (90, 120, 95), pn.inflate(-16, -16), 1, border_radius=8)
+    cx = pn.centerx
+
+    def centrado(txt, fnt, c, y, sombra=None):
+        if sombra:
+            s0 = fnt.render(txt, True, sombra)
+            pantalla.blit(s0, s0.get_rect(center=(cx + 2, y + 3)))
+        s1 = fnt.render(txt, True, c)
+        pantalla.blit(s1, s1.get_rect(center=(cx, y)))
+
+    try:
+        _ex = expr_final(est)
+        _rb, _rv = retrato("b", _ex), retrato("v", _ex)
+        pantalla.blit(_rb, (pn.x + 36, pn.y + 26))
+        pantalla.blit(_rv, (pn.right - 36 - _rv.get_width(), pn.y + 26))
+    except Exception:
+        pass
+    centrado("MISIÓN CUMPLIDA" if cumplida else "MISIÓN FALLIDA", _fuente_fin(64 if w >= 1000 else 52), col, pn.y + 50, (0, 0, 0))
+    modo = NOMBRES_MODO.get(MODO_ESP["id"])
+    centrado(nivel_actual()["nombre"] + (("  -  " + modo) if modo else ""), _fuente_fin(30), (235, 235, 235), pn.y + 94)
+    sup = MODO_ESP["id"] == "supervivencia"
+    meta = f"{META_SALVOS} animales" + ("" if sup else f" y {META_BOSQUE}% de bosque")
+    centrado(("Meta cumplida: " if cumplida else ("La partida terminó antes de lograr la meta: " if derrota else "Meta no alcanzada: ")) + meta,
+             _fuente_fin(24), (200, 190, 150), pn.y + 124)
+
+    R = 48
+    sy = pn.y + 214
+    sp = int(R * 2.7)
+    est["fin_estrellas"] = []
+    for i in range(3):
+        x = cx + (i - 1) * sp
+        llena = i < estrellas
+        k = max(0.0, min(1.0, (dt - 350 - i * 400) / 300.0))
+        if llena and k > 0:
+            Rk = int(R * (0.55 + 0.45 * k) + R * 0.15 * math.sin(k * math.pi))
+            dibujar_estrella(pantalla, x, sy, Rk, True)
+        else:
+            dibujar_estrella(pantalla, x, sy, R, False)
+        est["fin_estrellas"].append((x, sy, R))
+    centrado(f"{estrellas} de 3 estrellas" if estrellas else "Sin estrellas", _fuente_fin(26), (230, 230, 230), sy + R + 22)
+    centrado(f"{ev.get('puntos', 0)} puntos", _fuente_fin(54), (255, 235, 150), pn.y + 330, (60, 40, 0))
+    mon = (est.get("monedas_txt") or "").strip(" ()")
+    if mon:
+        centrado(mon, _fuente_fin(24), (255, 215, 90), pn.y + 366)
+
+    datos = [("Animales rescatados", f"{ev.get('salvos', 0)}/{ev.get('total', 0)}"),
+             ("Bosque conservado", f"{ev.get('bosque', 0)}%"),
+             ("Rondas usadas", str(ev.get("ronda", 0))),
+             ("Focos activos", str(ev.get("focos", 0)))]
+    gap = 14
+    cw = (pn.w - 72 - gap * 3) // 4
+    for k, (lab, val) in enumerate(datos):
+        r = pygame.Rect(pn.x + 36 + k * (cw + gap), pn.y + 392, cw, 84)
+        pygame.draw.rect(pantalla, (12, 22, 16), r, border_radius=8)
+        pygame.draw.rect(pantalla, (90, 120, 95), r, 1, border_radius=8)
+        a = _fuente_fin(22).render(lab, True, (190, 200, 190))
+        pantalla.blit(a, a.get_rect(center=(r.centerx, r.y + 20)))
+        b = _fuente_fin(46).render(val, True, (255, 255, 255))
+        pantalla.blit(b, b.get_rect(center=(r.centerx, r.y + 54)))
+    if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
+        centrado(est.get("record_msg") or "Solo cuenta si cumples la misión.", _fuente_fin(24), (255, 220, 100), pn.y + 496)
+
+    y_b = pn.bottom - 74
+    est["fin_btns"] = dibujar_botones_fin(pantalla, est, _fuente_fin(28), pygame.Rect(pn.x + 60, y_b - 44, pn.w - 120, 0))
+    im = est.get("img_msg")
+    if im and im[0] == id(ev):
+        centrado(im[1], _fuente_fin(22), (120, 230, 120), pn.bottom - 18)
+    else:
+        centrado("I = ver imagen y guardarla", _fuente_fin(22), (200, 190, 150), pn.bottom - 18)
+
 def vista_imagen_resultados(pantalla, est, ev):
     # Muestra la imagen antes de guardarla. G, Enter o el boton Guardar la guardan; Esc, I o Cerrar salen.
     # Devuelve la ruta si se guardo, None si no, "salir" si se cierra la ventana.
@@ -4065,6 +4190,8 @@ def pantalla_pausa(pantalla, est, fuente, inicio=False):
     w, h = pantalla.get_size()
     tab, sel = 0, 0
     canales = ["mus", "amb", "efx"]
+    b_menu = pygame.Rect(w - 330, 6, 150, 28)
+    b_salir = pygame.Rect(w - 170, 6, 150, 28)
     reloj = pygame.time.Clock()
     while True:
         for e in pygame.event.get():
@@ -4094,11 +4221,24 @@ def pantalla_pausa(pantalla, est, fuente, inicio=False):
                     tab = (tab + 1) % 4; sonar("ui_mover")
                 elif e.key == pygame.K_LEFT:
                     tab = (tab - 1) % 4; sonar("ui_mover")
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and not inicio and b_menu.collidepoint(e.pos):
+                sonar("ui_aceptar"); guardar_ajustes()
+                return "menu"
+            elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and not inicio and b_salir.collidepoint(e.pos):
+                sonar("ui_aceptar"); guardar_ajustes()
+                return "salir"
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
                 for i, r in enumerate(_rects_pausa(w, h)[1]):
                     if r.collidepoint(e.pos) and tab != i:
                         tab = i; sonar("ui_mover")
         _dibujar_pausa(pantalla, est, tab, sel, fondo, inicio)
+        if not inicio:
+            _mp = pygame.mouse.get_pos()
+            for _r, _t in ((b_menu, "Menú principal"), (b_salir, "Salir del juego")):
+                pygame.draw.rect(pantalla, (255, 87, 34) if _r.collidepoint(_mp) else (45, 66, 52), _r, border_radius=6)
+                pygame.draw.rect(pantalla, (255, 200, 120), _r, 2, border_radius=6)
+                _s = pygame.font.Font(None, 22).render(_t, True, (255, 255, 255))
+                pantalla.blit(_s, _s.get_rect(center=_r.center))
         pygame.display.flip()
         reloj.tick(30)
 
@@ -4698,9 +4838,11 @@ def main():
                 elif e.key == pygame.K_p:
                     pausa_prev_ = est["tick"]["pausa"]
                     est["tick"]["pausa"] = True
-                    pantalla_pausa(pantalla, est, fuente)
+                    _rp = pantalla_pausa(pantalla, est, fuente)
                     est["tick"]["pausa"] = pausa_prev_
                     est["tick"]["t_fin"] = pygame.time.get_ticks()
+                    if _rp in ("menu", "salir"):
+                        est["accion_fin"] = _rp
                 elif e.key == pygame.K_RETURN:
                     est["tick"]["t_fin"] = 0     # depuracion: adelanta el siguiente tick
             elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and est.get("ver_eval") and est.get("evaluacion"):
@@ -5016,33 +5158,7 @@ def main():
             for k_f, (t_f, c_f) in enumerate(partes):
                 pantalla.blit(fuente_p.render(t_f, True, c_f), (52, 88 + 20 * k_f))
         if est.get("ver_eval") and est.get("evaluacion"):
-            ev = est["evaluacion"]
-            lineas = [ev.get("titulo", "EVALUACION DE LA MISION"),
-                      "Estrellas: " + "*" * ev["estrellas"] + "-" * (3 - ev["estrellas"]),
-                      "Animales rescatados: " + str(ev["salvos"]) + "/" + str(ev["total"]),
-                      "Bosque conservado: " + str(ev["bosque"]) + "%",
-                      "Focos activos: " + str(ev["focos"]),
-                      "Rondas usadas: " + str(ev["ronda"]),
-                      "Puntuacion: " + str(ev["puntos"]) + est.get("monedas_txt", ""),
-                      "I = ver imagen"]
-            if MODO_ESP["id"] in ("record", "supervivencia", "desafio", "corazon"):
-                lineas[7:7] = [est.get("record_msg") or "Solo cuenta si cumples la misión."]
-                lineas[1:1] = [{"record": "Modo récord", "supervivencia": "Supervivencia", "desafio": "Desafío", "corazon": "El corazón del incendio"}[MODO_ESP["id"]]]
-            _alto = 30 + 28 * len(lineas)
-            _caja = pygame.Rect(60, 120, 440, _alto)
-            pygame.draw.rect(pantalla, (0, 0, 0), _caja.move(4, 5), border_radius=8)
-            pygame.draw.rect(pantalla, (18, 28, 22), _caja, border_radius=8)
-            pygame.draw.rect(pantalla, (255, 170, 60), _caja, 3, border_radius=8)
-            pygame.draw.line(pantalla, (255, 140, 40), (80, 135 + 24), (480, 135 + 24))
-            for k, t in enumerate(lineas):
-                pantalla.blit(fuente.render(t, True, (255, 220, 100) if k == 0 else (235, 235, 235)),
-                              (80, 135 + 28 * k))
-            est["fin_btns"] = dibujar_botones_fin(pantalla, est, fuente_p, _caja)
-            _im = est.get("img_msg")
-            if _im and _im[0] == id(ev):
-                _ti = fuente.render(_im[1], True, (120, 230, 120))
-                pantalla.fill((0, 0, 0), _ti.get_rect(topleft=(60, 120 + _alto + 12)))
-                pantalla.blit(_ti, (60, 120 + _alto + 12))
+            dibujar_panel_final(pantalla, est, fuente, fuente_p)
         pygame.display.flip()
         reloj.tick(30)
     pygame.quit()
