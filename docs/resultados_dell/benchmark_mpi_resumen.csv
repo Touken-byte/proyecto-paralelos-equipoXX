@@ -1,3 +1,0 @@
-modo,n,procesos,tiempo_prom_s,speedup,eficiencia
-mpi,512,1,0.0375,0.829,0.829
-mpi,512,3,0.0113,2.750,0.917
