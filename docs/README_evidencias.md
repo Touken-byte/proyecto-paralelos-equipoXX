@@ -35,3 +35,16 @@ Las evidencias E01 a E17 son las versiones oficiales tomadas en la Dell
 (sufijo `_dell`). Las capturas de la laptop (E01 a E09, E11, E11b, E17) se
 conservan en la misma carpeta como respaldo y ensayo.
 E18 a E24 corresponden al Vigía y al visor del juego.
+
+## Evidencias E61 a E65 (Dell OptiPlex 7010, 25/11/2026)
+
+Tomadas con el clúster de contenedores (nodos limitados a 4 CPUs por el compose).
+
+- E61_htop_benchmark_dell: htop con `fire_omp` (4 hilos, map_2048, 1700 pasos), cada hilo cerca de 100 % de CPU, unos 400 % en total.
+- E62_docker_stats_dell: `docker stats` durante la misma corrida; `master` al 400 % de CPU con límite de 8 GiB, `worker1` y `worker2` en reposo.
+- E63_verificacion_benchmark_dell: final de `benchmark.sh` con `discrepancias=0` en n=512, 1024 y 2048, un solo checksum del Vigía y `VERIFICACION EXITOSA`.
+- E64_hardware_dell: Intel Core i7-13700, 24 CPUs lógicos, 31 GiB de RAM.
+- E65_compose_raiz_dell: `docker compose up --build -d` desde un clon limpio, con `master`, `worker1` y `worker2` en `Up` y la línea `Acquire::Retries "5"` del Dockerfile en el build.
+
+Mediciones completas de hoy en `docs/resultados_dell/contenedores_4cpu/`.
+Las mediciones nativas originales (`dell_medicion.sh`) siguen en `docs/resultados_dell/benchmark.csv`.
