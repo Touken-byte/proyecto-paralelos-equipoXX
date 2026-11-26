@@ -135,11 +135,11 @@ El número aleatorio derivado de (semilla, paso, celda) hizo que las versiones s
 Impacto social y productivo: el proyecto ofrece una herramienta abierta para sensibilizar sobre la prevención de incendios y la protección de la fauna del Chaco, y permite comparar escenarios, por ejemplo con y sin cortafuegos. La superficie afectada por incendios en Tarija [9] muestra la relevancia del problema, pero este trabajo no se validó con actores locales, no se comparó con incendios reales del Chaco y no se evaluó el efecto del juego en sus usuarios; el valor social es potencial y educativo. El juego incluye un Cuaderno de Guardianes con fichas que citan sus fuentes. Los resultados son experimentales y no constituyen predicciones oficiales.
 
 ## VIII. Referencias
-[1] Amdahl, G. M., "Validity of the single processor approach to achieving large scale computing capabilities," AFIPS 1967.
-[2] Gustafson, J. L., "Reevaluating Amdahl's law," Commun. ACM, 1988.
+[1] Amdahl, G. M., "Validity of the single processor approach to achieving large scale computing capabilities," en AFIPS Conf. Proc., vol. 30, Atlantic City, NJ, EE. UU., 18–20 abr. 1967. Reston, VA, EE. UU.: AFIPS Press, 1967, pp. 483–485.
+[2] Gustafson, J. L., "Reevaluating Amdahl's law," Commun. ACM, vol. 31, no. 5, pp. 532–533, may 1988, doi: 10.1145/42411.42415.
 [3] OpenMP Architecture Review Board, OpenMP Application Programming Interface.
 [4] MPI Forum, MPI: A Message-Passing Interface Standard.
-[5] Steele, G. L. et al., "Fast splittable pseudorandom number generators," OOPSLA 2014 (SplitMix64).
+[5] Steele, G. L., Jr., Lea, D. y Flood, C. H., "Fast splittable pseudorandom number generators," en Proc. ACM Int. Conf. Object Oriented Programming Systems Languages & Applications (OOPSLA '14), Nueva York, NY, EE. UU.: ACM, 2014, pp. 453–472, doi: 10.1145/2660193.2660195.
 [6] Flynn, M. J., "Very high-speed computing systems," Proc. IEEE, vol. 54, no. 12, pp. 1901–1909, dic. 1966, doi: 10.1109/PROC.1966.5273.
 [7] Pacheco, P., An Introduction to Parallel Programming, 1.ª ed., Morgan Kaufmann, 2011.
 [8] Karafyllidis, I. y Thanailakis, A., "A model for predicting forest fire spreading using cellular automata," Ecological Modelling, vol. 99, no. 1, pp. 87–97, 1997, doi: 10.1016/S0304-3800(96)01942-4.
