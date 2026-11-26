@@ -137,8 +137,8 @@ Impacto social y productivo: el proyecto ofrece una herramienta abierta para sen
 ## VIII. Referencias
 [1] Amdahl, G. M., "Validity of the single processor approach to achieving large scale computing capabilities," en AFIPS Conf. Proc., vol. 30, Atlantic City, NJ, EE. UU., 18–20 abr. 1967. Reston, VA, EE. UU.: AFIPS Press, 1967, pp. 483–485.
 [2] Gustafson, J. L., "Reevaluating Amdahl's law," Commun. ACM, vol. 31, no. 5, pp. 532–533, may 1988, doi: 10.1145/42411.42415.
-[3] OpenMP Architecture Review Board, OpenMP Application Programming Interface.
-[4] MPI Forum, MPI: A Message-Passing Interface Standard.
+[3] OpenMP Architecture Review Board, "OpenMP Application Programming Interface, Version 4.5," nov. 2015.
+[4] Message Passing Interface Forum, "MPI: A Message-Passing Interface Standard, Version 3.1," 4 jun. 2015.
 [5] Steele, G. L., Jr., Lea, D. y Flood, C. H., "Fast splittable pseudorandom number generators," en Proc. ACM Int. Conf. Object Oriented Programming Systems Languages & Applications (OOPSLA '14), Nueva York, NY, EE. UU.: ACM, 2014, pp. 453–472, doi: 10.1145/2660193.2660195.
 [6] Flynn, M. J., "Very high-speed computing systems," Proc. IEEE, vol. 54, no. 12, pp. 1901–1909, dic. 1966, doi: 10.1109/PROC.1966.5273.
 [7] Pacheco, P., An Introduction to Parallel Programming, 1.ª ed., Morgan Kaufmann, 2011.
