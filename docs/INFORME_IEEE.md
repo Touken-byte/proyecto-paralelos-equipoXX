@@ -12,7 +12,7 @@ Palabras clave: autómata celular, incendios forestales, OpenMP, MPI, speedup, A
 Keywords: cellular automata, wildfire, OpenMP, MPI, speedup, Amdahl, Gustafson.
 
 ## II. Introducción y contextualización regional
-Yacuiba se ubica en el Gran Chaco boliviano, en el departamento de Tarija, junto a la Serranía del Aguaragüe. Es una región de bosque seco y pastizales con una estación seca marcada, donde un incendio forestal puede extenderse con rapidez y afectar a la fauna silvestre, la vegetación y las comunidades cercanas. [PENDIENTE: dato o fuente oficial sobre incendios en Tarija o el Chaco (superficie afectada o focos de calor), por ejemplo de la ABT, el SERNAP o la Gobernación de Tarija.]
+Yacuiba se ubica en el Gran Chaco boliviano, en el departamento de Tarija, junto a la Serranía del Aguaragüe. Es una región de bosque seco y pastizales con una estación seca marcada, donde un incendio forestal puede extenderse con rapidez y afectar a la fauna silvestre, la vegetación y las comunidades cercanas. Según la ABT de Tarija, en julio de 2026 los incendios ya habían afectado unas 5.000 hectáreas del departamento, lo que llevó a declarar la emergencia departamental; en todo 2025 la superficie afectada fue de unas 10.000 hectáreas [9]. Son cifras departamentales, no de Yacuiba.
 
 Simular la propagación del fuego con un autómata celular exige actualizar n × n celdas en cada paso, y estudiar el riesgo exige repetir la simulación muchas veces con distintas semillas (método Monte Carlo). Ambos costos crecen rápido con el tamaño del mapa y con el número de escenarios, y ambos admiten paralelismo: las celdas de un mismo paso son independientes entre sí gracias al doble buffer, y las simulaciones Monte Carlo son independientes entre sí.
 
@@ -29,7 +29,7 @@ C. Redes de interconexión: en un clúster, el costo de enviar un mensaje de m b
 
 D. Leyes de Amdahl y Gustafson: con una fracción secuencial f, la aceleración máxima con p procesadores es S(p) = 1 / (f + (1 − f)/p) [1]; si el problema crece con p, la aceleración escalada es S(p) = p − f(p − 1) [2]. La eficiencia es E(p) = S(p)/p.
 
-E. Estado del arte: los autómatas celulares se usan para modelar la propagación de incendios con efecto del viento y del combustible [8]. Las simulaciones Monte Carlo independientes son un caso de paralelismo casi trivial. [PENDIENTE: 2 o 3 trabajos sobre simulación paralela de incendios (MPI, OpenMP o GPU) con su referencia.]
+E. Estado del arte: los autómatas celulares se usan para modelar la propagación de incendios con efecto del viento y del combustible [8]. Las simulaciones Monte Carlo independientes son un caso de paralelismo casi trivial. Existen implementaciones paralelas para la propagación de incendios: Farguell et al. estudian la escalabilidad de WRF–SFIRE, que acopla un modelo atmosférico con uno de propagación del fuego, con OpenMP y con MPI [10]; Álvarez et al. paralelizan con OpenMP un modelo semifísico simplificado y lo prueban con datos de un incendio real en Galicia [11]; e Innocenti et al. proponen un marco para paralelizar con OpenMP modelos celulares aplicados a la propagación del fuego [12]. Este proyecto aplica ideas semejantes a un autómata celular estocástico más simple, con tres modalidades y verificación por checksum.
 
 ## IV. Diseño de la arquitectura e infraestructura
 A. Clúster: 3 contenedores Docker (master, worker1, worker2), red bridge, SSH sin contraseña, Ubuntu 22.04, 8 GB de RAM y un límite de CPUs por nodo configurable (4 por defecto; 16 en las mediciones de la Dell).
@@ -129,7 +129,10 @@ Impacto social y productivo: el proyecto ofrece una herramienta abierta para sen
 [3] OpenMP Architecture Review Board, OpenMP Application Programming Interface.
 [4] MPI Forum, MPI: A Message-Passing Interface Standard.
 [5] Steele, G. L. et al., "Fast splittable pseudorandom number generators," OOPSLA 2014 (SplitMix64).
-[6] Flynn, M. J., "Very high-speed computing systems," Proc. IEEE, 1966. [verificar datos]
-[7] Pacheco, P., An Introduction to Parallel Programming, Morgan Kaufmann, 2011. [verificar datos]
-[8] Karafyllidis, I. y Thanailakis, A., "A model for predicting forest fire spreading using cellular automata," Ecological Modelling, 1997. [verificar datos]
-[PENDIENTE: fuente oficial de datos regionales de incendios y 2 o 3 trabajos sobre simulación paralela de incendios.]
+[6] Flynn, M. J., "Very high-speed computing systems," Proc. IEEE, vol. 54, no. 12, pp. 1901–1909, dic. 1966, doi: 10.1109/PROC.1966.5273.
+[7] Pacheco, P., An Introduction to Parallel Programming, 1.ª ed., Morgan Kaufmann, 2011.
+[8] Karafyllidis, I. y Thanailakis, A., "A model for predicting forest fire spreading using cellular automata," Ecological Modelling, vol. 99, no. 1, pp. 87–97, 1997, doi: 10.1016/S0304-3800(96)01942-4.
+[9] "Región del sur de Bolivia está en emergencia por incendios que dañan unas 5.000 hectáreas," EFE, en Infobae, 21 jul. 2026. [En línea]. Disponible: https://www.infobae.com/america/agencias/2026/07/21/region-del-sur-de-bolivia-esta-en-emergencia-por-incendios-que-danan-unas-5000-hectareas/
+[10] A. Farguell et al., "Scalability of a multi-physics system for forest fire spread prediction in multi-core platforms," J. Supercomput., vol. 75, pp. 1163–1174, 2019, doi: 10.1007/s11227-018-2330-9.
+[11] D. Álvarez, D. Prieto, M. I. Asensio, J. M. Cascón y L. Ferragut, "Parallel implementation of a simplified semi-physical wildland fire spread model using OpenMP," en Hybrid Artificial Intelligent Systems (HAIS 2017), Lecture Notes in Computer Science, vol. 10334. Cham: Springer, 2017, pp. 256–267, doi: 10.1007/978-3-319-59650-1_22.
+[12] E. Innocenti, X. Silvani, A. Muzy y D. R. C. Hill, "A software framework for fine grain parallelization of cellular models with OpenMP: Application to fire spread," Environ. Model. Softw., vol. 24, no. 7, pp. 819–831, 2009, doi: 10.1016/j.envsoft.2008.11.014.
