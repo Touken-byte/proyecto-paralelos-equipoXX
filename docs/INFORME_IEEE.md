@@ -32,11 +32,11 @@ D. Leyes de Amdahl y Gustafson: con una fracción secuencial f, la aceleración 
 E. Estado del arte: los autómatas celulares se usan para modelar la propagación de incendios con efecto del viento y del combustible [8]. Las simulaciones Monte Carlo independientes son un caso de paralelismo casi trivial. Existen implementaciones paralelas para la propagación de incendios: Farguell et al. estudian la escalabilidad de WRF–SFIRE, que acopla un modelo atmosférico con uno de propagación del fuego, con OpenMP y con MPI [10]; Álvarez et al. paralelizan con OpenMP un modelo semifísico simplificado y lo prueban con datos de un incendio real en Galicia [11]; e Innocenti et al. proponen un marco para paralelizar con OpenMP modelos celulares aplicados a la propagación del fuego [12]. Este proyecto aplica ideas semejantes a un autómata celular estocástico más simple, con tres modalidades y verificación por checksum.
 
 ## IV. Diseño de la arquitectura e infraestructura
-A. Clúster: 3 contenedores Docker (master, worker1, worker2), red bridge, SSH sin contraseña, Ubuntu 22.04, 8 GB de RAM y un límite de CPUs por nodo configurable (4 por defecto; 16 en las mediciones de la Dell).
+A. Clúster: 3 contenedores Docker (master, worker1, worker2), red bridge, SSH sin contraseña, Ubuntu 22.04, 8 GB de RAM y un límite de CPUs por nodo configurable (4 por defecto, que usan `docker compose up` y `./scripts/benchmark.sh`; 16 en las mediciones de `scripts/dell_medicion.sh`).
 
 B. Hardware de medición: Dell OptiPlex Tower Plus 7010 con Intel Core i7-13700 de 13.ª generación (16 núcleos, 24 hilos lógicos, hasta 5,2 GHz, 30 MiB de caché L3) y 31 GiB de RAM; Docker 29.7.0 en el host y, dentro de los contenedores, Ubuntu 22.04 con gcc 11.4.0 y Open MPI 4.1.2. Según la ficha de Intel, son 8 núcleos de rendimiento y 8 de eficiencia.
 
-C. Asignación de recursos: cada contenedor recibe hasta CPUS_NODO CPUs (4 por defecto; 16 en las mediciones de la Dell) y 8 GB de RAM (parámetros cpus y mem_limit de infrastructure/docker-compose.yml). Los tres nodos comparten la CPU física del host, de modo que el clúster reproduce la lógica de un sistema distribuido pero no el costo de una red real. El archivo hostfile lista los tres nodos y los procesos MPI se reparten con --map-by node (un proceso por nodo).
+C. Asignación de recursos: cada contenedor recibe hasta CPUS_NODO CPUs (4 por defecto, que usan `docker compose up` y `./scripts/benchmark.sh`; 16 en las mediciones de `scripts/dell_medicion.sh`) y 8 GB de RAM (parámetros cpus y mem_limit de infrastructure/docker-compose.yml). Los tres nodos comparten la CPU física del host, de modo que el clúster reproduce la lógica de un sistema distribuido pero no el costo de una red real. El archivo hostfile lista los tres nodos y los procesos MPI se reparten con --map-by node (un proceso por nodo).
 
 D. Diagrama del clúster: la Fig. 1 muestra el host, la red bridge interna y los tres contenedores (master, worker1, worker2) con sus CPUs y su RAM.
 
@@ -61,7 +61,7 @@ D. Híbrido y Vigía: el Vigía ejecuta simulaciones Monte Carlo independientes 
 
 ![Fig. 2. Riesgo de quema del Vigía (a) sin y (b) con cortafuegos; mapa de 128 celdas, 8 simulaciones, 50 pasos.](docs/figuras/fig_riesgo_comparacion.png)
 
-E. Balanceo de carga: en OpenMP, schedule(runtime) permite comparar static, dynamic y guided sin recompilar [DELL: resultado]. En MPI, el reparto por bloques de filas deja una diferencia máxima de una fila entre procesos, aunque el costo real por fila puede variar con la cantidad de fuego. En el Vigía, el reparto cíclico de simulaciones entre procesos y la planificación dinámica entre hilos compensan simulaciones de duración desigual.
+E. Balanceo de carga: en OpenMP, schedule(runtime) permite comparar static, dynamic y guided sin recompilar (`scripts/verify.sh` comprueba que las tres políticas, con 1, 2, 4 y 8 hilos, producen el mismo checksum que la versión secuencial; no se compararon sus tiempos). En MPI, el reparto por bloques de filas deja una diferencia máxima de una fila entre procesos, aunque el costo real por fila puede variar con la cantidad de fuego. En el Vigía, el reparto cíclico de simulaciones entre procesos y la planificación dinámica entre hilos compensan simulaciones de duración desigual.
 
 F. Corrección: checksum idéntico en todas las versiones (n=512, semilla 42, 100 pasos: c5dad814f7cbeaff).
 
@@ -70,13 +70,13 @@ G. Integración con el videojuego: el motor secuencial (`fire_seq`) se ejecuta d
 ![Fig. 3. Interfaz del juego con las habilidades de los personajes.](docs/evidencias/E39_juego_habilidades.png)
 
 ## VI. Resultados experimentales y análisis de rendimiento
-A. Protocolo: tamaños n=512, 1024 y 2048 con 100 pasos, hilos OpenMP 1, 2, 4, 8 y 16, y media de 5 repeticiones por configuración, todo en la Dell OptiPlex 7010; procesos MPI 1, 2, 3 y 6 (n=2048, una medición). Métricas: T_p, S_p = T_1/T_p, E_p = S_p/p.
+A. Protocolo: tamaños n=512, 1024 y 2048 con 100 pasos, todo en la Dell OptiPlex 7010 y siempre dentro de los tres contenedores, que comparten la CPU física. Hay dos configuraciones que se presentan por separado: (1) 16 CPUs por nodo (`scripts/dell_medicion.sh`), con hilos OpenMP 1, 2, 4, 8 y 16 y media de 5 repeticiones (VI.D y VI.E), una sola medición de MPI con n=2048 y el Vigía con 48 simulaciones; (2) 4 CPUs por nodo, el límite por defecto de `docker-compose.yml` y de `./scripts/benchmark.sh`, con hilos 1, 2, 4 y 8, procesos MPI 1, 2, 3 y 6 y el Vigía con 24 simulaciones, todo con media de 5 repeticiones (VI.F y VI.G). Métricas: T_p, S_p = T_1/T_p, E_p = S_p/p, con T_1 el tiempo del motor secuencial medido en la misma corrida.
 
-B. Reproducibilidad: `scripts/dell_medicion.sh`, semilla fija, repositorio con un comando.
+B. Reproducibilidad: semilla fija y un comando por configuración: `scripts/dell_medicion.sh` (16 CPUs por nodo) y `./scripts/benchmark.sh` (4 CPUs por nodo). Los CSV crudos y resumidos están en `docs/resultados_dell/` y en `docs/resultados_dell/contenedores_4cpu/`. En la corrida completa de `benchmark.sh` no hubo discrepancias de checksum.
 
 C. Huella de memoria: RSS máximo de la versión secuencial (medido con /usr/bin/time): 4,07 MiB (n=512), 7,96 MiB (n=1024) y 22,61 MiB (n=2048).
 
-D. Escalabilidad fuerte: T_seq = 0,1452 s (n=512), 0,5588 s (n=1024) y 2,2543 s (n=2048). Speedup S y eficiencia E de OpenMP (media de 5 repeticiones, 100 pasos, checksum idéntico):
+D. Escalabilidad fuerte (16 CPUs por nodo): T_seq = 0,1452 s (n=512), 0,5588 s (n=1024) y 2,2543 s (n=2048). Speedup S y eficiencia E de OpenMP (media de 5 repeticiones, 100 pasos, checksum idéntico):
 
 | Hilos | n=512 S / E | n=1024 S / E | n=2048 S / E |
 |---|---|---|---|
@@ -90,31 +90,42 @@ El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) 
 
 ![Fig. 4. Escalabilidad fuerte de OpenMP: (a) speedup y (b) eficiencia.](docs/figuras/fig_fuerte.png)
 
-E. Escalabilidad débil: con la carga por hilo constante (n=512, 724, 1024, 1448 y 2048 para 1, 2, 4, 8 y 16 hilos) el tiempo se mantiene entre 0,147 s y 0,151 s hasta 8 hilos y sube a 0,185 s con 16. La eficiencia débil es 0,993, 0,997, 0,972 y 0,792 para 2, 4, 8 y 16 hilos, y el speedup escalado con 16 hilos es 12,67. La fracción serial escalada media es α=0,068, con la que Gustafson predice unos 14,98 con 16 hilos; lo medido queda por debajo porque α no es solo código secuencial: incluye ancho de banda de memoria y efectos de hyperthreading, y con 16 hilos sube a 0,222 (Fig. 5).
+E. Escalabilidad débil (16 CPUs por nodo): con la carga por hilo constante (n=512, 724, 1024, 1448 y 2048 para 1, 2, 4, 8 y 16 hilos) el tiempo se mantiene entre 0,147 s y 0,151 s hasta 8 hilos y sube a 0,185 s con 16. La eficiencia débil es 0,993, 0,997, 0,972 y 0,792 para 2, 4, 8 y 16 hilos, y el speedup escalado con 16 hilos es 12,67. La fracción serial escalada media es α=0,068, con la que Gustafson predice unos 14,98 con 16 hilos; lo medido queda por debajo porque α no es solo código secuencial: incluye ancho de banda de memoria y efectos de hyperthreading, y con 16 hilos sube a 0,222 (Fig. 5).
 
 ![Fig. 5. Escalabilidad débil: (a) speedup escalado frente a Gustafson y (b) eficiencia débil.](docs/figuras/fig_debil.png)
 
-F. MPI e híbrido: MPI sobre los 3 contenedores (n=2048, 100 pasos, una medición por configuración, checksum 82545e9347fe1d2b en todas):
+F. Resultados con 4 CPUs por nodo (`./scripts/benchmark.sh`, media de 5 repeticiones, 100 pasos, checksum idéntico al secuencial en todas las configuraciones). OpenMP, con T_seq = 0,1440 s (n=512), 0,5357 s (n=1024) y 2,1099 s (n=2048):
 
-| Procesos | T (s) | S frente a T_seq | E |
+| Hilos | n=512 S / E | n=1024 S / E | n=2048 S / E |
 |---|---|---|---|
-| 1 | 2,166 | 1,04 | 1,04 |
-| 2 | 2,138 | 1,05 | 0,53 |
-| 3 | 0,765 | 2,95 | 0,98 |
-| 6 | 0,399 | 5,64 | 0,94 |
+| 1 | 0,989 / 0,989 | 0,946 / 0,946 | 0,947 / 0,947 |
+| 2 | 1,820 / 0,910 | 1,782 / 0,891 | 1,834 / 0,917 |
+| 4 | 3,203 / 0,801 | 3,568 / 0,892 | 3,624 / 0,906 |
+| 8 | 2,662 / 0,333 | 1,883 / 0,235 | 1,349 / 0,169 |
 
-Con 2 procesos casi no hay mejora y con 3 el tiempo cae a menos de la mitad. [PENDIENTE: explicar esta irregularidad; hay que repetir la medición y revisar cómo se reparten los procesos entre nodos.] Vigía híbrido (n=512, 48 simulaciones, 100 pasos, mismo checksum eddb391a611603aa en todas):
+MPI sobre los 3 contenedores (un proceso por nodo con --map-by node; con n=2048 los tiempos son 2,102, 1,084, 0,727 y 0,382 s):
+
+| Procesos | n=512 S / E | n=1024 S / E | n=2048 S / E |
+|---|---|---|---|
+| 1 | 0,983 / 0,983 | 1,002 / 1,002 | 1,004 / 1,004 |
+| 2 | 1,897 / 0,948 | 1,953 / 0,977 | 1,947 / 0,973 |
+| 3 | 2,812 / 0,937 | 2,878 / 0,959 | 2,901 / 0,967 |
+| 6 | 3,876 / 0,646 | 5,091 / 0,848 | 5,520 / 0,920 |
+
+Con 6 procesos la eficiencia sube de 0,646 a 0,848 y a 0,920 al pasar de n=512 a 1024 y 2048, lo que es coherente con Gustafson: al crecer el problema pesa menos la parte fija (comunicación y sincronización), aunque no se midió esa parte por separado. Vigía híbrido (n=512, 24 simulaciones, 100 pasos, checksum 0615ba7fe3845bee en todas; el checksum del Vigía depende del número de simulaciones, y con 48 es eddb391a611603aa):
 
 | Procesos | Hilos | T (s) | S frente a 1x1 |
 |---|---|---|---|
-| 1 | 1 | 6,541 | 1,00 |
-| 1 | 4 | 6,603 | 0,99 |
-| 3 | 1 | 2,298 | 2,85 |
-| 3 | 4 | 0,722 | 9,06 |
+| 1 | 1 | 3,265 | 1,00 |
+| 1 | 4 | 0,847 | 3,85 |
+| 3 | 1 | 1,117 | 2,92 |
+| 3 | 4 | 0,408 | 8,01 |
 
-Con 3 procesos y 4 hilos (12 unidades de trabajo) la eficiencia es 0,75. Que 4 hilos no mejoren nada con 1 proceso es inesperado. [PENDIENTE: verificar si OpenMP usó realmente los 4 hilos en ese caso.]
+Con 3 procesos y 4 hilos (12 unidades de trabajo, 4 por nodo) la eficiencia es 0,67.
 
-G. Cuellos de botella: ancho de banda de memoria, hyperthreading, los 3 nodos comparten la misma CPU física, red virtual sin latencia real.
+Limitación: dos resultados de la medición previa (16 CPUs por nodo, una sola repetición) no se reprodujeron con 5 repeticiones a 4 CPUs por nodo. En MPI con n=2048, 2 procesos tardaron 2,138 s frente a 2,166 s con 1 proceso (speedup 1,05 frente a T_seq = 2,254 s), mientras que con 3 y 6 procesos tardaron 0,765 s (2,95) y 0,399 s (5,64); en la corrida nueva, 2 procesos da 1,947 con todas las repeticiones entre 1,081 s y 1,086 s. En el Vigía con 48 simulaciones, 1 proceso con 4 hilos tardó 6,603 s frente a 6,541 s con 1 hilo (0,99), y 3 procesos con 4 hilos 0,722 s (9,06); con 24 simulaciones y 4 CPUs por nodo, 1 proceso con 4 hilos da 3,85. No identificamos la causa de ninguna de las dos diferencias. Las corridas difieren al menos en el límite de CPUs por nodo, en el número de simulaciones del Vigía y en el número de repeticiones, y no se repitió una configuración bajo las condiciones de la otra, así que no atribuimos la diferencia a ninguno de esos factores. Por eso las cifras de MPI y del Vigía que se usan en el análisis son las de la corrida de 4 CPUs, y las de 16 CPUs se citan solo como referencia.
+
+G. Cuellos de botella y efecto del límite de CPUs: (1) con 16 CPUs por nodo la eficiencia de OpenMP baja con 16 hilos (0,57 a 0,75 según n); pueden intervenir el ancho de banda de memoria y el uso de hilos lógicos (hyperthreading) del i7-13700, pero no se aisló cada factor con un experimento propio. (2) Con 4 CPUs por nodo, OpenMP con 8 hilos sobresuscribe el contenedor (8 hilos en 4 CPUs): el speedup cae a 2,66, 1,88 y 1,35 (eficiencia 0,33, 0,24 y 0,17 para n=512, 1024 y 2048) y es la configuración con más dispersión entre repeticiones (con n=2048, de 1,29 s a 1,84 s). El mismo programa con 8 hilos y n=2048 alcanza 7,87 (eficiencia 0,98) con 16 CPUs por nodo, así que la caída se asocia al límite de CPUs y no al código. MPI con 6 procesos reparte 2 por nodo y el Vigía con 3 procesos y 4 hilos usa 4 hilos por nodo, de modo que ninguno sobresuscribe. (3) Los tres nodos comparten la CPU física y la red es virtual, por lo que los resultados de MPI no miden el costo de una red real. (4) Con la métrica de Karp-Flatt, e = (1/S − 1/p)/(1 − 1/p), la fracción serial experimental es 0,035 para OpenMP con 4 hilos y n=2048, y para MPI con 6 procesos baja de 0,110 a 0,036 y a 0,017 al pasar de n=512 a 1024 y 2048.
 
 H. Datos preliminares (laptop, no oficiales): Vigía con cortafuegos (laptop; mapa de 128 celdas, 8 simulaciones, 50 pasos): el porcentaje de celdas con riesgo mayor al 50 % baja de 9,8 % (1611 celdas) a 7,7 % (1259 celdas) al agregar una barrera completa; es una demostración cualitativa que se repetirá en la Dell.
 
