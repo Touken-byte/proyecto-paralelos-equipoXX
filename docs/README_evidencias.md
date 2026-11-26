@@ -129,3 +129,4 @@ La máquina de origen está por confirmar.
 | E58 | E58_cuaderno_fauna_fuentes.png | Cuaderno de Guardianes, Enciclopedia de fauna: ficha del Jaguar con fuentes citadas | Por confirmar |
 | E59 | E59_menu_principal_pixel_bosque.png | Menú principal con fondo pixel art, luna, botones con iconos y barra de música | Por confirmar |
 | E60 | E60_modo_juego_pixel.png | Selector Elige el modo de juego (dos jugadores o solitario) sobre el fondo pixel art | Por confirmar |
+| E75 | E75_juego_habilidades_pc2.png | Interfaz nueva del juego: panel de habilidades del bombero (teclas D, I, G, H, T) y de la veterinaria (E, F, X, Q, K), minimapa y estado del Vigía "(sin calcular)" al inicio de la ronda; no es una medición de rendimiento (Fig. 3 del informe) | PC2 |
