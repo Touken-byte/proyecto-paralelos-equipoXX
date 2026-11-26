@@ -135,14 +135,14 @@ El número aleatorio derivado de (semilla, paso, celda) hizo que las versiones s
 Impacto social y productivo: el proyecto ofrece una herramienta abierta para sensibilizar sobre la prevención de incendios y la protección de la fauna del Chaco, y permite comparar escenarios, por ejemplo con y sin cortafuegos. La superficie afectada por incendios en Tarija [9] muestra la relevancia del problema, pero este trabajo no se validó con actores locales, no se comparó con incendios reales del Chaco y no se evaluó el efecto del juego en sus usuarios; el valor social es potencial y educativo. El juego incluye un Cuaderno de Guardianes con fichas que citan sus fuentes. Los resultados son experimentales y no constituyen predicciones oficiales.
 
 ## VIII. Referencias
-[1] Amdahl, G. M., "Validity of the single processor approach to achieving large scale computing capabilities," en AFIPS Conf. Proc., vol. 30, Atlantic City, NJ, EE. UU., 18–20 abr. 1967. Reston, VA, EE. UU.: AFIPS Press, 1967, pp. 483–485.
-[2] Gustafson, J. L., "Reevaluating Amdahl's law," Commun. ACM, vol. 31, no. 5, pp. 532–533, may 1988, doi: 10.1145/42411.42415.
+[1] G. M. Amdahl, "Validity of the single processor approach to achieving large scale computing capabilities," en AFIPS Conf. Proc., vol. 30, Atlantic City, NJ, EE. UU., 18–20 abr. 1967. Reston, VA, EE. UU.: AFIPS Press, 1967, pp. 483–485.
+[2] J. L. Gustafson, "Reevaluating Amdahl's law," Commun. ACM, vol. 31, no. 5, pp. 532–533, may 1988, doi: 10.1145/42411.42415.
 [3] OpenMP Architecture Review Board, "OpenMP Application Programming Interface, Version 4.5," nov. 2015.
 [4] Message Passing Interface Forum, "MPI: A Message-Passing Interface Standard, Version 3.1," 4 jun. 2015.
-[5] Steele, G. L., Jr., Lea, D. y Flood, C. H., "Fast splittable pseudorandom number generators," en Proc. ACM Int. Conf. Object Oriented Programming Systems Languages & Applications (OOPSLA '14), Nueva York, NY, EE. UU.: ACM, 2014, pp. 453–472, doi: 10.1145/2660193.2660195.
-[6] Flynn, M. J., "Very high-speed computing systems," Proc. IEEE, vol. 54, no. 12, pp. 1901–1909, dic. 1966, doi: 10.1109/PROC.1966.5273.
-[7] Pacheco, P., An Introduction to Parallel Programming, 1.ª ed., Morgan Kaufmann, 2011.
-[8] Karafyllidis, I. y Thanailakis, A., "A model for predicting forest fire spreading using cellular automata," Ecological Modelling, vol. 99, no. 1, pp. 87–97, 1997, doi: 10.1016/S0304-3800(96)01942-4.
+[5] G. L. Steele, Jr., D. Lea y C. H. Flood, "Fast splittable pseudorandom number generators," en Proc. ACM Int. Conf. Object Oriented Programming Systems Languages & Applications (OOPSLA '14), Nueva York, NY, EE. UU.: ACM, 2014, pp. 453–472, doi: 10.1145/2660193.2660195.
+[6] M. J. Flynn, "Very high-speed computing systems," Proc. IEEE, vol. 54, no. 12, pp. 1901–1909, dic. 1966, doi: 10.1109/PROC.1966.5273.
+[7] P. Pacheco, An Introduction to Parallel Programming, 1.ª ed., Morgan Kaufmann, 2011.
+[8] I. Karafyllidis y A. Thanailakis, "A model for predicting forest fire spreading using cellular automata," Ecological Modelling, vol. 99, no. 1, pp. 87–97, 1997, doi: 10.1016/S0304-3800(96)01942-4.
 [9] "Región del sur de Bolivia está en emergencia por incendios que dañan unas 5.000 hectáreas," EFE, en Infobae, 21 jul. 2026. [En línea]. Disponible: https://www.infobae.com/america/agencias/2026/07/21/region-del-sur-de-bolivia-esta-en-emergencia-por-incendios-que-danan-unas-5000-hectareas/
 [10] A. Farguell et al., "Scalability of a multi-physics system for forest fire spread prediction in multi-core platforms," J. Supercomput., vol. 75, pp. 1163–1174, 2019, doi: 10.1007/s11227-018-2330-9.
 [11] D. Álvarez, D. Prieto, M. I. Asensio, J. M. Cascón y L. Ferragut, "Parallel implementation of a simplified semi-physical wildland fire spread model using OpenMP," en Hybrid Artificial Intelligent Systems (HAIS 2017), Lecture Notes in Computer Science, vol. 10334. Cham: Springer, 2017, pp. 256–267, doi: 10.1007/978-3-319-59650-1_22.
