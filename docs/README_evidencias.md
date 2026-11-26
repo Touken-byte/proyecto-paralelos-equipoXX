@@ -62,3 +62,70 @@ Capturas del juego tomadas en una PC distinta de la Dell (sufijo `_pc2`). Docume
 - E72_menu_principal_v3_pc2: versión anterior del menú principal (degradado con chispas, sin fondo pixel art). Sirve de "antes".
 - E73_mapa_antes_cambios_pc2: versión anterior del mapa, con el panel lateral en texto plano. Sirve de "antes".
 - E74_personajes_chibi_final_pc2: diseño final de los personajes Bombero y Veterinaria (cabeza grande, coleta y botiquín).
+
+## Variantes y capturas complementarias de E05 a E17
+
+| Código | Archivo | Contenido | Máquina |
+|--------|---------|-----------|---------|
+| E05 | E05_versiones_laptop.png | Versiones de gcc, mpirun y OpenMP (respaldo) | Laptop |
+| E11b | E11b_verificacion_mpi_dell.png | Checksums idénticos secuencial vs MPI (versión oficial) | Dell |
+| E13b | E13b_docker_stats_mpi_dell.png | docker stats durante la ejecución MPI | Dell |
+| E13b | E13b_docker_stats_mpi_dell_recorte.png | Recorte vertical de la captura anterior | Dell |
+| E17 | E17_vigia_mapa_riesgo.png | Mapa de riesgo del Vigía (Monte Carlo), versión de ensayo | Laptop |
+
+## Evidencias E25 a E39 (juego, 05/11/2026)
+
+La máquina de origen de E27 a E39 está por confirmar.
+
+| Código | Archivo | Contenido | Máquina |
+|--------|---------|-----------|---------|
+| E25 | E25_juego_habilidades_dell.png | Panel de habilidades del juego con niveles de emergencia | Dell |
+| E26 | E26_juego_evaluacion_dell.png | Pantalla de evaluación final con estrellas | Dell |
+| E27 | E27_juego_fauna.png | Fauna del juego en el mapa | Por confirmar |
+| E28 | E28_juego_seleccion_modo.png | Selector de modo de juego | Por confirmar |
+| E28b | E28_juego_tiempo_real_ia.png | Fuego en tiempo real con IA controlando a los personajes | Por confirmar |
+| E29 | E29_juego_ia_veterinaria.png | IA de la veterinaria en acción | Por confirmar |
+| E30 | E30_juego_derrota_vida.png | Derrota cooperativa por vida compartida | Por confirmar |
+| E31 | E31_juego_recursos.png | Tanque de agua con recarga en el río y cooldown del cortafuegos | Por confirmar |
+| E32 | E32_juego_apoyo_meta.png | Apoyo de la veterinaria al bombero y meta visible | Por confirmar |
+| E33 | E33_juego_menu_niveles.png | Menú de niveles con miniaturas y ficha de misión | Por confirmar |
+| E34 | E34_juego_cuadro_inicio.png | Cuadro de diálogo grande de inicio de nivel | Por confirmar |
+| E35 | E35_juego_globo_dialogo.png | Globo de diálogo en el juego | Por confirmar |
+| E36 | E36_juego_menu_principal.png | Menú principal ampliado | Por confirmar |
+| E37 | E37_juego_pantalla_maqueta.png | Menú principal en versión maqueta (sin iconos), con Campaña, Próximamente y Tienda bloqueada | Por confirmar |
+| E38 | E38_juego_cuaderno.png | Cuaderno con enciclopedia de fauna | Por confirmar |
+| E39 | E39_juego_habilidades.png | Habilidades adicionales y alerta de zona prioritaria | Por confirmar |
+
+## Evidencias E40 a E55 (juego, 15/11/2026)
+
+La máquina de origen está por confirmar.
+
+| Código | Archivo | Contenido | Máquina |
+|--------|---------|-----------|---------|
+| E40 | E40_animal_pendiente.png | Animal que huyó del fuego y queda pendiente de rescate | Por confirmar |
+| E41 | E41_proteccion_termica.png | Protección térmica del bombero | Por confirmar |
+| E42 | E42_conocimiento_silvestre.png | Habilidad de conocimiento silvestre | Por confirmar |
+| E43 | E43_cuaderno_notificacion.png | Notificación de nueva ficha del Cuaderno | Por confirmar |
+| E43b | E43b_cuaderno_desbloqueado.png | Cuaderno con una ficha ya desbloqueada | Por confirmar |
+| E44 | E44_ajustes_audio.png | Ajustes de audio | Por confirmar |
+| E45 | E45_incendio_humo_brasas.png | Incendio con humo y brasas | Por confirmar |
+| E46 | E46_rescate_animal.png | Rescate de un animal | Por confirmar |
+| E47 | E47_ignis.png | Ignis, la mascota de llama del indicador de emergencia (nivel avanzada), con el mapa parcialmente quemado | Por confirmar |
+| E48 | E48_campana_candado.png | Selector de nivel con los niveles de la zona Tarija bloqueados (candado de campaña) | Por confirmar |
+| E49 | E49_modo_record.png | Modo récord | Por confirmar |
+| E50 | E50_tienda.png | Tienda de personalización | Por confirmar |
+| E51 | E51_skins_en_partida.png | Aspectos de personajes equipados en partida | Por confirmar |
+| E52 | E52_imagen_resultados.png | Imagen de resultados exportada: misión fallida, 0 estrellas, puntuación, animales y bosque conservado | Por confirmar |
+| E53 | E53_ia_experto_habilidades.png | IA en nivel experto usando habilidades | Por confirmar |
+| E54 | E54_marco_dorado_hud_panel.png | Marco dorado en el HUD y el panel lateral | Por confirmar |
+| E55 | E55_marco_dorado_detalle.png | Detalle del marco dorado | Por confirmar |
+
+## Evidencias E56 a E60 (juego, 21 y 22/11/2026)
+
+| Código | Archivo | Contenido | Máquina |
+|--------|---------|-----------|---------|
+| E56 | E56_zoom_camara_minimapa.png | Mapa con zoom de cámara, HUD de iconos y minimapa | PC2 |
+| E57 | E57_cuaderno_primeros_auxilios.png | Cuaderno de Guardianes, Primeros auxilios: quemaduras leves | PC2 |
+| E58 | E58_cuaderno_fauna_fuentes.png | Cuaderno de Guardianes, Enciclopedia de fauna: ficha del Jaguar con fuentes citadas | Por confirmar |
+| E59 | E59_menu_principal_pixel_bosque.png | Menú principal con fondo pixel art, luna, botones con iconos y barra de música | Por confirmar |
+| E60 | E60_modo_juego_pixel.png | Selector Elige el modo de juego (dos jugadores o solitario) sobre el fondo pixel art | Por confirmar |
