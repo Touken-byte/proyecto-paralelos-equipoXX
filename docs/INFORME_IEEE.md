@@ -92,7 +92,7 @@ El speedup crece con el tamaño del problema: con 16 hilos pasa de 9,19 (n=512) 
 
 E. Escalabilidad débil (16 CPUs por nodo): con la carga por hilo constante (n=512, 724, 1024, 1448 y 2048 para 1, 2, 4, 8 y 16 hilos) el tiempo se mantiene entre 0,147 s y 0,151 s hasta 8 hilos y sube a 0,185 s con 16. La eficiencia débil es 0,993, 0,997, 0,972 y 0,792 para 2, 4, 8 y 16 hilos, y el speedup escalado con 16 hilos es 12,67. La fracción serial escalada media es α=0,068, con la que Gustafson predice unos 14,98 con 16 hilos; lo medido queda por debajo porque α no es solo código secuencial: incluye ancho de banda de memoria y efectos de hyperthreading, y con 16 hilos sube a 0,222 (Fig. 5).
 
-![Fig. 5. Escalabilidad débil: (a) speedup escalado frente a Gustafson y (b) eficiencia débil.](docs/figuras/fig_debil.png)
+![Fig. 5. Escalabilidad débil con 16 CPUs por nodo: (a) speedup escalado frente a Gustafson y (b) eficiencia débil.](docs/figuras/fig_debil.png)
 
 F. Resultados con 4 CPUs por nodo (`./scripts/benchmark.sh`, media de 5 repeticiones, 100 pasos, checksum idéntico al secuencial en todas las configuraciones). OpenMP, con T_seq = 0,1440 s (n=512), 0,5357 s (n=1024) y 2,1099 s (n=2048):
 
