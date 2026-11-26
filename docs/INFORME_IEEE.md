@@ -36,7 +36,7 @@ A. Clúster: 3 contenedores Docker (master, worker1, worker2), red bridge, SSH s
 
 B. Hardware de medición: Dell OptiPlex Tower Plus 7010 con Intel Core i7-13700 de 13.ª generación (16 núcleos, 24 hilos lógicos, hasta 5,2 GHz, 30 MiB de caché L3) y 31 GiB de RAM; Docker 29.7.0 en el host y, dentro de los contenedores, Ubuntu 22.04 con gcc 11.4.0 y Open MPI 4.1.2. Según la ficha de Intel, son 8 núcleos de rendimiento y 8 de eficiencia.
 
-C. Asignación de recursos: cada contenedor recibe hasta CPUS_NODO CPUs (4 por defecto, que usan `docker compose up` y `./scripts/benchmark.sh`; 16 en las mediciones de `scripts/dell_medicion.sh`) y 8 GB de RAM (parámetros cpus y mem_limit de infrastructure/docker-compose.yml). Los tres nodos comparten la CPU física del host, de modo que el clúster reproduce la lógica de un sistema distribuido pero no el costo de una red real. El archivo hostfile lista los tres nodos y los procesos MPI se reparten con --map-by node (un proceso por nodo).
+C. Asignación de recursos: cada contenedor recibe hasta CPUS_NODO CPUs (4 por defecto, que usan `docker compose up` y `./scripts/benchmark.sh`; 16 en las mediciones de `scripts/dell_medicion.sh`) y 8 GB de RAM (parámetros cpus y mem_limit de infrastructure/docker-compose.yml). Los tres nodos comparten la CPU física del host, de modo que el clúster reproduce la lógica de un sistema distribuido pero no el costo de una red real. El archivo hostfile lista los tres nodos y los procesos MPI se reparten por turnos entre los nodos con --map-by node (con 3 procesos, uno por nodo; con 6, dos por nodo).
 
 D. Diagrama del clúster: la Fig. 1 muestra el host, la red bridge interna y los tres contenedores (master, worker1, worker2) con sus CPUs y su RAM.
 
